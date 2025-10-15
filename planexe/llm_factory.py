@@ -7,7 +7,6 @@ import logging
 from enum import Enum
 from dataclasses import dataclass
 from planexe.utils.planexe_dotenv import PlanExeDotEnv
-from planexe.utils.planexe_config import PlanExeConfig, PlanExeConfigError
 from planexe.utils.planexe_llmconfig import PlanExeLLMConfig
 from typing import Optional, Any
 from llama_index.core.llms.llm import LLM
@@ -32,7 +31,16 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["get_llm", "LLMInfo", "get_llm_names_by_priority", "SPECIAL_AUTO_ID", "is_valid_llm_name"]
 
-planexe_llmconfig = PlanExeLLMConfig.load()
+_planexe_llmconfig: Optional[PlanExeLLMConfig] = None
+
+
+def _get_planexe_llmconfig() -> PlanExeLLMConfig:
+    """Lazily load and cache the PlanExe LLM configuration."""
+
+    global _planexe_llmconfig
+    if _planexe_llmconfig is None:
+        _planexe_llmconfig = PlanExeLLMConfig.load()
+    return _planexe_llmconfig
 
 class OllamaStatus(str, Enum):
     no_ollama_models = 'no ollama models in the llm_config.json file'
@@ -58,6 +66,7 @@ class LLMInfo:
         Returns a list of available LLM names.
         """
 
+        planexe_llmconfig = _get_planexe_llmconfig()
         # Probe each Ollama service endpoint just once.
         error_message_list = []
         ollama_info_per_host = {}
@@ -150,7 +159,12 @@ def get_llm_names_by_priority() -> list[str]:
     Lowest values comes first.
     Highest values comes last.
     """
-    configs = [(name, config) for name, config in planexe_llmconfig.llm_config_dict.items() if config.get("priority") is not None]
+    planexe_llmconfig = _get_planexe_llmconfig()
+    configs = [
+        (name, config)
+        for name, config in planexe_llmconfig.llm_config_dict.items()
+        if config.get("priority") is not None
+    ]
     configs.sort(key=lambda x: x[1].get("priority", 0))
     return [name for name, _ in configs]
 
@@ -158,6 +172,7 @@ def is_valid_llm_name(llm_name: str) -> bool:
     """
     Returns True if the LLM name is valid, False otherwise.
     """
+    planexe_llmconfig = _get_planexe_llmconfig()
     return llm_name in planexe_llmconfig.llm_config_dict
 
 def get_llm(llm_name: Optional[str] = None, **kwargs: Any) -> LLM:
@@ -181,6 +196,7 @@ def get_llm(llm_name: Optional[str] = None, **kwargs: Any) -> LLM:
         logger.error(f"Cannot create LLM, the llm_name {llm_name!r} is not found in llm_config.json.")
         raise ValueError(f"Cannot create LLM, the llm_name {llm_name!r} is not found in llm_config.json.")
 
+    planexe_llmconfig = _get_planexe_llmconfig()
     config = planexe_llmconfig.llm_config_dict[llm_name]
     class_name = config.get("class")
     arguments = config.get("arguments", {})
