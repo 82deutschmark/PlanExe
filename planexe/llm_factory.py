@@ -32,7 +32,54 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["get_llm", "LLMInfo", "get_llm_names_by_priority", "SPECIAL_AUTO_ID", "is_valid_llm_name"]
 
-planexe_llmconfig = PlanExeLLMConfig.load()
+_planexe_llmconfig: Optional[PlanExeLLMConfig] = None
+_planexe_llmconfig_error: Optional[Exception] = None
+
+
+def _ensure_planexe_llmconfig_loaded() -> None:
+    """Load the LLM configuration once and cache the result.
+
+    Importing :mod:`planexe.llm_factory` from a clean environment (such as the
+    unit tests in this kata) should not immediately fail just because the user
+    has not provided the optional ``.env`` and ``llm_config.json`` files yet.
+
+    Previously we eagerly loaded the configuration at module import time which
+    raised :class:`PlanExeConfigError` during test collection.  By deferring the
+    loading we allow pure unit tests that provide their own mock LLM instances
+    to run without needing any local configuration.  When the configuration is
+    actually required (for example when instantiating a real LLM) we surface the
+    stored exception with an actionable error message.
+    """
+
+    global _planexe_llmconfig, _planexe_llmconfig_error
+
+    if _planexe_llmconfig is not None or _planexe_llmconfig_error is not None:
+        return
+
+    try:
+        _planexe_llmconfig = PlanExeLLMConfig.load()
+    except Exception as exc:  # noqa: BLE001 - We re-wrap the original error below.
+        _planexe_llmconfig_error = exc
+
+
+def _get_planexe_llmconfig_or_raise() -> PlanExeLLMConfig:
+    """Return the cached LLM config or raise a descriptive error."""
+
+    _ensure_planexe_llmconfig_loaded()
+
+    if _planexe_llmconfig is not None:
+        return _planexe_llmconfig
+
+    # If loading failed we attach a helpful message explaining how to fix the
+    # issue, while preserving the original exception for debugging purposes.
+    assert _planexe_llmconfig_error is not None  # for type checkers
+    message = (
+        "PlanExe could not locate the LLM configuration. Ensure that the "
+        "`.env` and `llm_config.json` files exist either in the current "
+        "working directory, the project root, or the directory pointed to by "
+        "the PLANEXE_CONFIG_PATH environment variable."
+    )
+    raise PlanExeConfigError(message) from _planexe_llmconfig_error
 
 class OllamaStatus(str, Enum):
     no_ollama_models = 'no ollama models in the llm_config.json file'
@@ -63,6 +110,7 @@ class LLMInfo:
         ollama_info_per_host = {}
         count_running = 0
         count_not_running = 0
+        planexe_llmconfig = _get_planexe_llmconfig_or_raise()
         for config_id, config in planexe_llmconfig.llm_config_dict.items():
             if config.get("class") != "Ollama":
                 continue
@@ -150,6 +198,7 @@ def get_llm_names_by_priority() -> list[str]:
     Lowest values comes first.
     Highest values comes last.
     """
+    planexe_llmconfig = _get_planexe_llmconfig_or_raise()
     configs = [(name, config) for name, config in planexe_llmconfig.llm_config_dict.items() if config.get("priority") is not None]
     configs.sort(key=lambda x: x[1].get("priority", 0))
     return [name for name, _ in configs]
@@ -158,6 +207,7 @@ def is_valid_llm_name(llm_name: str) -> bool:
     """
     Returns True if the LLM name is valid, False otherwise.
     """
+    planexe_llmconfig = _get_planexe_llmconfig_or_raise()
     return llm_name in planexe_llmconfig.llm_config_dict
 
 def get_llm(llm_name: Optional[str] = None, **kwargs: Any) -> LLM:
@@ -169,6 +219,8 @@ def get_llm(llm_name: Optional[str] = None, **kwargs: Any) -> LLM:
     :param kwargs: Additional keyword arguments to override default model parameters.
     :return: An instance of a LlamaIndex LLM class.
     """
+    planexe_llmconfig = _get_planexe_llmconfig_or_raise()
+
     if not llm_name:
         planexe_dotenv = PlanExeDotEnv.load()
         llm_name = planexe_dotenv.get("DEFAULT_LLM", "ollama-llama3.1")
