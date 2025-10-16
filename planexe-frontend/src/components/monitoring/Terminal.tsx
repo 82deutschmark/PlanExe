@@ -17,6 +17,8 @@ import { Badge } from '@/components/ui/badge';
 import { Copy, Download, Search, Trash2, RefreshCw } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import type { WebSocketLLMStreamMessage } from '@/lib/api/fastapi-client';
+import { buildWebSocketUrl } from '@/lib/api/websocket-url';
+import { getApiBaseUrl } from '@/lib/utils/api-config';
 
 interface TerminalProps {
   planId: string;
@@ -190,8 +192,7 @@ export const Terminal: React.FC<TerminalProps> = ({
     }
 
     try {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws/plans/${planId}/progress`;
+      const wsUrl = buildWebSocketUrl(planId, getApiBaseUrl(), window.location);
 
       addLog(`🔌 Connecting to WebSocket: ${wsUrl}`, 'info');
 

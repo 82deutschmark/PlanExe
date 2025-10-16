@@ -1,13 +1,13 @@
 /**
  * Author: ChatGPT gpt-5-codex
- * Date: 2025-10-19
- * PURPOSE: Extend FastAPI client typings with Responses streaming envelopes so the UI can
- *          display reasoning traces alongside standard log traffic without ad-hoc parsing.
- * SRP and DRY check: Pass - keeps API typings centralized while noting previous authorship
- *          (Codex using GPT-5 on 2025-03-15T00:00:00Z for baseline client implementation).
+ * Date: 2025-02-14
+ * PURPOSE: Ensure the FastAPI client provides accurate typings and resilient WebSocket connectivity helpers
+ *          that respect configured base URLs across environments.
+ * SRP and DRY check: Pass - centralizes API contracts and delegates URL construction to a shared utility.
  */
 
 import { getApiBaseUrl } from '@/lib/utils/api-config';
+import { buildWebSocketUrl } from './websocket-url';
 
 // FastAPI Backend Types (EXACT match with backend)
 export interface CreatePlanRequest {
@@ -187,9 +187,11 @@ export class WebSocketClient {
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}${this.baseURL}/ws/plans/${this.planId}/progress`;
-
+        const wsUrl = buildWebSocketUrl(
+          this.planId,
+          this.baseURL,
+          typeof window !== 'undefined' ? window.location : undefined
+        );
         this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = () => {
