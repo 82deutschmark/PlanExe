@@ -8,6 +8,7 @@
  */
 
 import { getApiBaseUrl } from '@/lib/utils/api-config';
+import { buildWebSocketUrl } from './websocket-url';
 
 // FastAPI Backend Types (EXACT match with backend)
 export interface CreatePlanRequest {
@@ -187,9 +188,7 @@ export class WebSocketClient {
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}${this.baseURL}/ws/plans/${this.planId}/progress`;
-
+        const wsUrl = buildWebSocketUrl(this.planId, this.baseURL);
         this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = () => {
