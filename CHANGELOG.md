@@ -5,6 +5,18 @@
  * SRP and DRY check: Pass - maintains a single source of truth for historical updates.
  */
 
+## [0.3.9] - 2025-02-14 - WebSocket base URL stabilization
+
+### ✅ Highlights
+- Hardened the FastAPI WebSocket client so absolute `baseURL` values preserve their origin and reverse-proxy prefixes when resolving progress sockets.
+- Added a shared URL helper plus regression coverage to verify absolute, relative, and empty base URLs resolve to the expected `/ws/plans/{id}/progress` endpoint.
+- Documented the new helper typings to keep TypeScript consumers aligned with the runtime implementation.
+
+### 🧪 Testing
+- `npm run test:unit`
+
+---
+
 ## [0.3.8] - 2025-10-15 - Landing Page Density Refresh
 
 ### ✅ Highlights
