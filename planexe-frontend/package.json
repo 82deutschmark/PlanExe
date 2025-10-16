@@ -16,6 +16,7 @@
     "serve:single": "cd .. && PLANEXE_CLOUD_MODE=true python -m uvicorn planexe_api.api:app --host 0.0.0.0 --port ${PORT:-8080}",
     "lint": "node scripts/run-lint.mjs",
     "test": "node test/run-tests.js",
+    "test:unit": "node --test src/lib/api/__tests__/websocket-url.test.js",
     "test:integration": "node test/integration/luigi-pipeline-test.js"
   },
   "dependencies": {

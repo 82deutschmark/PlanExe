@@ -16,6 +16,8 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { createLuigiTaskPhases } from '@/lib/luigi-tasks';
+import { buildWebSocketUrl } from '@/lib/api/websocket-url';
+import { getApiBaseUrl } from '@/lib/utils/api-config';
 
 // Status icons matching existing TaskList component
 const statusIcons: Record<TaskStatus, React.ReactNode> = {
@@ -106,8 +108,7 @@ export const LuigiPipelineView: React.FC<LuigiPipelineViewProps> = ({
     }
 
     try {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws/plans/${planId}/progress`;
+      const wsUrl = buildWebSocketUrl(planId, getApiBaseUrl(), window.location);
 
       console.log(`🔌 Luigi Pipeline connecting to WebSocket: ${wsUrl}`);
 
