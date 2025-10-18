@@ -1,16 +1,13 @@
+"""
 /**
  * Author: ChatGPT (gpt-5-codex)
- * Date: 2025-10-30
- * PURPOSE: FastAPI surface for PlanExe, now extended with conversation-first
- *          streaming endpoints built on the Responses API handshake.
- * SRP and DRY check: Pass - routing layer continues to delegate to service
- *          modules while staying free of business logic.
+ * Date: 2025-02-14
+ * PURPOSE: FastAPI surface for PlanExe, ensuring Routes layer delegates to
+ *          service modules while supporting streaming and static asset
+ *          delivery for production deployments.
+ * SRP and DRY check: Pass - HTTP routing only orchestrates dependencies and
+ *          defers business logic, matching existing project patterns.
  */
-"""
-Author: Claude Code using Sonnet 4
-Date: 2025-09-24
-PURPOSE: Clean FastAPI REST API for PlanExe - proper service architecture following SRP
-SRP and DRY check: Pass - Single responsibility of HTTP routing, delegates execution to services
 """
 import asyncio
 import json
