@@ -113,6 +113,98 @@ export interface HealthResponse {
 
 export type AnalysisStreamChunkKind = 'text' | 'reasoning' | 'json';
 
+export interface ConversationInitRequest {
+  prompt: string;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
+  modelOverride?: string | null;
+  speedVsDetail?: CreatePlanRequest['speed_vs_detail'];
+  openrouterApiKey?: string | null;
+  previousResponseId?: string | null;
+}
+
+export interface ConversationMessageRequest {
+  message: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ConversationFinalizeRequest {
+  responseId: string;
+  prompt: string;
+  conversationSummary: {
+    text: string;
+    reasoning?: string | null;
+    jsonChunks?: string[];
+  };
+  tags?: string[];
+  speedVsDetail?: CreatePlanRequest['speed_vs_detail'];
+  openrouterApiKey?: string | null;
+  modelOverride?: string | null;
+}
+
+export interface ConversationSessionMetadata {
+  conversationId: string;
+  responseId: string;
+  modelKey: string;
+  createdAt: string;
+  prompt: string;
+  status: 'created' | 'streaming' | 'completed' | 'error';
+}
+
+export type ConversationStreamChunkKind = 'text' | 'reasoning' | 'json';
+
+export interface ConversationStreamInitPayload {
+  conversationId: string;
+  responseId: string;
+  modelKey: string;
+  startedAt: string;
+}
+
+export interface ConversationStreamChunkPayload {
+  conversationId: string;
+  responseId: string;
+  kind: ConversationStreamChunkKind;
+  delta: string;
+  timestamp: string;
+}
+
+export interface ConversationStreamCompletePayload {
+  conversationId: string;
+  responseId: string;
+  completedAt: string;
+  summary: {
+    text: string;
+    reasoning?: string | null;
+    jsonChunks?: string[];
+    usage?: Record<string, unknown>;
+  };
+}
+
+export interface ConversationStreamErrorPayload {
+  conversationId: string;
+  responseId: string;
+  timestamp: string;
+  error: string | Record<string, unknown>;
+}
+
+export type ConversationStreamServerEvent =
+  | { event: 'stream.init'; data: ConversationStreamInitPayload }
+  | { event: 'stream.chunk'; data: ConversationStreamChunkPayload }
+  | { event: 'stream.complete'; data: ConversationStreamCompletePayload }
+  | { event: 'stream.error'; data: ConversationStreamErrorPayload };
+
+export interface ConversationFinalizeResponse {
+  conversationId: string;
+  responseId: string;
+  planRequest: CreatePlanRequest;
+  summary: {
+    text: string;
+    reasoning?: string | null;
+    jsonChunks?: string[];
+  };
+  usage?: Record<string, unknown>;
+}
+
 export interface AnalysisStreamRequestPayload {
   taskId: string;
   modelKey: string;
@@ -410,6 +502,83 @@ export class FastAPIClient {
       body: JSON.stringify(request),
     });
     return this.handleResponse<PlanResponse>(response);
+  }
+
+  async createConversation(request: ConversationInitRequest): Promise<ConversationSessionMetadata> {
+    const payload: Record<string, unknown> = {
+      prompt: request.prompt,
+    };
+
+    if (request.tags?.length) {
+      payload.tags = request.tags;
+    }
+    if (request.metadata && Object.keys(request.metadata).length > 0) {
+      payload.metadata = request.metadata;
+    }
+    if (request.modelOverride) {
+      payload.model_override = request.modelOverride;
+    }
+    if (request.speedVsDetail) {
+      payload.speed_vs_detail = request.speedVsDetail;
+    }
+    if (request.openrouterApiKey) {
+      payload.openrouter_api_key = request.openrouterApiKey;
+    }
+    if (request.previousResponseId) {
+      payload.previous_response_id = request.previousResponseId;
+    }
+
+    const response = await fetch(`${this.baseURL}/api/conversations`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    return this.handleResponse<ConversationSessionMetadata>(response);
+  }
+
+  async sendConversationMessage(
+    conversationId: string,
+    payload: ConversationMessageRequest,
+  ): Promise<ConversationSessionMetadata> {
+    const response = await fetch(`${this.baseURL}/api/conversations/${encodeURIComponent(conversationId)}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    return this.handleResponse<ConversationSessionMetadata>(response);
+  }
+
+  async finalizeConversation(
+    conversationId: string,
+    payload: ConversationFinalizeRequest,
+  ): Promise<ConversationFinalizeResponse> {
+    const response = await fetch(`${this.baseURL}/api/conversations/${encodeURIComponent(conversationId)}/finalize`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        response_id: payload.responseId,
+        prompt: payload.prompt,
+        summary: payload.conversationSummary,
+        tags: payload.tags ?? [],
+        speed_vs_detail: payload.speedVsDetail,
+        openrouter_api_key: payload.openrouterApiKey,
+        model_override: payload.modelOverride,
+      }),
+    });
+
+    return this.handleResponse<ConversationFinalizeResponse>(response);
+  }
+
+  getConversationStreamUrl(conversationId: string): string {
+    return `${this.baseURL}/api/conversations/${encodeURIComponent(conversationId)}/stream`;
   }
 
   async relaunchPlan(previousPlan: PlanResponse, options: RelaunchPlanOptions = {}): Promise<PlanResponse> {

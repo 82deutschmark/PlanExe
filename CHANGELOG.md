@@ -5,6 +5,27 @@
  * SRP and DRY check: Pass - maintains a single source of truth for historical updates.
  */
 
+## [0.3.16] - 2025-10-31 - Live Conversation Streaming
+
+### ✅ Highlights
+- Removed the mock SSE harness and hooked the landing page conversation modal directly into FastAPI conversation endpoints.
+- Upgraded the backend conversation service to stream from the OpenAI Responses API with model selection, session history, and usage metadata.
+- Hardened the conversation streaming harness and event adapter to support worker-thread emissions and reliable SSE delivery.
+
+### 🧪 Testing
+- ⚠️ Not run (OpenAI credentials required for end-to-end streaming tests in this environment).
+
+## [0.3.15] - 2025-10-30 - Conversation-First Landing Flow
+
+### ✅ Highlights
+- Introduced a conversation launcher on the landing page with a live streaming modal powered by the Responses SSE contract.
+- Added mock SSE utilities and a dedicated `useResponsesConversation` hook to manage buffering, throttling, and advanced overrides.
+- Wired FastAPI with `/api/conversations` handshake endpoints, conversation session service, and SSE manager for streaming events.
+- Updated layout styling with the `landing-shell` utility, compact card padding, and metrics surfaces tailored to the new flow.
+
+### 🧪 Testing
+- ⚠️ Manual browser smoke test of landing page (streaming relies on mock data in this environment).
+
 ## [0.3.14] - 2025-10-18 - Responses Client Hardening
 
 ### ✅ Highlights

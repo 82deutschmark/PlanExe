@@ -1,3 +1,11 @@
+/**
+ * Author: ChatGPT (gpt-5-codex)
+ * Date: 2025-10-30
+ * PURPOSE: FastAPI surface for PlanExe, now extended with conversation-first
+ *          streaming endpoints built on the Responses API handshake.
+ * SRP and DRY check: Pass - routing layer continues to delegate to service
+ *          modules while staying free of business logic.
+ */
 """
 Author: Claude Code using Sonnet 4
 Date: 2025-09-24
@@ -31,11 +39,31 @@ from planexe.llm_factory import LLMInfo
 from planexe.utils.planexe_llmconfig import PlanExeLLMConfig
 
 from planexe_api.models import (
-    CreatePlanRequest, PlanResponse, PlanProgressEvent, LLMModel,
-    PromptExample, PlanFilesResponse, PlanArtefactListResponse, PlanArtefact, APIError, HealthResponse,
-    PlanStatus, SpeedVsDetail, PipelineDetailsResponse, StreamStatusResponse,
-    FallbackReportResponse, ReportSection, MissingSection,
-    AnalysisStreamRequest, AnalysisStreamSessionResponse,
+    CreatePlanRequest,
+    PlanResponse,
+    PlanProgressEvent,
+    LLMModel,
+    PromptExample,
+    PlanFilesResponse,
+    PlanArtefactListResponse,
+    PlanArtefact,
+    APIError,
+    HealthResponse,
+    PlanStatus,
+    SpeedVsDetail,
+    PipelineDetailsResponse,
+    StreamStatusResponse,
+    FallbackReportResponse,
+    ReportSection,
+    MissingSection,
+    AnalysisStreamRequest,
+    AnalysisStreamSessionResponse,
+    ConversationCreateRequest,
+    ConversationSessionResponse,
+    ConversationMessageRequest,
+    ConversationFinalizeRequest,
+    ConversationFinalizeResponse,
+    ConversationSummaryPayload,
 )
 from planexe_api.database import (
     get_database, get_database_service, create_tables, DatabaseService, Plan, LLMInteraction,
@@ -43,7 +71,12 @@ from planexe_api.database import (
 )
 from planexe_api.services.pipeline_execution_service import PipelineExecutionService
 from planexe_api.websocket_manager import websocket_manager
-from planexe_api.streaming import AnalysisStreamSessionStore, AnalysisStreamService
+from planexe_api.streaming import (
+    AnalysisStreamSessionStore,
+    AnalysisStreamService,
+    ConversationSSEManager,
+)
+from planexe_api.services.conversation_service import ConversationService
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -140,6 +173,8 @@ pipeline_service = PipelineExecutionService(planexe_project_root)
 
 analysis_session_store = AnalysisStreamSessionStore(ttl_seconds=45)
 analysis_stream_service = AnalysisStreamService(session_store=analysis_session_store)
+conversation_service = ConversationService()
+conversation_sse_manager = ConversationSSEManager()
 
 if STREAMING_ENABLED:
     print("Streaming analysis enabled - Responses SSE harness ready")
@@ -386,6 +421,77 @@ async def create_plan(request: CreatePlanRequest):
     except Exception as e:
         print(f"Error creating plan: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to create plan: {str(e)}")
+
+
+@app.post("/api/conversations", response_model=ConversationSessionResponse)
+async def create_conversation(payload: ConversationCreateRequest):
+    """Initialize a conversation-first session following the Responses API handshake."""
+
+    speed_value = (
+        payload.speed_vs_detail.value
+        if payload.speed_vs_detail is not None
+        else SpeedVsDetail.BALANCED_SPEED_AND_DETAIL.value
+    )
+
+    session_metadata = await conversation_service.create_session(
+        prompt=payload.prompt,
+        tags=payload.tags,
+        model_override=payload.model_override,
+        speed_vs_detail=speed_value,
+        openrouter_api_key=payload.openrouter_api_key,
+        metadata=payload.metadata,
+        previous_response_id=payload.previous_response_id,
+    )
+    return ConversationSessionResponse.model_validate(session_metadata)
+
+
+@app.get("/api/conversations/{conversation_id}/stream")
+async def stream_conversation(conversation_id: str):
+    """Server-sent events endpoint delivering conversation deltas."""
+
+    try:
+        harness = await conversation_service.get_harness(conversation_id)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+    return conversation_sse_manager.build_response(harness)
+
+
+@app.post("/api/conversations/{conversation_id}/messages", response_model=ConversationSessionResponse)
+async def post_conversation_message(conversation_id: str, payload: ConversationMessageRequest):
+    """Send a follow-up message and start a new streaming response."""
+
+    try:
+        session_metadata = await conversation_service.append_message(
+            conversation_id,
+            payload.message,
+            payload.metadata,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+    return ConversationSessionResponse.model_validate(session_metadata)
+
+
+@app.post("/api/conversations/{conversation_id}/finalize", response_model=ConversationFinalizeResponse)
+async def finalize_conversation(conversation_id: str, payload: ConversationFinalizeRequest):
+    """Finalize the streaming response and return the enriched plan payload."""
+
+    try:
+        result = await conversation_service.finalize(conversation_id, payload)
+    except ValueError as error:
+        message = str(error)
+        status_code = 404 if "not found" in message.lower() else 400
+        raise HTTPException(status_code=status_code, detail=message) from error
+
+    response_payload = {
+        "conversationId": result["conversationId"],
+        "responseId": result["responseId"],
+        "planRequest": result["planRequest"],
+        "summary": result["summary"],
+        "usage": result.get("usage", {}),
+    }
+    return ConversationFinalizeResponse.model_validate(response_payload)
 
 
 # Database artefact endpoint

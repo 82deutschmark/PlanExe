@@ -9,10 +9,17 @@
 
 from .session_store import AnalysisStreamSessionStore, CachedAnalysisSession
 from .analysis_stream_service import AnalysisStreamService, StreamHarness
+from .conversation_harness import ConversationHarness, ConversationSummary
+from .conversation_event_handler import ConversationEventHandler
+from .conversation_sse_manager import ConversationSSEManager
 
 __all__ = [
     "AnalysisStreamSessionStore",
     "CachedAnalysisSession",
     "AnalysisStreamService",
     "StreamHarness",
+    "ConversationHarness",
+    "ConversationSummary",
+    "ConversationEventHandler",
+    "ConversationSSEManager",
 ]

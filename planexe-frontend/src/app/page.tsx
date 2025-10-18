@@ -12,10 +12,12 @@ import { useRouter } from 'next/navigation';
 import { Brain, LayoutGrid, Rocket, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { PlanForm } from '@/components/planning/PlanForm';
 import { PlansQueue } from '@/components/PlansQueue';
 import { useConfigStore } from '@/lib/stores/config';
-import { CreatePlanRequest, fastApiClient } from '@/lib/api/fastapi-client';
+import { fastApiClient } from '@/lib/api/fastapi-client';
+import { PromptLauncher } from '@/components/planning/PromptLauncher';
+import { ConversationModal } from '@/components/conversation/ConversationModal';
+import { useResponsesConversation } from '@/hooks/useResponsesConversation';
 
 const CHANGELOG_URL = 'https://github.com/PlanExe/PlanExe/blob/main/CHANGELOG.md';
 const RAW_CHANGELOG_URL = 'https://raw.githubusercontent.com/PlanExe/PlanExe/main/CHANGELOG.md';
@@ -23,10 +25,24 @@ const RAW_CHANGELOG_URL = 'https://raw.githubusercontent.com/PlanExe/PlanExe/mai
 const HomePage: React.FC = () => {
   const router = useRouter();
   const { llmModels, promptExamples, modelsError, isLoadingModels, loadLLMModels, loadPromptExamples } = useConfigStore();
-  const [isCreating, setIsCreating] = useState(false);
+  const [isCreatingPlan, setIsCreatingPlan] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
   const [versionError, setVersionError] = useState<string | null>(null);
+  const {
+    isOpen: isConversationOpen,
+    isStreaming: isConversationStreaming,
+    isFinalizing: isConversationFinalizing,
+    canFinalize,
+    messages: conversationMessages,
+    error: conversationError,
+    launchConversation,
+    sendFollowup,
+    finalizeConversation,
+    closeModal,
+    advancedOptions: conversationAdvancedOptions,
+    setAdvancedOptions,
+  } = useResponsesConversation();
 
   useEffect(() => {
     loadLLMModels();
@@ -77,28 +93,30 @@ const HomePage: React.FC = () => {
     };
   }, []);
 
-  const handlePlanSubmit = async (planData: CreatePlanRequest) => {
-    setIsCreating(true);
+  const handlePromptLaunch = async ({ prompt, tags }: { prompt: string; tags: string[] }) => {
     setError(null);
     try {
-      console.log('[PlanExe] Creating plan with data:', planData);
-      const plan = await fastApiClient.createPlan(planData);
-      console.log('[PlanExe] Plan created successfully:', plan);
-      console.log('[PlanExe] Navigating to workspace with plan_id:', plan.plan_id);
-      
-      // Navigate to workspace (recovery route) - use window.location for guaranteed navigation
+      await launchConversation({ prompt, tags });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to open conversation.';
+      setError(message);
+    }
+  };
+
+  const handleFinalizeConversation = async () => {
+    setError(null);
+    try {
+      const finalized = await finalizeConversation();
+      setIsCreatingPlan(true);
+      const plan = await fastApiClient.createPlan(finalized.planRequest);
       const workspaceUrl = `/recovery?planId=${encodeURIComponent(plan.plan_id)}`;
-      console.log('[PlanExe] Workspace URL:', workspaceUrl);
-      
-      // Use window.location to ensure navigation happens
-      // Next.js router.push() can sometimes be prevented by form submission
       window.location.href = workspaceUrl;
     } catch (err) {
-      console.error('[PlanExe] Plan creation failed:', err);
-      const message = err instanceof Error ? err.message : 'Failed to create plan.';
+      const message = err instanceof Error ? err.message : 'Failed to finalize plan payload.';
       setError(message);
+      throw err;
     } finally {
-      setIsCreating(false);
+      setIsCreatingPlan(false);
     }
   };
 
@@ -118,6 +136,8 @@ const HomePage: React.FC = () => {
   const promptSummary = promptExamples && promptExamples.length > 0
     ? `${promptExamples.length} curated prompts`
     : 'Add your own context';
+
+  const combinedError = conversationError ?? error;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -152,39 +172,60 @@ const HomePage: React.FC = () => {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        {/* Main Action Section - Form and Queue */}
-        <section className="grid gap-6 lg:grid-cols-2">
-          <Card className="border-slate-200">
-            <CardHeader className="space-y-1 pb-4">
-              <CardTitle className="flex items-center gap-2 text-lg text-slate-800">
-                <Sparkles className="h-5 w-5 text-indigo-600" />
-                Launch a new plan
-              </CardTitle>
-              <CardDescription className="text-sm text-slate-500">
-                Provide context, pick the model, and we&apos;ll orchestrate the full 60-task pipeline for you.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <PlanForm
-                onSubmit={handlePlanSubmit}
-                isSubmitting={isCreating}
-                llmModels={llmModels}
-                promptExamples={promptExamples}
-                modelsError={modelsError}
-                isLoadingModels={isLoadingModels}
-                loadLLMModels={loadLLMModels}
-              />
-              {error && (
-                <Card className="mt-4 border-red-300 bg-red-50">
-                  <CardHeader className="py-3">
-                    <CardTitle className="text-sm font-semibold text-red-700">Plan creation failed</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-sm text-red-700">{error}</CardContent>
-                </Card>
-              )}
-            </CardContent>
-          </Card>
+      <main className="landing-shell mx-auto w-full max-w-7xl py-8">
+        <section className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+          <div className="space-y-6">
+            <Card className="border-slate-200">
+              <CardHeader className="space-y-2 pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg text-slate-800">
+                  <Sparkles className="h-5 w-5 text-indigo-600" />
+                  Start a conversation
+                </CardTitle>
+                <CardDescription className="text-sm text-slate-500">
+                  Drop a directive and we&apos;ll stream the assistant&apos;s reasoning before locking the plan payload.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="card-compact">
+                <PromptLauncher
+                  onLaunch={handlePromptLaunch}
+                  isDisabled={isCreatingPlan || isConversationOpen || isConversationStreaming}
+                />
+                {combinedError && (
+                  <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {combinedError}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-200">
+              <CardHeader className="space-y-1 pb-3">
+                <CardTitle className="flex items-center gap-2 text-base text-slate-700">
+                  <LayoutGrid className="h-4 w-4 text-indigo-600" />
+                  Responses handshake
+                </CardTitle>
+                <CardDescription className="text-xs text-slate-500">
+                  Streaming is {isConversationStreaming ? 'live' : 'ready'} — finalize once the completion event fires.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="card-compact grid gap-4 sm:grid-cols-3">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Models</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">{modelSummary}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Prompt catalog</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">{promptSummary}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Finalize</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">
+                    {canFinalize ? 'Ready to launch' : isConversationStreaming ? 'Streaming…' : 'Awaiting input'}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
           <div className="space-y-6">
             <Card className="border-slate-200">
@@ -283,6 +324,20 @@ const HomePage: React.FC = () => {
           </Card>
         </section>
       </main>
+
+      <ConversationModal
+        isOpen={isConversationOpen}
+        onClose={closeModal}
+        messages={conversationMessages}
+        isStreaming={isConversationStreaming}
+        canFinalize={canFinalize}
+        isFinalizing={isConversationFinalizing || isCreatingPlan}
+        error={combinedError}
+        onSendFollowup={(message) => sendFollowup(message)}
+        onFinalize={handleFinalizeConversation}
+        advancedOptions={conversationAdvancedOptions}
+        onAdvancedOptionsChange={setAdvancedOptions}
+      />
     </div>
   );
 };
