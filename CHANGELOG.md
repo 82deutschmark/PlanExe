@@ -5,6 +5,17 @@
  * SRP and DRY check: Pass - maintains a single source of truth for historical updates.
  */
 
+## [0.3.16-hotfix.1] - 2025-02-15 - Hybrid .env Fallback
+
+### ✅ Highlights
+- Ensured the API models module uses a Python-friendly header docstring so
+  Uvicorn can import it without syntax errors during deployment.
+- Added a hybrid fallback in `PlanExeDotEnv.load()` so Railway deployments can
+  rely solely on injected environment variables when no `.env` file exists.
+
+### 🧪 Testing
+- ✅ `python -m compileall planexe_api/models.py planexe/utils/planexe_dotenv.py`
+
 ## [0.3.16-hotfix] - 2025-02-14 - Restore FastAPI Startup
 
 ### ✅ Highlights
