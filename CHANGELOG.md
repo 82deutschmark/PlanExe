@@ -5,6 +5,16 @@
  * SRP and DRY check: Pass - maintains a single source of truth for historical updates.
  */
 
+## [0.3.16-hotfix] - 2025-02-14 - Restore FastAPI Startup
+
+### ✅ Highlights
+- Replaced a non-Python comment header in `planexe_api/api.py` with a valid
+  module docstring so Uvicorn can import the FastAPI app without syntax
+  errors.
+
+### 🧪 Testing
+- ✅ `python -m compileall planexe_api/api.py`
+
 ## [0.3.16] - 2025-10-31 - Live Conversation Streaming
 
 ### ✅ Highlights
