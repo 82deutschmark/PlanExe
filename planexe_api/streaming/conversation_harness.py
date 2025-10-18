@@ -1,14 +1,14 @@
-/**
- * Author: ChatGPT (gpt-5-codex)
- * Date: 2025-10-31T00:00:00Z
- * PURPOSE: Buffering harness for conversation SSE streams, accumulating
- *          Responses-style deltas and exposing them via an asyncio queue for
- *          the EventSource manager. Updated to support cross-thread emission so
- *          OpenAI streaming can execute inside worker threads without blocking
- *          the event loop.
- * SRP and DRY check: Pass - focuses solely on buffering and emitting events,
- *          delegating persistence and orchestration elsewhere.
- */
+"""
+Author: ChatGPT (gpt-5-codex)
+Date: 2025-10-31T00:00:00Z
+PURPOSE: Buffering harness for conversation SSE streams, accumulating
+         Responses-style deltas and exposing them via an asyncio queue for
+         the EventSource manager. Updated to support cross-thread emission so
+         OpenAI streaming can execute inside worker threads without blocking
+         the event loop.
+SRP and DRY check: Pass - focuses solely on buffering and emitting events,
+         delegating persistence and orchestration elsewhere.
+"""
 
 import asyncio
 from dataclasses import dataclass, field

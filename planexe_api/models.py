@@ -1,11 +1,9 @@
 """
-/**
- * Author: ChatGPT (gpt-5-codex)
- * Date: 2025-02-15
- * PURPOSE: Centralises FastAPI request/response schemas so validation logic remains
- *          consistent across endpoints and Luigi integrations.
- * SRP and DRY check: Pass - file only defines shared schemas and avoids duplication elsewhere.
- */
+Author: ChatGPT (gpt-5-codex)
+Date: 2025-02-15
+PURPOSE: Centralises FastAPI request/response schemas so validation logic remains
+         consistent across endpoints and Luigi integrations.
+SRP and DRY check: Pass - file only defines shared schemas and avoids duplication elsewhere.
 """
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Optional, List, Dict, Any

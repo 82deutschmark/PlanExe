@@ -1,15 +1,13 @@
 """
-/**
- * Author: ChatGPT gpt-5-codex
- * Date: 2025-10-19
- * PURPOSE: Extend Luigi pipeline execution service with Responses delta forwarding so
- *          WebSocket clients render reasoning telemetry without extra subprocess hooks.
- * SRP and DRY check: Pass - maintains single execution service while layering stream-aware
- *          parsing on top of existing WebSocket broadcast loop.
- * Previous Authors:
- *   - Codex using GPT-4o (CLI) on 2025-10-02T00:00:00Z (OS-aware subprocess fixes)
- *   - Claude Code using Sonnet 4 on 2025-09-27 (Thread-safe WebSocket integration)
- */
+Author: ChatGPT gpt-5-codex
+Date: 2025-10-19
+PURPOSE: Extend Luigi pipeline execution service with Responses delta forwarding so
+         WebSocket clients render reasoning telemetry without extra subprocess hooks.
+SRP and DRY check: Pass - maintains single execution service while layering stream-aware
+         parsing on top of existing WebSocket broadcast loop.
+Previous Authors:
+  - Codex using GPT-4o (CLI) on 2025-10-02T00:00:00Z (OS-aware subprocess fixes)
+  - Claude Code using Sonnet 4 on 2025-09-27 (Thread-safe WebSocket integration)
 """
 import json
 import os

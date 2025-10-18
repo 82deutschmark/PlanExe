@@ -1,13 +1,13 @@
-/**
- * Author: ChatGPT (gpt-5-codex)
- * Date: 2025-10-31T00:00:00Z
- * PURPOSE: Service orchestrating real Responses API conversations, managing
- *          session lifecycle, OpenAI streaming, and SSE harness emission without
- *          relying on local mocks.
- * SRP and DRY check: Pass - centralises conversation orchestration while
- *          delegating queue management to streaming helpers and keeping API
- *          routes lightweight.
- */
+"""
+Author: ChatGPT (gpt-5-codex)
+Date: 2025-10-31T00:00:00Z
+PURPOSE: Service orchestrating real Responses API conversations, managing
+         session lifecycle, OpenAI streaming, and SSE harness emission without
+         relying on local mocks.
+SRP and DRY check: Pass - centralises conversation orchestration while
+         delegating queue management to streaming helpers and keeping API
+         routes lightweight.
+"""
 
 import asyncio
 import json

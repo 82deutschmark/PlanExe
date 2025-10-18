@@ -1,11 +1,11 @@
-/**
- * Author: ChatGPT (gpt-5-codex)
- * Date: 2025-10-30
- * PURPOSE: SSE manager for conversation streams, providing heartbeat support
- *          and wiring harness queues into EventSourceResponse objects.
- * SRP and DRY check: Pass - isolates SSE response construction from service
- *          orchestration.
- */
+"""
+Author: ChatGPT (gpt-5-codex)
+Date: 2025-10-30
+PURPOSE: SSE manager for conversation streams, providing heartbeat support
+         and wiring harness queues into EventSourceResponse objects.
+SRP and DRY check: Pass - isolates SSE response construction from service
+         orchestration.
+"""
 
 import asyncio
 import json

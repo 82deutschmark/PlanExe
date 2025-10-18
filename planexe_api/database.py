@@ -1,13 +1,11 @@
 """
-/**
- * Author: ChatGPT gpt-5-codex
- * Date: 2025-10-19
- * PURPOSE: Database models and connection for PlanExe API with streaming-aware telemetry
- *          integration so Responses deltas persist alongside traditional artefacts.
- * SRP and DRY check: Pass - central persistence layer with added helpers that reuse
- *          shared stream context utilities instead of duplicating envelope logic.
- * Original Author: Claude Code (claude-opus-4-1-20250805) on 2025-09-19.
- */
+Author: ChatGPT gpt-5-codex
+Date: 2025-10-19
+PURPOSE: Database models and connection for PlanExe API with streaming-aware telemetry
+         integration so Responses deltas persist alongside traditional artefacts.
+SRP and DRY check: Pass - central persistence layer with added helpers that reuse
+         shared stream context utilities instead of duplicating envelope logic.
+Original Author: Claude Code (claude-opus-4-1-20250805) on 2025-09-19.
 """
 import os
 from datetime import datetime

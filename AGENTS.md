@@ -3,13 +3,28 @@
 This file provides guidance to AGENTS when working with code in this repository.
 
 ## File Header Template
-Ideally, every frontend file you create or edit should start with this type of example header:
 
+### For Python Files (.py)
+Every Python file you create or edit should start with:
+```python
+"""
+Author: Your NAME  (Example: Claude Code using Sonnet 4 or Codex using GPT-5)
+Date: timestamp
+PURPOSE: VERBOSE DETAILS ABOUT HOW THIS WORKS AND WHAT ELSE IT TOUCHES
+SRP and DRY check: Pass/Fail Is this file violating either? Do these things already exist in the project?  Did you look??
+"""
+```
+
+### For TypeScript/JavaScript Files (.ts, .tsx, .js, .jsx)
+Every TypeScript/JavaScript file you create or edit should start with:
+```typescript
+/**
  * Author: Your NAME  (Example: Claude Code using Sonnet 4 or Codex using GPT-5)
- * Date: `timestamp`
+ * Date: timestamp
  * PURPOSE: VERBOSE DETAILS ABOUT HOW THIS WORKS AND WHAT ELSE IT TOUCHES
  * SRP and DRY check: Pass/Fail Is this file violating either? Do these things already exist in the project?  Did you look??
-
+ */
+```
 
 # 🏗️ **PlanExe Architecture Overview**
 

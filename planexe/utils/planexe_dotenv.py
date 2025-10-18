@@ -1,13 +1,11 @@
 """
-/**
- * Author: ChatGPT (gpt-5-codex)
- * Date: 2025-02-15
- * PURPOSE: Provides resilient loading of environment configuration for PlanExe,
- *          merging Railway-hosted variables with optional local .env files so
- *          both cloud and developer machines share the same contract.
- * SRP and DRY check: Pass - encapsulates configuration loading concerns without
- *          duplicating environment handling across services.
- */
+Author: ChatGPT (gpt-5-codex)
+Date: 2025-02-15
+PURPOSE: Provides resilient loading of environment configuration for PlanExe,
+         merging Railway-hosted variables with optional local .env files so
+         both cloud and developer machines share the same contract.
+SRP and DRY check: Pass - encapsulates configuration loading concerns without
+         duplicating environment handling across services.
 """
 
 """

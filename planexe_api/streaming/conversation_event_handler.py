@@ -1,13 +1,13 @@
-/**
- * Author: ChatGPT (gpt-5-codex)
- * Date: 2025-10-31T00:00:00Z
- * PURPOSE: Domain-specific adapter that converts Responses API callbacks into
- *          harness operations for conversation streaming. Adds synchronous
- *          wrappers so worker threads can emit deltas without blocking the
- *          event loop.
- * SRP and DRY check: Pass - provides a thin translation layer without coupling
- *          higher-level services to queue mechanics.
- */
+"""
+Author: ChatGPT (gpt-5-codex)
+Date: 2025-10-31T00:00:00Z
+PURPOSE: Domain-specific adapter that converts Responses API callbacks into
+         harness operations for conversation streaming. Adds synchronous
+         wrappers so worker threads can emit deltas without blocking the
+         event loop.
+SRP and DRY check: Pass - provides a thin translation layer without coupling
+         higher-level services to queue mechanics.
+"""
 
 import asyncio
 from typing import Any, Dict, Optional

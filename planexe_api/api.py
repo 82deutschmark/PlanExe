@@ -1,13 +1,11 @@
 """
-/**
- * Author: ChatGPT (gpt-5-codex)
- * Date: 2025-02-14
- * PURPOSE: FastAPI surface for PlanExe, ensuring Routes layer delegates to
- *          service modules while supporting streaming and static asset
- *          delivery for production deployments.
- * SRP and DRY check: Pass - HTTP routing only orchestrates dependencies and
- *          defers business logic, matching existing project patterns.
- */
+Author: ChatGPT (gpt-5-codex)
+Date: 2025-02-14
+PURPOSE: FastAPI surface for PlanExe, ensuring Routes layer delegates to
+         service modules while supporting streaming and static asset
+         delivery for production deployments.
+SRP and DRY check: Pass - HTTP routing only orchestrates dependencies and
+         defers business logic, matching existing project patterns.
 """
 import asyncio
 import json
