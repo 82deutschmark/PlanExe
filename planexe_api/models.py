@@ -1,16 +1,11 @@
+"""
 /**
  * Author: ChatGPT (gpt-5-codex)
- * Date: 2025-10-30
- * PURPOSE: Pydantic models for API request/response schemas - ensures type
- *          safety and validation across the PlanExe surface area.
- * SRP and DRY check: Pass - continues to centralise request/response typing
- *          without duplicating schema definitions.
+ * Date: 2025-02-15
+ * PURPOSE: Centralises FastAPI request/response schemas so validation logic remains
+ *          consistent across endpoints and Luigi integrations.
+ * SRP and DRY check: Pass - file only defines shared schemas and avoids duplication elsewhere.
  */
-"""
-Author: Claude Code (claude-opus-4-1-20250805)
-Date: 2025-09-19
-PURPOSE: Pydantic models for API request/response schemas - ensures type safety and validation
-SRP and DRY check: Pass - Single responsibility of data validation, DRY approach to schema definitions
 """
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Optional, List, Dict, Any

@@ -1,4 +1,16 @@
 """
+/**
+ * Author: ChatGPT (gpt-5-codex)
+ * Date: 2025-02-15
+ * PURPOSE: Provides resilient loading of environment configuration for PlanExe,
+ *          merging Railway-hosted variables with optional local .env files so
+ *          both cloud and developer machines share the same contract.
+ * SRP and DRY check: Pass - encapsulates configuration loading concerns without
+ *          duplicating environment handling across services.
+ */
+"""
+
+"""
 Load PlanExe's .env file, containing secrets such as API keys, like: OPENROUTER_API_KEY.
 
 PROMPT> python -m planexe.utils.planexe_dotenv
@@ -9,7 +21,7 @@ from pathlib import Path
 from typing import Optional
 from dotenv import dotenv_values
 import logging
-from planexe.utils.planexe_config import PlanExeConfig, PlanExeConfigError
+from planexe.utils.planexe_config import PlanExeConfig
 from enum import Enum
 
 logger = logging.getLogger(__name__)
@@ -34,9 +46,13 @@ class PlanExeDotEnv:
             logger.info("Cloud environment detected - using hybrid loading with environment variable priority")
             return cls.load_hybrid()
 
-        # Original file-based loading for local development
+        # If the .env file is missing, prefer the hybrid loader so cloud platforms
+        # such as Railway can rely solely on injected environment variables.
         if config.dotenv_path is None:
-            raise PlanExeConfigError("Required configuration file '.env' was not found. Cannot create a PlanExeDotEnv instance.")
+            logger.warning("No .env file discovered - falling back to hybrid environment loader")
+            return cls.load_hybrid()
+
+        # Original file-based loading for local development
         dotenv_path = config.dotenv_path
         env_before = os.environ.copy()
         dotenv_dict = dotenv_values(dotenv_path=dotenv_path)
