@@ -1,3 +1,11 @@
+/**
+ * Author: ChatGPT (gpt-5-codex)
+ * Date: 2025-10-30
+ * PURPOSE: Pydantic models for API request/response schemas - ensures type
+ *          safety and validation across the PlanExe surface area.
+ * SRP and DRY check: Pass - continues to centralise request/response typing
+ *          without duplicating schema definitions.
+ */
 """
 Author: Claude Code (claude-opus-4-1-20250805)
 Date: 2025-09-19
@@ -216,3 +224,72 @@ class AnalysisStreamSessionResponse(BaseModel):
     model_key: str = Field(..., description="Model key echoed from the request")
     expires_at: datetime = Field(..., description="Expiry timestamp for the cached payload")
     ttl_seconds: int = Field(..., description="Time-to-live for the session in seconds")
+
+class ConversationCreateRequest(BaseModel):
+    """Initialization payload for conversation-first flow."""
+
+    prompt: str = Field(..., min_length=1, max_length=8000)
+    tags: Optional[List[str]] = Field(default=None, description="Lightweight context tags")
+    metadata: Optional[Dict[str, Any]] = Field(default=None, description="Arbitrary metadata from the client")
+    model_override: Optional[str] = Field(default=None, description="Override model key")
+    speed_vs_detail: Optional[SpeedVsDetail] = Field(
+        default=None, description="Preferred balance between speed and depth"
+    )
+    openrouter_api_key: Optional[str] = Field(default=None, description="Optional OpenRouter key")
+    previous_response_id: Optional[str] = Field(default=None, description="Chained response identifier")
+
+
+class ConversationMessageRequest(BaseModel):
+    """Payload for conversation follow-up messages."""
+
+    message: str = Field(..., min_length=1, max_length=6000)
+    metadata: Optional[Dict[str, Any]] = Field(default=None)
+
+
+class ConversationSummaryPayload(BaseModel):
+    """Summary container returned alongside SSE completion."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    text: str = Field("", description="Aggregated assistant text")
+    reasoning: Optional[str] = Field(default=None)
+    json_chunks: List[str] = Field(default_factory=list, alias="jsonChunks")
+
+
+class ConversationFinalizeRequest(BaseModel):
+    """Finalize payload when user accepts the streamed response."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    response_id: str = Field(..., alias="response_id")
+    prompt: str = Field(..., min_length=1, max_length=8000)
+    summary: ConversationSummaryPayload
+    tags: Optional[List[str]] = Field(default=None)
+    speed_vs_detail: Optional[SpeedVsDetail] = Field(default=None)
+    openrouter_api_key: Optional[str] = Field(default=None)
+    model_override: Optional[str] = Field(default=None)
+
+
+class ConversationSessionResponse(BaseModel):
+    """Metadata returned after conversation session initialization."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    conversation_id: str = Field(..., alias="conversationId")
+    response_id: str = Field(..., alias="responseId")
+    model_key: str = Field(..., alias="modelKey")
+    created_at: datetime = Field(..., alias="createdAt")
+    prompt: str
+    status: str
+
+
+class ConversationFinalizeResponse(BaseModel):
+    """Response body for finalize endpoint."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    conversation_id: str = Field(..., alias="conversationId")
+    response_id: str = Field(..., alias="responseId")
+    plan_request: CreatePlanRequest = Field(..., alias="planRequest")
+    summary: ConversationSummaryPayload
+    usage: Dict[str, Any] = Field(default_factory=dict)
