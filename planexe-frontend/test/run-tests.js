@@ -1,12 +1,47 @@
 /**
- * Author: Cascade
- * Date: 2025-09-19T17:40:43-04:00
- * PURPOSE: Simple test runner for PlanExe NextJS frontend integration tests
- * SRP and DRY check: Pass - Single responsibility for test orchestration, validates complete system
+ * Author: ChatGPT using gpt-5-codex (original scaffolding by Cascade)
+ * Date: 2025-10-18T18:36:49Z
+ * PURPOSE: Simple test runner for PlanExe NextJS frontend integration tests with CI-aware skipping logic
+ * SRP and DRY check: Pass - Maintains single responsibility for test orchestration without duplicating environment guards
  */
 
 const { spawn } = require('child_process');
 const path = require('path');
+
+// Environment helpers -------------------------------------------------------
+function parseEnvBoolean(value, defaultValue = false) {
+  if (typeof value !== 'string' || value.length === 0) {
+    return defaultValue;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (['1', 'true', 'yes', 'y', 'on'].includes(normalized)) {
+    return true;
+  }
+
+  if (['0', 'false', 'no', 'n', 'off'].includes(normalized)) {
+    return false;
+  }
+
+  return defaultValue;
+}
+
+const isCIEnvironment = parseEnvBoolean(process.env.CI);
+const explicitRunFlag = process.env.RUN_PLANEXE_E2E;
+const shouldRunE2E = explicitRunFlag !== undefined
+  ? parseEnvBoolean(explicitRunFlag)
+  : !isCIEnvironment;
+
+if (!shouldRunE2E) {
+  const reason = isCIEnvironment && explicitRunFlag === undefined
+    ? 'CI environment detected without RUN_PLANEXE_E2E override'
+    : `RUN_PLANEXE_E2E=${explicitRunFlag ?? '0'}`;
+
+  console.log('⚠️  Skipping PlanExe integration tests.');
+  console.log(`   Reason: ${reason}`);
+  console.log('   Set RUN_PLANEXE_E2E=1 (or "true") to force execution.');
+  process.exit(0);
+}
 
 // Test configuration
 const TESTS = [

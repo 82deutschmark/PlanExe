@@ -17,7 +17,7 @@ try {
   ({ createCanvas } = require('canvas'));
   console.log('Using canvas for favicon generation');
 } catch (error) {
-  console.log('Canvas not available, using SVG fallback');
+  console.log('Canvas optional dependency missing; proceeding with SVG fallback favicon');
   useCanvas = false;
 }
 
@@ -121,7 +121,7 @@ if (useCanvas) {
     faviconData = generateFaviconWithCanvas();
     console.log('Favicon generated using canvas');
   } catch (error) {
-    console.log('Canvas failed, falling back to SVG');
+    console.log('Canvas initialization failed, falling back to SVG favicon rendering');
     faviconData = generateFaviconSVG();
     isSVG = true;
   }
