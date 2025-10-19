@@ -33,6 +33,7 @@ import { CreatePlanRequest } from '@/lib/api/fastapi-client';
 interface ConversationModalProps {
   isOpen: boolean;
   request: CreatePlanRequest | null;
+  startSignal: number;
   onClose: () => void;
   onFinalize: (result: ConversationFinalizeResult) => Promise<void>;
   isFinalizing: boolean;
@@ -46,6 +47,7 @@ const MESSAGE_BG: Record<ConversationMessage['role'], string> = {
 export const ConversationModal: React.FC<ConversationModalProps> = ({
   isOpen,
   request,
+  startSignal,
   onClose,
   onFinalize,
   isFinalizing,
@@ -84,7 +86,14 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
   }, [isOpen, resetConversation]);
 
   useEffect(() => {
-    if (!isOpen || hasAttemptedStart) {
+    if (!isOpen || startSignal === 0) {
+      return;
+    }
+    setHasAttemptedStart(false);
+  }, [isOpen, startSignal]);
+
+  useEffect(() => {
+    if (!isOpen || startSignal === 0 || hasAttemptedStart || !request) {
       return;
     }
 
@@ -100,7 +109,7 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
       const message = error instanceof Error ? error.message : 'Failed to start intake conversation.';
       setLocalError(message);
     });
-  }, [hasAttemptedStart, initialPrompt, isOpen, startConversation]);
+  }, [hasAttemptedStart, initialPrompt, isOpen, request, startConversation, startSignal]);
 
   const handleRetryConversation = () => {
     if (isStreaming) {

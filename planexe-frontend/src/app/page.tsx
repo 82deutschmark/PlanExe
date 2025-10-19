@@ -27,6 +27,7 @@ const HomePage: React.FC = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [isConversationOpen, setIsConversationOpen] = useState(false);
   const [pendingRequest, setPendingRequest] = useState<CreatePlanRequest | null>(null);
+  const [conversationStartSignal, setConversationStartSignal] = useState(0);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
@@ -76,6 +77,7 @@ const HomePage: React.FC = () => {
     setIsCreating(true);
     setError(null);
     setPendingRequest(planData);
+    setConversationStartSignal((signal) => signal + 1);
     setIsConversationOpen(true);
   };
 
@@ -307,6 +309,7 @@ const HomePage: React.FC = () => {
       <ConversationModal
         isOpen={isConversationOpen}
         request={pendingRequest}
+        startSignal={conversationStartSignal}
         onClose={handleConversationClose}
         onFinalize={handleConversationFinalize}
         isFinalizing={isFinalizing}
