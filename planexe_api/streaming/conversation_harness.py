@@ -61,118 +61,69 @@ class ConversationHarness:
         self._reasoning_parts: List[str] = []
         self._content_parts: List[str] = []
         self._json_chunks: List[Dict[str, Any]] = []
-        self._events: List[Dict[str, Any]] = []
         self._usage: Dict[str, Any] = {}
         self._error: Optional[str] = None
         self._completed_at: Optional[datetime] = None
 
-    def _timestamp(self) -> str:
-        return datetime.now(timezone.utc).isoformat()
+    def on_created(self, response_id: Optional[str]) -> None:
+        """Record metadata once the stream is acknowledged."""
 
-    def _record_event(self, event: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        envelope = {
-            "event": event,
-            "timestamp": self._timestamp(),
-            "data": {
-                "conversation_id": self.conversation_id,
-                "model_key": self.model_key,
-                "session_id": self.session_id,
-                **payload,
-            },
-        }
-        self._events.append(envelope)
-        return envelope
-
-    def emit_init(self, response_id: Optional[str] = None) -> Dict[str, Any]:
-        """Emit the initial event once OpenAI acknowledges the stream."""
-
-        payload: Dict[str, Any] = {
-            "connected_at": self.started_at.isoformat(),
-        }
         if response_id:
-            payload["response_id"] = response_id
-        return self._record_event("stream.init", payload)
+            self.metadata.setdefault("response_id", response_id)
 
-    def push_reasoning(self, delta: str) -> Dict[str, Any]:
-        """Append a reasoning delta and return the SSE-ready envelope."""
+    def append_reasoning(self, delta: str) -> None:
+        """Append a reasoning delta."""
 
-        if not delta:
-            return {}
-        self._reasoning_parts.append(delta)
-        return self._record_event(
-            "stream.chunk",
-            {
-                "kind": "reasoning",
-                "delta": delta,
-                "aggregated": "".join(self._reasoning_parts),
-            },
-        )
+        if delta:
+            self._reasoning_parts.append(delta)
 
-    def push_content(self, delta: str) -> Dict[str, Any]:
-        """Append a content delta and return the SSE-ready envelope."""
+    def append_content(self, delta: str) -> None:
+        """Append an assistant text delta."""
 
-        if not delta:
-            return {}
-        self._content_parts.append(delta)
-        return self._record_event(
-            "stream.chunk",
-            {
-                "kind": "text",
-                "delta": delta,
-                "aggregated": "".join(self._content_parts),
-            },
-        )
+        if delta:
+            self._content_parts.append(delta)
 
-    def push_json_chunk(self, chunk: Dict[str, Any]) -> Dict[str, Any]:
-        """Store a JSON chunk emitted by the LLM."""
+    def append_json(self, chunk: Dict[str, Any]) -> None:
+        """Persist a structured output delta."""
 
-        if not chunk:
-            return {}
-        self._json_chunks.append(chunk)
-        return self._record_event(
-            "stream.chunk",
-            {
-                "kind": "json",
-                "delta": chunk,
-            },
-        )
+        if chunk:
+            self._json_chunks.append(chunk)
 
-    def set_remote_conversation_id(self, conversation_id: str) -> Dict[str, Any]:
+    def set_remote_conversation_id(self, conversation_id: str) -> None:
         """Persist the upstream conversation identifier when provided."""
 
-        if not conversation_id:
-            return {}
-        if "remote_conversation_id" not in self.metadata:
+        if conversation_id and "remote_conversation_id" not in self.metadata:
             self.metadata["remote_conversation_id"] = conversation_id
-        return self._record_event(
-            "stream.metadata",
-            {
-                "remote_conversation_id": conversation_id,
-            },
-        )
 
-    def mark_error(self, message: str) -> Dict[str, Any]:
-        """Record an error state and generate a stream event."""
+    def mark_error(self, message: str) -> None:
+        """Record an error state."""
 
         self._error = message
-        return self._record_event("stream.error", {"message": message})
+
+    def mark_completed(self, event: Dict[str, Any]) -> None:
+        """Record completion metadata from the terminal event."""
+
+        completed_at = event.get("timestamp") or event.get("completed_at")
+        if isinstance(completed_at, (int, float)):
+            self._completed_at = datetime.fromtimestamp(completed_at, tz=timezone.utc)
+        elif isinstance(completed_at, str):
+            try:
+                self._completed_at = datetime.fromisoformat(completed_at)
+            except ValueError:
+                self._completed_at = datetime.now(timezone.utc)
+        else:
+            self._completed_at = datetime.now(timezone.utc)
 
     def set_usage(self, usage: Dict[str, Any]) -> None:
         """Attach token usage or billing information to the harness."""
 
         self._usage = usage
 
-    def pop_events(self) -> List[Dict[str, Any]]:
-        """Return and clear buffered events for dispatch."""
-
-        events = list(self._events)
-        self._events.clear()
-        return events
-
     def complete(self) -> ConversationSummary:
         """Finalize the harness and produce a conversation summary."""
 
-        self._completed_at = datetime.now(timezone.utc)
+        if not self._completed_at:
+            self._completed_at = datetime.now(timezone.utc)
         summary = ConversationSummary(
             conversation_id=self.conversation_id,
             model_key=self.model_key,
@@ -186,13 +137,6 @@ class ConversationHarness:
             error=self._error,
             metadata=self.metadata,
         )
-
-        self._record_event(
-            "stream.complete",
-            {
-                "summary": summary.as_dict(),
-            },
-        )
         return summary
 
     def snapshot(self) -> Dict[str, Any]:
@@ -205,7 +149,6 @@ class ConversationHarness:
             "reasoning_text": "".join(self._reasoning_parts),
             "content_text": "".join(self._content_parts),
             "json_chunks": list(self._json_chunks),
-            "events": list(self._events),
             "usage": dict(self._usage),
             "error": self._error,
             "metadata": self.metadata,

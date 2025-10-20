@@ -134,7 +134,7 @@ This task list implements the conversation-first redesign using only the informa
 - **Key Features**:
   - Create `createConversationStream` helper function
   - Integrate with `useResponsesConversation` hook
-  - Handle SSE event types: `stream.chunk`, `stream.complete`, `stream.error`
+  - Handle SSE event types: `response.created`, `response.output_text.delta`, `response.reasoning_summary_text.delta`, `response.output_json.delta`, `response.completed`, `response.error`
 
 ## Phase 4: Polish (Visual and UX Enhancements)
 

@@ -69,9 +69,13 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
     finalizeConversation,
     resetConversation,
     isStreaming,
-    streamSummary,
     streamError,
+    conversationId: activeConversationId,
+    currentResponseId,
+    usage,
+    textBuffer,
     reasoningBuffer,
+    jsonChunks,
   } = useResponsesConversation({
     initialPrompt,
     modelKey: resolvedModel,
@@ -163,6 +167,8 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
   };
 
   const canFinalize = messages.some((message) => message.role === 'assistant');
+  const usageValue = (key: string) =>
+    usage && usage[key] !== undefined && usage[key] !== null ? String(usage[key]) : '—';
 
   return (
     <Dialog
@@ -285,7 +291,22 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
             <Card className="flex-1 min-h-0 border-slate-200">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold uppercase tracking-wide text-slate-600">
-                  Agent notes
+                  Assistant answer
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="h-full min-h-0 overflow-y-auto rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                {textBuffer ? (
+                  <pre className="whitespace-pre-wrap text-slate-800">{textBuffer}</pre>
+                ) : (
+                  <p className="text-slate-500">Assistant responses will appear here during streaming.</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-200">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold uppercase tracking-wide text-slate-600">
+                  Reasoning summary
                 </CardTitle>
               </CardHeader>
               <CardContent className="h-full min-h-0 overflow-y-auto rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
@@ -300,30 +321,14 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
             <Card className="border-slate-200">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold uppercase tracking-wide text-slate-600">
-                  Conversation summary
+                  Structured data
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3 text-sm text-slate-700">
-                {streamSummary?.summary ? (
-                  <>
-                    <p className="whitespace-pre-wrap text-slate-800">
-                      {streamSummary.summary.content_text || 'The assistant did not provide a written recap.'}
-                    </p>
-                    {streamSummary.summary.metadata?.response_id && (
-                      <p className="text-xs uppercase tracking-wide text-slate-500">
-                        Response ID: {String(streamSummary.summary.metadata.response_id)}
-                      </p>
-                    )}
-                    {streamSummary.summary.usage && (
-                      <div className="text-xs text-slate-500">
-                        Tokens — input: {String(streamSummary.summary.usage.input_tokens ?? '–')}, output:{' '}
-                        {String(streamSummary.summary.usage.output_tokens ?? '–')}, reasoning:{' '}
-                        {String(streamSummary.summary.usage.reasoning_tokens ?? '–')}
-                      </div>
-                    )}
-                  </>
+              <CardContent className="max-h-52 overflow-y-auto rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-700">
+                {jsonChunks.length > 0 ? (
+                  <pre className="whitespace-pre-wrap">{JSON.stringify(jsonChunks, null, 2)}</pre>
                 ) : (
-                  <p className="text-slate-500">Complete at least one exchange to view the rolling summary.</p>
+                  <p className="text-slate-500">No structured deltas received yet.</p>
                 )}
               </CardContent>
             </Card>
@@ -331,17 +336,18 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
             <Card className="border-slate-200">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold uppercase tracking-wide text-slate-600">
-                  Structured output
+                  Response details
                 </CardTitle>
               </CardHeader>
-              <CardContent className="max-h-52 overflow-y-auto rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-700">
-                {streamSummary?.summary?.json_chunks && streamSummary.summary.json_chunks.length > 0 ? (
-                  <pre className="whitespace-pre-wrap">
-                    {JSON.stringify(streamSummary.summary.json_chunks, null, 2)}
-                  </pre>
-                ) : (
-                  <p className="text-slate-500">No structured deltas received yet.</p>
-                )}
+              <CardContent className="space-y-2 text-xs text-slate-600">
+                <p className="uppercase tracking-wide">Conversation ID: {activeConversationId ?? '—'}</p>
+                <p className="uppercase tracking-wide">Response ID: {currentResponseId ?? '—'}</p>
+                <div className="text-slate-600">
+                  <p className="uppercase tracking-wide">Usage</p>
+                  <p>Input tokens: {usageValue('input_tokens')}</p>
+                  <p>Output tokens: {usageValue('output_tokens')}</p>
+                  <p>Reasoning tokens: {usageValue('reasoning_tokens')}</p>
+                </div>
               </CardContent>
             </Card>
           </aside>

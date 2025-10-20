@@ -37,6 +37,8 @@ from planexe_api.models import (
     FallbackReportResponse, ReportSection, MissingSection,
     AnalysisStreamRequest,
     AnalysisStreamSessionResponse,
+    ConversationCreateRequest,
+    ConversationCreateResponse,
     ConversationTurnRequest,
     ConversationSessionResponse,
     ConversationFinalizeResponse,
@@ -244,29 +246,49 @@ async def ping():
     }
 
 
-@app.post("/api/conversations", response_model=ConversationSessionResponse)
-async def create_conversation_session(request: ConversationTurnRequest):
-    """Initialize or continue a conversation turn via POST→GET handshake."""
+@app.post("/api/conversations", response_model=ConversationCreateResponse)
+async def create_conversation_endpoint(request: ConversationCreateRequest):
+    """Create a durable conversation and return its identifier."""
 
     if not STREAMING_ENABLED:
         raise HTTPException(status_code=403, detail="STREAMING_DISABLED")
 
-    cached = await conversation_service.create_session(request)
+    record = await conversation_service.create_conversation(request)
+    return ConversationCreateResponse(
+        conversation_id=record.conversation_id,
+        created_at=record.created_at,
+    )
+
+
+@app.post("/api/conversations/{conversation_id}/requests", response_model=ConversationSessionResponse)
+async def create_conversation_request_endpoint(
+    conversation_id: str,
+    request: ConversationTurnRequest,
+):
+    """Initialize a conversation turn and return a streaming token."""
+
+    if not STREAMING_ENABLED:
+        raise HTTPException(status_code=403, detail="STREAMING_DISABLED")
+
+    cached = await conversation_service.create_request(
+        conversation_id=conversation_id,
+        request=request,
+    )
     ttl_seconds = int(max(0, round((cached.expires_at - cached.created_at).total_seconds())))
     return ConversationSessionResponse(
-        session_id=cached.session_id,
+        token=cached.session_id,
         conversation_id=cached.conversation_id,
-        model_key=request.model_key,
+        model_key=cached.model_key,
         expires_at=cached.expires_at,
         ttl_seconds=ttl_seconds,
+        response_id=cached.payload.get("previous_response_id"),
     )
 
 
 @app.get("/api/conversations/{conversation_id}/stream")
 async def stream_conversation_endpoint(
     conversation_id: str,
-    session_id: str = Query(..., alias="sessionId"),
-    model_key: str = Query(..., alias="modelKey"),
+    token: str = Query(..., alias="token"),
 ):
     """Relay Responses API events over SSE for the given conversation."""
 
@@ -276,8 +298,7 @@ async def stream_conversation_endpoint(
     async def event_generator():
         async for event in conversation_service.stream(
             conversation_id=conversation_id,
-            model_key=model_key,
-            session_id=session_id,
+            token=token,
         ):
             yield event
 

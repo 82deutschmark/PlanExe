@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import AsyncGenerator, Dict, Iterable, Optional
+from typing import Any, AsyncGenerator, Dict, Optional
 
 
 class ConversationSSEManager:
@@ -15,17 +15,21 @@ class ConversationSSEManager:
         self._loop = asyncio.get_event_loop()
         self._closed = False
 
-    def push(self, events: Iterable[Dict[str, object]]) -> None:
-        """Schedule events to be emitted over SSE."""
+    def push(self, event: str, data: Dict[str, Any]) -> None:
+        """Schedule a single event to be emitted over SSE."""
 
-        for event in events:
-            if not event:
-                continue
-            payload = {
-                "event": event.get("event", "message"),
-                "data": json.dumps(event.get("data", {})),
-            }
-            asyncio.run_coroutine_threadsafe(self._queue.put(payload), self._loop)
+        if not event:
+            return
+        payload = {
+            "event": event,
+            "data": json.dumps(data),
+        }
+        asyncio.run_coroutine_threadsafe(self._queue.put(payload), self._loop)
+
+    def complete(self) -> None:
+        """Signal that no more events will be emitted."""
+
+        asyncio.run_coroutine_threadsafe(self._queue.put(None), self._loop)
 
     async def stream(self) -> AsyncGenerator[Dict[str, str], None]:
         """Yield events suitable for EventSourceResponse."""

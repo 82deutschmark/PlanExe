@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, AsyncGenerator, Dict, Optional
 
@@ -11,7 +12,11 @@ from fastapi import HTTPException
 from openai import APIError
 
 from planexe_api.database import DatabaseService, SessionLocal, LLMInteraction
-from planexe_api.models import ConversationFinalizeResponse, ConversationTurnRequest
+from planexe_api.models import (
+    ConversationCreateRequest,
+    ConversationFinalizeResponse,
+    ConversationTurnRequest,
+)
 from planexe_api.streaming import (
     CachedConversationSession,
     ConversationEventHandler,
@@ -26,6 +31,27 @@ from planexe.llm_util.simple_openai_llm import SimpleOpenAILLM
 
 INTAKE_STAGE = "intake_conversation"
 
+ALLOWED_STREAM_EVENTS = {
+    "response.created",
+    "response.output_text.delta",
+    "response.reasoning_summary_text.delta",
+    "response.output_json.delta",
+    "response.completed",
+    "response.error",
+    "response.failed",
+}
+
+
+@dataclass
+class ConversationRecord:
+    """Metadata associated with a durable conversation thread."""
+
+    conversation_id: str
+    created_at: datetime
+    model_key: str
+    store: bool
+    metadata: Dict[str, Any]
+
 
 class ConversationService:
     """Coordinate Conversations API handshakes, streaming, and persistence."""
@@ -33,44 +59,121 @@ class ConversationService:
     def __init__(self, *, session_store: ConversationSessionStore) -> None:
         self._sessions = session_store
         self._summaries: Dict[str, ConversationFinalizeResponse] = {}
+        self._conversations: Dict[str, ConversationRecord] = {}
         self._lock = asyncio.Lock()
 
-    async def create_session(self, request: ConversationTurnRequest) -> CachedConversationSession:
-        """Validate request, ensure conversation exists, and cache streaming payload."""
+    async def create_conversation(
+        self, request: ConversationCreateRequest
+    ) -> ConversationRecord:
+        """Create a durable OpenAI conversation and cache its metadata."""
 
         if not is_valid_llm_name(request.model_key):
             raise HTTPException(status_code=422, detail="MODEL_UNAVAILABLE")
 
         llm = get_llm(request.model_key)
-        conversation_id = request.conversation_id or self._generate_local_conversation_id()
+
+        try:
+            response = llm._client.conversations.create(  # pylint: disable=protected-access
+                metadata=request.metadata or {}
+            )
+        except APIError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+        conversation_id = getattr(response, "id", None)
+        if not isinstance(conversation_id, str) or not conversation_id:
+            conversation_id = self._generate_remote_conversation_id()
+
+        created_at_value = getattr(response, "created_at", None)
+        if isinstance(created_at_value, (int, float)):
+            created_at = datetime.fromtimestamp(created_at_value, tz=timezone.utc)
+        elif isinstance(created_at_value, datetime):
+            created_at = created_at_value.astimezone(timezone.utc)
+        else:
+            created_at = datetime.now(timezone.utc)
+
+        record = ConversationRecord(
+            conversation_id=conversation_id,
+            created_at=created_at,
+            model_key=request.model_key,
+            store=request.store,
+            metadata=request.metadata or {},
+        )
+
+        async with self._lock:
+            self._conversations[conversation_id] = record
+
+        return record
+
+    async def create_request(
+        self,
+        *,
+        conversation_id: str,
+        request: ConversationTurnRequest,
+    ) -> CachedConversationSession:
+        """Validate a turn request and cache it until the SSE connection is established."""
+
+        if not is_valid_llm_name(request.model_key):
+            raise HTTPException(status_code=422, detail="MODEL_UNAVAILABLE")
+
+        record = await self._ensure_conversation_record(conversation_id, request)
+        llm = get_llm(request.model_key)
 
         payload = {
             "request": request.model_dump(mode="python"),
-            "conversation_id": conversation_id,
+            "conversation_id": record.conversation_id,
             "model": llm.model,
+            "store": request.store,
         }
 
         cached = await self._sessions.create_session(
-            conversation_id=conversation_id,
+            conversation_id=record.conversation_id,
             model_key=request.model_key,
             payload=payload,
         )
         return cached
 
+    async def _ensure_conversation_record(
+        self, conversation_id: str, request: ConversationTurnRequest
+    ) -> ConversationRecord:
+        """Ensure we have metadata cached for the provided conversation id."""
+
+        async with self._lock:
+            record = self._conversations.get(conversation_id)
+            if record:
+                if record.model_key != request.model_key:
+                    record.model_key = request.model_key
+                record.store = request.store
+                if request.metadata:
+                    record.metadata.update(request.metadata)
+                return record
+
+        # If we reach here, assume the identifier refers to a remote conversation
+        # created outside of this process and seed a local record.
+        seeded = ConversationRecord(
+            conversation_id=conversation_id,
+            created_at=datetime.now(timezone.utc),
+            model_key=request.model_key,
+            store=request.store,
+            metadata=request.metadata or {},
+        )
+
+        async with self._lock:
+            self._conversations[conversation_id] = seeded
+
+        return seeded
+
     async def stream(
         self,
         *,
         conversation_id: str,
-        model_key: str,
-        session_id: str,
+        token: str,
     ) -> AsyncGenerator[Dict[str, str], None]:
         """Upgrade a cached session into a live SSE stream."""
 
         try:
             cached = await self._sessions.pop_session(
                 conversation_id=conversation_id,
-                model_key=model_key,
-                session_id=session_id,
+                session_id=token,
             )
         except KeyError as exc:
             detail = exc.args[0] if exc.args else "SESSION_ERROR"
@@ -78,16 +181,14 @@ class ConversationService:
 
         request = ConversationTurnRequest.model_validate(cached.payload["request"])
         metadata = dict(request.metadata or {})
-        metadata.update(
-            {
-                "context": request.context,
-                "previous_response_id": request.previous_response_id,
-            }
-        )
+        if request.previous_response_id:
+            metadata.setdefault("previous_response_id", request.previous_response_id)
+
+        record = await self._ensure_conversation_record(conversation_id, request)
 
         harness = ConversationHarness(
-            conversation_id=conversation_id,
-            model_key=model_key,
+            conversation_id=record.conversation_id,
+            model_key=request.model_key,
             session_id=cached.session_id,
             metadata=metadata,
         )
@@ -100,6 +201,7 @@ class ConversationService:
                 handler=handler,
                 harness=harness,
                 manager=manager,
+                store=bool(cached.payload.get("store", True)),
             )
         )
 
@@ -180,9 +282,9 @@ class ConversationService:
                 "prompt_metadata": {
                     "conversation_id": harness.conversation_id,
                     "metadata": request.metadata,
-                    "context": request.context,
                     "previous_response_id": request.previous_response_id,
                     "instructions": request.instructions,
+                    "store": store,
                 },
                 "status": "running",
                 "started_at": start_time,
@@ -210,7 +312,6 @@ class ConversationService:
             summary.metadata.setdefault("response_id", handler.response_id)
             if summary.completed_at:
                 summary.metadata.setdefault("completed_at", summary.completed_at.isoformat())
-            manager.push(handler.emit_completion())
 
             await self._persist_summary(
                 summary=summary,
@@ -248,7 +349,7 @@ class ConversationService:
             message = str(exc)
             harness.mark_error(message)
             summary = harness.complete()
-            manager.push(handler.emit_completion())
+            manager.complete()
             try:
                 await self._persist_summary(
                     summary=summary,
@@ -286,15 +387,25 @@ class ConversationService:
         try:
             with llm._client.responses.stream(**request_args) as stream:  # pylint: disable=protected-access
                 for event in stream:
-                    envelopes = handler.handle(event)
-                    if envelopes:
-                        manager.push(envelopes)
+                    event_dict = SimpleOpenAILLM._payload_to_dict(event)
+                    event_type = event_dict.get("type")
+                    if not event_type or event_type not in ALLOWED_STREAM_EVENTS:
+                        continue
+                    handler.handle(event_dict)
+                    manager.push(event_type, event_dict)
                 final_response = self._resolve_final_response(stream)
             if final_response is not None:
                 final_payload = SimpleOpenAILLM._payload_to_dict(final_response)
+                manager.push("final", {"response": final_payload})
+                manager.complete()
         except APIError as api_error:
-            handler.handle({"type": "response.error", "message": getattr(api_error, "message", str(api_error))})
-            manager.push(handler.emit_completion())
+            error_event = {
+                "type": "response.error",
+                "message": getattr(api_error, "message", str(api_error)),
+            }
+            handler.handle(error_event)
+            manager.push("response.error", error_event)
+            manager.complete()
             raise
         return final_payload
 
@@ -339,6 +450,7 @@ class ConversationService:
         llm_model: str,
         conversation_id: str,
         request: ConversationTurnRequest,
+        store: bool,
     ) -> Dict[str, Any]:
         input_segments = [{"role": "user", "content": [{"type": "text", "text": request.user_message}]}]
         payload: Dict[str, Any] = {
@@ -349,6 +461,7 @@ class ConversationService:
                 "effort": request.reasoning_effort.value if hasattr(request.reasoning_effort, "value") else request.reasoning_effort,
                 "summary": request.reasoning_summary,
             },
+            "store": store,
         }
         if ConversationService._should_forward_conversation_id(conversation_id):
             payload["conversation"] = conversation_id
@@ -370,3 +483,7 @@ class ConversationService:
     @staticmethod
     def _generate_local_conversation_id() -> str:
         return f"local-{uuid.uuid4()}"
+
+    @staticmethod
+    def _generate_remote_conversation_id() -> str:
+        return f"conv_local-{uuid.uuid4()}"

@@ -238,7 +238,7 @@ await startStream({
 - Uses `useRef` for buffers to avoid stale closures
 - `requestAnimationFrame` throttling for UI updates
 - Proper EventSource cleanup on unmount
-- Handles all SSE event types (`stream.chunk`, `stream.complete`, etc.)
+- Handles all official SSE event types (`response.created`, `response.output_text.delta`, `response.reasoning_summary_text.delta`, `response.output_json.delta`, `response.completed`, `response.error`)
 
 ### 2. Display Component (`client/src/components/StreamingDisplay.tsx`)
 
@@ -403,27 +403,53 @@ export function useYourFeatureStreaming() {
     const eventSource = new EventSource(url);
     eventSourceRef.current = eventSource;
     
-    eventSource.addEventListener('stream.chunk', (event) => {
+    eventSource.addEventListener('response.created', (event) => {
       const data = JSON.parse(event.data);
-      if (data.type === 'reasoning') {
-        setState(prev => ({
-          ...prev,
-          reasoning: prev.reasoning + data.delta
-        }));
-      } else if (data.type === 'text') {
-        setState(prev => ({
-          ...prev,
-          content: prev.content + data.delta
-        }));
-      }
+      setState(prev => ({
+        ...prev,
+        isStreaming: true,
+        responseId: data.response?.id ?? null
+      }));
     });
-    
-    eventSource.addEventListener('stream.complete', (event) => {
+
+    eventSource.addEventListener('response.output_text.delta', (event) => {
+      const data = JSON.parse(event.data);
+      const delta = data.delta ?? '';
+      setState(prev => ({
+        ...prev,
+        content: prev.content + delta
+      }));
+    });
+
+    eventSource.addEventListener('response.reasoning_summary_text.delta', (event) => {
+      const data = JSON.parse(event.data);
+      const delta = data.delta ?? '';
+      setState(prev => ({
+        ...prev,
+        reasoning: prev.reasoning + delta
+      }));
+    });
+
+    eventSource.addEventListener('response.output_json.delta', (event) => {
+      const data = JSON.parse(event.data);
+      console.debug('[Streaming] JSON delta', data.delta);
+    });
+
+    eventSource.addEventListener('response.completed', (event) => {
       const data = JSON.parse(event.data);
       setState(prev => ({
         ...prev,
         isStreaming: false,
-        responseId: data.responseId
+        responseId: data.response?.id ?? prev.responseId
+      }));
+    });
+
+    eventSource.addEventListener('response.error', (event) => {
+      const data = JSON.parse(event.data);
+      setState(prev => ({
+        ...prev,
+        isStreaming: false,
+        error: data.message ?? 'Streaming error'
       }));
       eventSource.close();
     });

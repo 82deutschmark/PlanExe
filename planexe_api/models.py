@@ -218,6 +218,28 @@ class AnalysisStreamSessionResponse(BaseModel):
     ttl_seconds: int = Field(..., description="Time-to-live for the session in seconds")
 
 
+class ConversationCreateRequest(BaseModel):
+    """Request payload for creating a durable conversation thread."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    model_key: str = Field(..., description="Configured model key that will own the thread")
+    store: bool = Field(
+        True,
+        description="Whether Responses API should retain responses server-side",
+    )
+    metadata: Optional[Dict[str, Any]] = Field(
+        None, description="Arbitrary metadata to associate with the conversation"
+    )
+
+
+class ConversationCreateResponse(BaseModel):
+    """Response payload for conversation creation requests."""
+
+    conversation_id: str = Field(..., description="Stable OpenAI conversation identifier")
+    created_at: datetime = Field(..., description="Timestamp the conversation was created")
+
+
 class ConversationTurnRequest(BaseModel):
     """Request payload for initiating or continuing a conversation turn."""
 
@@ -225,7 +247,6 @@ class ConversationTurnRequest(BaseModel):
 
     model_key: str = Field(..., description="Configured model key to execute the turn")
     user_message: str = Field(..., min_length=1, max_length=6000, description="Latest user utterance")
-    conversation_id: Optional[str] = Field(None, description="Existing conversation identifier")
     previous_response_id: Optional[str] = Field(
         None, description="Prior response identifier for lightweight chaining"
     )
@@ -235,8 +256,9 @@ class ConversationTurnRequest(BaseModel):
     metadata: Optional[Dict[str, Any]] = Field(
         None, description="Arbitrary metadata for auditing or analytics"
     )
-    context: Optional[str] = Field(
-        None, description="Optional local transcript for client-side enrichment"
+    store: bool = Field(
+        True,
+        description="Whether the Responses API should persist the generated turn",
     )
     reasoning_effort: ReasoningEffort = Field(
         ReasoningEffort.high, description="Reasoning effort level for the turn"
@@ -255,11 +277,14 @@ class ConversationTurnRequest(BaseModel):
 class ConversationSessionResponse(BaseModel):
     """Handshake response payload for conversation streaming sessions."""
 
-    session_id: str = Field(..., description="Opaque session identifier")
+    token: str = Field(..., description="Short-lived token used to start streaming")
     conversation_id: str = Field(..., description="Conversations API identifier")
     model_key: str = Field(..., description="Model key used for the turn")
     expires_at: datetime = Field(..., description="Session expiration timestamp")
     ttl_seconds: int = Field(..., description="Session time-to-live in seconds")
+    response_id: Optional[str] = Field(
+        None, description="Response identifier for the completed turn if available"
+    )
 
 
 class ConversationFinalizeResponse(BaseModel):

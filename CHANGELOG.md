@@ -5,6 +5,18 @@
  * SRP and DRY check: Pass - maintains a single source of truth for historical updates.
  */
 
+## [0.3.20] - 2025-11-04 - Conversation Docs Cleanup
+
+### ✅ Highlights
+- Updated streaming documentation to reference the official `response.*` delta events, aligning task checklists and integration guides with the October 2025 Responses + Conversations contract.
+- Revised landing page redesign plan notes so frontend utilities consume `response.output_text.delta`, `response.reasoning_summary_text.delta`, and related events instead of legacy `stream.*` hooks.
+- Clarified the modal migration plan language around final responses and usage capture to match the new `finalResponse()` flow.
+
+### 🧪 Testing
+- ❌ `npm run build` *(fails: `next` binary missing because registry access is blocked in the execution environment)*
+
+---
+
 ## [0.3.19] - 2025-11-03 - Intake Modal Reliability
 
 ### ✅ Highlights

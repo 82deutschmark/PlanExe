@@ -143,7 +143,6 @@ class ConversationSessionStore:
         self,
         *,
         conversation_id: str,
-        model_key: str,
         session_id: str,
     ) -> CachedConversationSession:
         async with self._lock:
@@ -153,7 +152,7 @@ class ConversationSessionStore:
                 raise KeyError("SESSION_NOT_FOUND")
             if cached.is_expired():
                 raise KeyError("SESSION_EXPIRED")
-            if cached.conversation_id != conversation_id or cached.model_key != model_key:
+            if cached.conversation_id != conversation_id:
                 raise KeyError("SESSION_MISMATCH")
             return cached
 

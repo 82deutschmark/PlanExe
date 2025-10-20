@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from .conversation_harness import ConversationHarness
 
@@ -20,117 +20,79 @@ class ConversationEventHandler:
 
         return self._response_id
 
-    def handle(self, event: Any) -> List[Dict[str, Any]]:
-        """Process a streaming event and return emitted SSE envelopes."""
+    def handle(self, event: Dict[str, Any]) -> None:
+        """Process a streaming event and update the harness."""
 
-        event_type = getattr(event, "type", None)
-        if event_type is None and isinstance(event, dict):
-            event_type = event.get("type")
+        event_type = event.get("type")
         if not event_type:
-            return []
+            return
 
-        dispatch: List[Dict[str, Any]] = []
-        normalized_type = str(event_type)
-
-        if normalized_type == "response.created":
+        if event_type == "response.created":
             self._response_id = self._extract_response_id(event)
-            self._harness.emit_init(self._response_id)
+            self._harness.on_created(self._response_id)
             remote_conversation = self._extract_conversation_id(event)
             if remote_conversation:
                 self._harness.set_remote_conversation_id(remote_conversation)
-            dispatch.extend(self._drain_events())
-        elif normalized_type == "response.output_text.delta":
+        elif event_type == "response.output_text.delta":
             delta = self._extract_text_delta(event)
             if delta:
-                self._harness.push_content(delta)
-                dispatch.extend(self._drain_events())
-        elif normalized_type == "response.reasoning_summary_text.delta":
+                self._harness.append_content(delta)
+        elif event_type == "response.reasoning_summary_text.delta":
             delta = self._extract_reasoning_delta(event)
             if delta:
-                self._harness.push_reasoning(delta)
-                dispatch.extend(self._drain_events())
-        elif normalized_type == "response.output_json.delta":
+                self._harness.append_reasoning(delta)
+        elif event_type == "response.output_json.delta":
             delta = self._extract_json_delta(event)
             if delta is not None:
-                self._harness.push_json_chunk(delta)
-                dispatch.extend(self._drain_events())
-        elif normalized_type in {"response.error", "response.failed"}:
+                self._harness.append_json(delta)
+        elif event_type in {"response.completed"}:
+            self._harness.mark_completed(event)
+        elif event_type in {"response.error", "response.failed"}:
             message = self._extract_error_message(event)
             self._harness.mark_error(message)
-            dispatch.extend(self._drain_events())
-
-        return dispatch
-
-    def emit_completion(self) -> List[Dict[str, Any]]:
-        """Emit buffered completion events as SSE envelopes."""
-
-        return self._drain_events()
 
     @staticmethod
-    def _as_sse_payload(envelope: Dict[str, Any]) -> Dict[str, Any]:
-        return {"event": envelope["event"], "data": envelope["data"]}
-
-    def _drain_events(self) -> List[Dict[str, Any]]:
-        drained: List[Dict[str, Any]] = []
-        for envelope in self._harness.pop_events():
-            drained.append(self._as_sse_payload(envelope))
-        return drained
-
-    @staticmethod
-    def _extract_response_id(event: Any) -> Optional[str]:
-        response = getattr(event, "response", None)
-        if response is None and isinstance(event, dict):
-            response = event.get("response") or event.get("data")
+    def _extract_response_id(event: Dict[str, Any]) -> Optional[str]:
+        response = event.get("response") or event.get("data")
         if isinstance(response, dict):
             response_id = response.get("id")
-            if response_id:
-                return str(response_id)
-        potential = getattr(event, "id", None)
-        if isinstance(potential, str):
-            return potential
-        if isinstance(event, dict):
-            candidate = event.get("id")
-            if isinstance(candidate, str):
-                return candidate
+            if isinstance(response_id, str) and response_id:
+                return response_id
+        candidate = event.get("id")
+        if isinstance(candidate, str) and candidate:
+            return candidate
         return None
 
     @staticmethod
-    def _extract_conversation_id(event: Any) -> Optional[str]:
-        response = getattr(event, "response", None)
-        if response is None and isinstance(event, dict):
-            response = event.get("response") or event.get("data")
+    def _extract_conversation_id(event: Dict[str, Any]) -> Optional[str]:
+        response = event.get("response") or event.get("data")
         if isinstance(response, dict):
             conversation_id = response.get("conversation_id") or response.get("conversation")
             if isinstance(conversation_id, str) and conversation_id:
                 return conversation_id
-        if isinstance(event, dict):
-            payload = event.get("conversation")
-            if isinstance(payload, dict):
-                candidate = payload.get("id")
-                if isinstance(candidate, str) and candidate:
-                    return candidate
+        payload = event.get("conversation")
+        if isinstance(payload, dict):
+            candidate = payload.get("id")
+            if isinstance(candidate, str) and candidate:
+                return candidate
         return None
 
     @staticmethod
-    def _extract_text_delta(event: Any) -> Optional[str]:
-        part = getattr(event, "delta", None)
-        if part is None and isinstance(event, dict):
-            part = event.get("delta") or event.get("text") or event.get("value")
-        if isinstance(part, dict):
-            text_value = part.get("text") or part.get("value") or part.get("content")
+    def _extract_text_delta(event: Dict[str, Any]) -> Optional[str]:
+        delta = event.get("delta")
+        if isinstance(delta, dict):
+            text_value = delta.get("text") or delta.get("value") or delta.get("content")
             if isinstance(text_value, list):
                 return "".join(str(item) for item in text_value if item)
             if isinstance(text_value, str):
                 return text_value
-        elif isinstance(part, str):
-            return part
+        elif isinstance(delta, str):
+            return delta
         return None
 
     @staticmethod
-    def _extract_reasoning_delta(event: Any) -> Optional[str]:
-        delta = getattr(event, "delta", None)
-        if delta is None and isinstance(event, dict):
-            delta = event.get("delta") or event.get("text") or event.get("value")
+    def _extract_reasoning_delta(event: Dict[str, Any]) -> Optional[str]:
+        delta = event.get("delta")
         if isinstance(delta, dict):
             reasoning_value = delta.get("text") or delta.get("value") or delta.get("summary")
             if isinstance(reasoning_value, list):
@@ -142,22 +104,16 @@ class ConversationEventHandler:
         return None
 
     @staticmethod
-    def _extract_json_delta(event: Any) -> Optional[Dict[str, Any]]:
-        delta = getattr(event, "delta", None)
-        if delta is None and isinstance(event, dict):
-            delta = event.get("delta") or event.get("parsed")
+    def _extract_json_delta(event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        delta = event.get("delta") or event.get("parsed")
         if isinstance(delta, dict):
             return delta
         return None
 
     @staticmethod
-    def _extract_error_message(event: Any) -> str:
-        if isinstance(event, dict):
-            for key in ("message", "error", "detail"):
-                value = event.get(key)
-                if isinstance(value, str) and value.strip():
-                    return value
-        message = getattr(event, "message", None)
-        if isinstance(message, str) and message.strip():
-            return message
+    def _extract_error_message(event: Dict[str, Any]) -> str:
+        for key in ("message", "error", "detail"):
+            value = event.get(key)
+            if isinstance(value, str) and value.strip():
+                return value
         return "Conversation stream failed"

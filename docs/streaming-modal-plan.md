@@ -18,7 +18,7 @@
 ## Key Tasks
 1. **Backend streaming pipeline**
    - Add session cache and handshake endpoints under `/api/stream/analyze`.
-   - Normalize OpenAI responses via a stream harness that emits `stream.*` events and persists final summaries to `llm_interactions`.
+   - Normalize OpenAI responses via a stream harness that relays official `response.*` event names and persists final summaries to `llm_interactions`.
    - Inject reasoning configuration, `max_output_tokens`, and payload builder reuse for both sync and streaming calls.
    - Expose streaming enablement flag derived from environment settings.
 
@@ -34,13 +34,14 @@
 
 ## Risks & Mitigations
 - **API drift**: Mitigated by centralizing payload building and reusing `SimpleOpenAILLM` request args.
-- **SSE lifecycle leaks**: Harness will manage connection teardown and propagate errors via `stream.error`.
+- **SSE lifecycle leaks**: Harness will manage connection teardown and propagate errors via `response.error` without introducing custom event names.
 - **Token starvation**: Default `max_output_tokens` set high with monitoring of reasoning token usage in final summary.
 - **Feature flag mismatch**: Both FastAPI and Next.js configs will read `STREAMING_ENABLED`/`NEXT_PUBLIC_STREAMING_ENABLED` with consistent defaults.
 
 ## Validation Checklist
-- Handshake returns `sessionId` and TTL, GET upgrades to SSE with immediate `stream.init`.
-- `stream.chunk` events deliver text, reasoning, and JSON deltas in separate message boxes.
-- Final summary includes `responseId`, `analysis`, `reasoning`, and `tokenUsage` saved to DB and forwarded to UI.
-- Cancellation/error paths emit `stream.error` followed by graceful closure.
+- Handshake returns a short-lived token and TTL, GET upgrades to SSE with immediate `response.created`.
+- `response.output_text.delta`, `response.reasoning_summary_text.delta`, and `response.output_json.delta` events drive text, reasoning, and JSON message boxes respectively.
+- Final `final` envelope (from calling `finalResponse()` on the stream) includes `response.id`, consolidated outputs, and `usage` saved to DB and forwarded to UI.
+- Cancellation/error paths emit `response.error` followed by graceful closure.
+- When a conversation identifier is present, only send the latest user turn—do not resend historic context in `input`.
 - Frontend respects feature flag and cleans up EventSource connections on unmount.

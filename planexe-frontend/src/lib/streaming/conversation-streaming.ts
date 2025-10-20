@@ -12,9 +12,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ConversationSession,
-  ConversationStreamChunkPayload,
-  ConversationStreamCompletePayload,
-  ConversationStreamErrorPayload,
   ConversationStreamServerEvent,
   ConversationTurnRequestPayload,
   fastApiClient,
@@ -23,10 +20,10 @@ import {
 export type ConversationStreamingStatus = 'idle' | 'connecting' | 'running' | 'completed' | 'error';
 
 export interface ConversationStreamHandlers {
-  onTextDelta?: (payload: ConversationStreamChunkPayload) => void;
-  onReasoningDelta?: (payload: ConversationStreamChunkPayload) => void;
-  onJsonDelta?: (payload: ConversationStreamChunkPayload) => void;
-  onComplete?: (payload: ConversationStreamCompletePayload) => void;
+  onTextDelta?: (delta: string) => void;
+  onReasoningDelta?: (delta: string) => void;
+  onJsonDelta?: (chunk: Record<string, unknown>) => void;
+  onFinal?: (response: Record<string, unknown>) => void;
   onError?: (message: string) => void;
 }
 
@@ -38,7 +35,7 @@ export interface ConversationStreamingState {
   textBuffer: string;
   reasoningBuffer: string;
   jsonChunks: Array<Record<string, unknown>>;
-  summary: ConversationStreamCompletePayload | null;
+  finalResponse: Record<string, unknown> | null;
   error: string | null;
   lastEventAt: string | null;
 }
@@ -51,17 +48,75 @@ const INITIAL_STATE: ConversationStreamingState = {
   textBuffer: '',
   reasoningBuffer: '',
   jsonChunks: [],
-  summary: null,
+  finalResponse: null,
   error: null,
   lastEventAt: null,
 };
 
+function coerceTextValue(value: unknown): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map(coerceTextValue).join('');
+  }
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    for (const key of ['text', 'value', 'content', 'message', 'summary']) {
+      if (record[key] !== undefined) {
+        const nested = coerceTextValue(record[key]);
+        if (nested) {
+          return nested;
+        }
+      }
+    }
+  }
+  return '';
+}
+
+function extractDeltaText(data: Record<string, unknown>): string {
+  const delta = data.delta;
+  if (typeof delta === 'string') {
+    return delta;
+  }
+  if (delta && typeof delta === 'object') {
+    return coerceTextValue(delta);
+  }
+  return '';
+}
+
+function extractJsonDelta(data: Record<string, unknown>): Record<string, unknown> | null {
+  const delta = data.delta;
+  if (delta && typeof delta === 'object' && !Array.isArray(delta)) {
+    return delta as Record<string, unknown>;
+  }
+  return null;
+}
+
+function extractErrorMessage(data: Record<string, unknown>): string | null {
+  if (typeof data.message === 'string' && data.message.trim()) {
+    return data.message;
+  }
+  if (typeof data.error === 'string' && data.error.trim()) {
+    return data.error;
+  }
+  if (typeof data.detail === 'string' && data.detail.trim()) {
+    return data.detail;
+  }
+  return null;
+}
+
 export function useConversationStreaming() {
   const [state, setState] = useState<ConversationStreamingState>(INITIAL_STATE);
+  const stateRef = useRef(state);
   const eventSourceRef = useRef<EventSource | null>(null);
   const handlersRef = useRef<ConversationStreamHandlers>({});
   const rafRef = useRef<number | null>(null);
   const pendingBuffersRef = useRef<{ text?: string; reasoning?: string }>({});
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   const closeStream = useCallback((reset = false) => {
     if (eventSourceRef.current) {
@@ -106,115 +161,130 @@ export function useConversationStreaming() {
   }, [flushBuffers]);
 
   const startStream = useCallback(
-    async (payload: ConversationTurnRequestPayload, handlers?: ConversationStreamHandlers): Promise<ConversationSession> => {
+    async (
+      conversationId: string,
+      payload: ConversationTurnRequestPayload,
+      handlers?: ConversationStreamHandlers,
+    ): Promise<ConversationSession> => {
       closeStream(true);
-      setState((prev) => ({ ...INITIAL_STATE, status: 'connecting' }));
+      setState({ ...INITIAL_STATE, status: 'connecting' });
       handlersRef.current = handlers ?? {};
 
-      const session = await fastApiClient.createConversationTurn(payload);
+      const session = await fastApiClient.createConversationRequest(conversationId, payload);
       setState((prev) => ({
         ...prev,
+        status: 'connecting',
         session,
-        remoteConversationId: prev.remoteConversationId,
       }));
 
-      const source = fastApiClient.startConversationStream(
-        session.conversation_id,
-        session.session_id,
-        session.model_key,
-      );
+      const source = fastApiClient.startConversationStream(conversationId, session.token);
       eventSourceRef.current = source;
 
-      const handleEvent = (event: MessageEvent) => {
-        const parsed: ConversationStreamServerEvent = {
-          event: event.type as ConversationStreamServerEvent['event'],
-          data: JSON.parse(event.data),
-        } as ConversationStreamServerEvent;
-
-        if (parsed.event === 'stream.init') {
-          const initData = parsed.data;
+      const processEvent = (event: ConversationStreamServerEvent) => {
+        const nowIso = new Date().toISOString();
+        if (event.event === 'response.created') {
+          const response = event.data.response as Record<string, unknown> | undefined;
+          const responseId =
+            response && typeof response.id === 'string' ? (response.id as string) : undefined;
+          const remoteId =
+            response && typeof response.conversation_id === 'string'
+              ? (response.conversation_id as string)
+              : undefined;
           setState((prev) => ({
             ...prev,
             status: 'running',
-            responseId: initData.response_id ?? prev.responseId,
-            lastEventAt: initData.connected_at,
+            responseId: responseId ?? prev.responseId,
+            remoteConversationId: remoteId ?? prev.remoteConversationId,
+            lastEventAt: nowIso,
           }));
-        } else if (parsed.event === 'stream.metadata') {
-          const metadata = parsed.data;
-          const remoteId =
-            typeof metadata === 'object' && metadata !== null
-              ? (metadata as { remote_conversation_id?: unknown }).remote_conversation_id
-              : undefined;
-          if (typeof remoteId === 'string' && remoteId) {
+        } else if (event.event === 'response.output_text.delta') {
+          const deltaText = extractDeltaText(event.data);
+          if (deltaText) {
+            const next = `${pendingBuffersRef.current.text ?? stateRef.current.textBuffer}${deltaText}`;
+            pendingBuffersRef.current.text = next;
+            scheduleFlush();
+            handlersRef.current.onTextDelta?.(deltaText);
+            setState((prev) => ({ ...prev, lastEventAt: nowIso }));
+          }
+        } else if (event.event === 'response.reasoning_summary_text.delta') {
+          const deltaText = extractDeltaText(event.data);
+          if (deltaText) {
+            const next = `${pendingBuffersRef.current.reasoning ?? stateRef.current.reasoningBuffer}${deltaText}`;
+            pendingBuffersRef.current.reasoning = next;
+            scheduleFlush();
+            handlersRef.current.onReasoningDelta?.(deltaText);
+            setState((prev) => ({ ...prev, lastEventAt: nowIso }));
+          }
+        } else if (event.event === 'response.output_json.delta') {
+          const chunk = extractJsonDelta(event.data);
+          if (chunk) {
             setState((prev) => ({
               ...prev,
-              remoteConversationId: remoteId,
-              lastEventAt: new Date().toISOString(),
+              jsonChunks: [...prev.jsonChunks, chunk],
+              lastEventAt: nowIso,
             }));
-          }
-        } else if (parsed.event === 'stream.chunk') {
-          const chunk = parsed.data as ConversationStreamChunkPayload;
-          if (chunk.kind === 'text') {
-            if (typeof chunk.aggregated === 'string') {
-              pendingBuffersRef.current.text = chunk.aggregated;
-              scheduleFlush();
-            }
-            handlersRef.current.onTextDelta?.(chunk);
-          } else if (chunk.kind === 'reasoning') {
-            if (typeof chunk.aggregated === 'string') {
-              pendingBuffersRef.current.reasoning = chunk.aggregated;
-              scheduleFlush();
-            }
-            handlersRef.current.onReasoningDelta?.(chunk);
-          } else if (chunk.kind === 'json') {
-            if (typeof chunk.delta === 'object' && chunk.delta !== null) {
-              setState((prev) => ({
-                ...prev,
-                jsonChunks: [...prev.jsonChunks, chunk.delta as Record<string, unknown>],
-                lastEventAt: new Date().toISOString(),
-              }));
-            }
             handlersRef.current.onJsonDelta?.(chunk);
           }
-        } else if (parsed.event === 'stream.complete') {
-          const complete = parsed.data as ConversationStreamCompletePayload;
-          const responseId = complete.summary.metadata?.response_id as string | undefined;
-          const remoteId = (() => {
-            const metadata = complete.summary?.metadata as Record<string, unknown> | undefined;
-            const candidate = metadata?.remote_conversation_id;
-            return typeof candidate === 'string' && candidate ? candidate : undefined;
-          })();
+        } else if (event.event === 'response.completed') {
+          const response = event.data.response as Record<string, unknown> | undefined;
+          const responseId =
+            response && typeof response.id === 'string' ? (response.id as string) : undefined;
           setState((prev) => ({
             ...prev,
             status: 'completed',
-            summary: complete,
             responseId: responseId ?? prev.responseId,
-            remoteConversationId: remoteId ?? prev.remoteConversationId,
-            lastEventAt: complete.summary.completed_at ?? new Date().toISOString(),
+            lastEventAt: nowIso,
           }));
-          handlersRef.current.onComplete?.(complete);
-          source.close();
-          eventSourceRef.current = null;
-        } else if (parsed.event === 'stream.error') {
-          const errorPayload = parsed.data as ConversationStreamErrorPayload;
-          const message = errorPayload.message || 'Conversation stream failed';
+        } else if (event.event === 'response.error' || event.event === 'response.failed') {
+          const message = extractErrorMessage(event.data) ?? 'Conversation stream failed';
           setState((prev) => ({
             ...prev,
             status: 'error',
             error: message,
-            lastEventAt: new Date().toISOString(),
+            lastEventAt: nowIso,
           }));
           handlersRef.current.onError?.(message);
+          source.close();
+          eventSourceRef.current = null;
+        } else if (event.event === 'final') {
+          const response = (event.data.response as Record<string, unknown>) ?? {};
+          const responseId =
+            typeof response.id === 'string' ? (response.id as string) : stateRef.current.responseId;
+          setState((prev) => ({
+            ...prev,
+            finalResponse: response,
+            responseId: responseId ?? prev.responseId,
+            lastEventAt: nowIso,
+          }));
+          handlersRef.current.onFinal?.(response as Record<string, unknown>);
           source.close();
           eventSourceRef.current = null;
         }
       };
 
-      source.addEventListener('stream.init', handleEvent);
-      source.addEventListener('stream.chunk', handleEvent);
-      source.addEventListener('stream.metadata', handleEvent);
-      source.addEventListener('stream.complete', handleEvent);
-      source.addEventListener('stream.error', handleEvent);
+      const handleEvent = (event: MessageEvent) => {
+        const parsed: ConversationStreamServerEvent = {
+          event: event.type as ConversationStreamServerEvent['event'],
+          data: JSON.parse(event.data) as Record<string, unknown>,
+        };
+        processEvent(parsed);
+      };
+
+      const STREAM_EVENTS: ConversationStreamServerEvent['event'][] = [
+        'response.created',
+        'response.output_text.delta',
+        'response.reasoning_summary_text.delta',
+        'response.output_json.delta',
+        'response.completed',
+        'response.error',
+        'response.failed',
+        'final',
+      ];
+
+      for (const eventName of STREAM_EVENTS) {
+        source.addEventListener(eventName, handleEvent);
+      }
+
       source.onerror = () => {
         const message = 'Conversation streaming connection lost.';
         setState((prev) => ({ ...prev, status: 'error', error: message }));

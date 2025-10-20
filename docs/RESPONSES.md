@@ -132,47 +132,50 @@ const response = await openai.responses.stream({
 The stream emits different event types. You MUST handle all of them:
 
 ```typescript
+let aggregatedOutput = "";
+let aggregatedReasoning = "";
+let aggregatedJson = "";
+
 // Use async iteration (OpenAI SDK v4+)
 for await (const event of response) {
   switch (event.type) {
-    case "response.reasoning_summary_text.delta":
-      // Real-time reasoning summary chunks
-      const reasoningDelta = event.delta;
-      console.log("[Reasoning]", reasoningDelta);
-      aggregatedReasoning += reasoningDelta;
-      // Emit to SSE client: send("stream.chunk", { type: "reasoning", delta: reasoningDelta })
+    case "response.created": {
+      console.log("[Status] Response created", event.response?.id);
       break;
+    }
 
-    case "response.reasoning_summary_part.added":
-      // Complete reasoning parts (alternative format)
-      const reasoningPart = event.part?.text;
-      aggregatedReasoning += reasoningPart;
-      break;
-
-    case "response.content_part.added":
-      // Output text chunks
-      const textDelta = event.part?.text;
+    case "response.output_text.delta": {
+      const textDelta = event.delta ?? "";
       aggregatedOutput += textDelta;
-      // Emit to SSE client: send("stream.chunk", { type: "text", delta: textDelta })
+      // Emit to SSE client unchanged so the UI can append text in real time
+      send("response.output_text.delta", event);
       break;
+    }
 
-    case "response.in_progress":
-      // Status update (optional)
-      console.log("[Status] Processing...");
+    case "response.reasoning_summary_text.delta": {
+      const reasoningDelta = event.delta ?? "";
+      aggregatedReasoning += reasoningDelta;
+      // Forward the official reasoning delta event for the modal sidebars
+      send("response.reasoning_summary_text.delta", event);
       break;
+    }
 
-    case "response.completed":
-      // Stream finished successfully
+    case "response.output_json.delta": {
+      aggregatedJson += event.delta ?? "";
+      send("response.output_json.delta", event);
+      break;
+    }
+
+    case "response.completed": {
       console.log("[Status] Stream completed");
       break;
+    }
 
-    case "response.failed":
-    case "error":
-      // Handle errors
+    case "response.error": {
       const errorMsg = event.error?.message || "Stream failed";
       console.error("[Error]", errorMsg);
       throw new Error(errorMsg);
-      break;
+    }
   }
 }
 ```
@@ -281,7 +284,7 @@ app.get("/api/stream/analyze/:taskId/:modelKey", async (req, res) => {
   res.flushHeaders();
 
   // Send initial event
-  res.write(`event: stream.init\n`);
+  res.write(`event: response.created\n`);
   res.write(`data: ${JSON.stringify({ sessionId, taskId, modelKey })}\n\n`);
 
   try {
@@ -311,26 +314,18 @@ app.get("/api/stream/analyze/:taskId/:modelKey", async (req, res) => {
     for await (const event of stream) {
       switch (event.type) {
         case "response.reasoning_summary_text.delta":
-          res.write(`event: stream.chunk\n`);
-          res.write(`data: ${JSON.stringify({
-            type: "reasoning",
-            delta: event.delta,
-            timestamp: Date.now()
-          })}\n\n`);
+          res.write(`event: response.reasoning_summary_text.delta\n`);
+          res.write(`data: ${JSON.stringify(event)}\n\n`);
           break;
 
-        case "response.content_part.added":
-          res.write(`event: stream.chunk\n`);
-          res.write(`data: ${JSON.stringify({
-            type: "text",
-            delta: event.part?.text,
-            timestamp: Date.now()
-          })}\n\n`);
+        case "response.output_text.delta":
+          res.write(`event: response.output_text.delta\n`);
+          res.write(`data: ${JSON.stringify(event)}\n\n`);
           break;
 
         case "response.completed":
-          res.write(`event: stream.status\n`);
-          res.write(`data: ${JSON.stringify({ state: "completed" })}\n\n`);
+          res.write(`event: response.completed\n`);
+          res.write(`data: ${JSON.stringify(event)}\n\n`);
           break;
       }
     }
@@ -341,19 +336,16 @@ app.get("/api/stream/analyze/:taskId/:modelKey", async (req, res) => {
     await saveToDatabase(analysis);
 
     // Send completion event
-    res.write(`event: stream.complete\n`);
-    res.write(`data: ${JSON.stringify({
-      status: "success",
-      analysisId: analysis.id,
-      tokenUsage: analysis.tokenUsage
-    })}\n\n`);
+    res.write(`event: final\n`);
+    res.write(`data: ${JSON.stringify({ response: finalResponse })}\n\n`);
 
     res.end();
 
   } catch (error) {
-    res.write(`event: stream.error\n`);
+    res.write(`event: response.error\n`);
     res.write(`data: ${JSON.stringify({
-      error: error.message
+      type: 'response.error',
+      message: error.message
     })}\n\n`);
     res.end();
   }
@@ -373,34 +365,48 @@ const eventSource = new EventSource(
 
 let reasoningBuffer = "";
 let outputBuffer = "";
+let jsonBuffer = "";
 
-eventSource.addEventListener("stream.init", (event) => {
+eventSource.addEventListener("response.created", (event) => {
   const data = JSON.parse(event.data);
-  console.log("Stream started:", data.sessionId);
+  console.log("Stream started:", data.response?.id);
 });
 
-eventSource.addEventListener("stream.chunk", (event) => {
-  const chunk = JSON.parse(event.data);
-
-  if (chunk.type === "reasoning") {
-    reasoningBuffer += chunk.delta;
-    updateReasoningDisplay(reasoningBuffer);  // Update UI in real-time
-  } else if (chunk.type === "text") {
-    outputBuffer += chunk.delta;
-    updateOutputDisplay(outputBuffer);
-  }
+eventSource.addEventListener("response.output_text.delta", (event) => {
+  const payload = JSON.parse(event.data);
+  const delta = payload.delta ?? "";
+  outputBuffer += delta;
+  updateOutputDisplay(outputBuffer);
 });
 
-eventSource.addEventListener("stream.complete", (event) => {
+eventSource.addEventListener("response.reasoning_summary_text.delta", (event) => {
+  const payload = JSON.parse(event.data);
+  const delta = payload.delta ?? "";
+  reasoningBuffer += delta;
+  updateReasoningDisplay(reasoningBuffer);
+});
+
+eventSource.addEventListener("response.output_json.delta", (event) => {
+  const payload = JSON.parse(event.data);
+  const delta = payload.delta ?? "";
+  jsonBuffer += delta;
+  updateJsonDisplay(jsonBuffer);
+});
+
+eventSource.addEventListener("response.completed", (event) => {
   const result = JSON.parse(event.data);
-  console.log("Analysis complete:", result.analysisId);
-  console.log("Total tokens:", result.tokenUsage);
+  console.log("Analysis completed:", result.response?.id);
+});
+
+eventSource.addEventListener("response.error", (event) => {
+  const error = JSON.parse(event.data);
+  console.error("Stream error:", error);
   eventSource.close();
 });
 
-eventSource.addEventListener("stream.error", (event) => {
-  const error = JSON.parse(event.data);
-  console.error("Stream error:", error);
+eventSource.addEventListener("final", (event) => {
+  const finalPayload = JSON.parse(event.data);
+  console.log("Final response usage:", finalPayload.response?.usage);
   eventSource.close();
 });
 
@@ -424,19 +430,20 @@ curl -N -H "Accept: text/event-stream" \
 
 **Expected output:**
 ```
-event: stream.init
-data: {"sessionId":"abc123","taskId":"puzzle_001","modelKey":"gpt-5-mini"}
+event: response.created
+data: {"response":{"id":"resp_123","status":"in_progress"}}
 
-event: stream.chunk
-data: {"type":"reasoning","delta":"Let me analyze the pattern...","timestamp":1234567890}
+event: response.reasoning_summary_text.delta
+data: {"delta":"Let me analyze the pattern..."}
 
-event: stream.chunk
-data: {"type":"reasoning","delta":" The transformation appears to...","timestamp":1234567891}
+event: response.output_text.delta
+data: {"delta":"Here is the partial answer..."}
 
-...
+event: response.completed
+data: {"response":{"id":"resp_123","status":"completed"}}
 
-event: stream.complete
-data: {"status":"success","analysisId":42,"tokenUsage":{"input":1500,"output":800,"reasoning":6784}}
+event: final
+data: {"response":{"id":"resp_123","usage":{"input_tokens":123,"output_tokens":456}}}
 ```
 
 ### Debug Checklist
