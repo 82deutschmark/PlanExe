@@ -14,30 +14,6 @@ import {
 } from '@/lib/config/responses';
 
 // FastAPI Backend Types (EXACT match with backend)
-export interface CreatePlanRequest {
-  prompt: string;
-  llm_model?: string;
-  speed_vs_detail: 'fast_but_skip_details' | 'balanced_speed_and_detail' | 'all_details_but_slow';
-  enriched_intake?: Record<string, any>;
-}
-
-export interface RelaunchPlanOptions {
-  llmModel?: string | null;
-  speedVsDetail?: CreatePlanRequest['speed_vs_detail'];
-}
-
-export interface PlanResponse {
-  plan_id: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
-  created_at: string;
-  prompt: string;
-  llm_model?: string | null;
-  progress_percentage: number;
-  progress_message: string;
-  error_message?: string;
-  output_dir?: string;
-}
-
 export interface EnrichedPlanIntake {
   project_title: string;
   refined_objective: string;
@@ -69,6 +45,30 @@ export interface EnrichedPlanIntake {
   conversation_summary: string;
   confidence_score: number;
   areas_needing_clarification?: string[];
+}
+
+export interface CreatePlanRequest {
+  prompt: string;
+  llm_model?: string;
+  speed_vs_detail: 'fast_but_skip_details' | 'balanced_speed_and_detail' | 'all_details_but_slow';
+  enriched_intake?: EnrichedPlanIntake;
+}
+
+export interface RelaunchPlanOptions {
+  llmModel?: string | null;
+  speedVsDetail?: CreatePlanRequest['speed_vs_detail'];
+}
+
+export interface PlanResponse {
+  plan_id: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  created_at: string;
+  prompt: string;
+  llm_model?: string | null;
+  progress_percentage: number;
+  progress_message: string;
+  error_message?: string;
+  output_dir?: string;
 }
 
 export interface LLMModel {

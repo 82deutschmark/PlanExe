@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ConversationFinalPayload,
   ConversationTurnRequestPayload,
+  EnrichedPlanIntake,
   fastApiClient,
 } from '@/lib/api/fastapi-client';
 import { useConversationStreaming } from '@/lib/streaming/conversation-streaming';
@@ -33,7 +34,7 @@ export interface ConversationFinalizeResult {
   enrichedPrompt: string;
   transcript: ConversationMessage[];
   summary: ConversationFinalPayload | null;
-  enrichedIntake: Record<string, any> | null;
+  enrichedIntake: EnrichedPlanIntake | null;
 }
 
 export interface UseResponsesConversationOptions {
@@ -374,17 +375,14 @@ export function useResponsesConversation(
     const enrichedPrompt = enrichedSections.join('\n\n');
 
     // Extract enriched intake from JSON chunks if available
-    let enrichedIntake: Record<string, any> | null = null;
+    let enrichedIntake: EnrichedPlanIntake | null = null;
     if (lastFinal?.summary?.json && lastFinal.summary.json.length > 0) {
       // The structured output should be in the last JSON chunk
       const lastJsonChunk = lastFinal.summary.json[lastFinal.summary.json.length - 1];
 
       // Validate it has the expected schema fields
-      if (lastJsonChunk &&
-          typeof lastJsonChunk === 'object' &&
-          'project_title' in lastJsonChunk &&
-          'refined_objective' in lastJsonChunk) {
-        enrichedIntake = lastJsonChunk as Record<string, any>;
+      if (isEnrichedPlanIntake(lastJsonChunk)) {
+        enrichedIntake = lastJsonChunk;
         console.log('[useResponsesConversation] Extracted enriched intake:', enrichedIntake);
       }
     }
@@ -425,4 +423,102 @@ export function useResponsesConversation(
     jsonChunks: streamState.jsonChunks,
     usage: streamState.usage,
   };
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
+}
+
+function isEnrichedPlanIntake(candidate: unknown): candidate is EnrichedPlanIntake {
+  if (!candidate || typeof candidate !== 'object') {
+    return false;
+  }
+
+  const intake = candidate as Record<string, unknown>;
+
+  const requiredStrings: Array<keyof EnrichedPlanIntake> = [
+    'project_title',
+    'refined_objective',
+    'original_prompt',
+    'domain',
+    'conversation_summary',
+  ];
+
+  if (!requiredStrings.every((key) => typeof intake[key] === 'string')) {
+    return false;
+  }
+
+  if (typeof intake.scale !== 'string' ||
+      !['personal', 'local', 'regional', 'national', 'global'].includes(intake.scale as string)) {
+    return false;
+  }
+
+  if (typeof intake.risk_tolerance !== 'string' ||
+      !['conservative', 'moderate', 'aggressive', 'experimental'].includes(intake.risk_tolerance as string)) {
+    return false;
+  }
+
+  if (typeof intake.confidence_score !== 'number') {
+    return false;
+  }
+
+  const budget = intake.budget as Record<string, unknown> | undefined;
+  if (!budget || typeof budget !== 'object') {
+    return false;
+  }
+  if ('funding_sources' in budget && !isStringArray(budget.funding_sources)) {
+    return false;
+  }
+  if ('currency' in budget && typeof budget.currency !== 'string' && typeof budget.currency !== 'undefined') {
+    return false;
+  }
+  if ('estimated_total' in budget && typeof budget.estimated_total !== 'string' && typeof budget.estimated_total !== 'undefined') {
+    return false;
+  }
+
+  const timeline = intake.timeline as Record<string, unknown> | undefined;
+  if (!timeline || typeof timeline !== 'object') {
+    return false;
+  }
+  if ('target_completion' in timeline && typeof timeline.target_completion !== 'string' && typeof timeline.target_completion !== 'undefined') {
+    return false;
+  }
+  if ('key_milestones' in timeline && !isStringArray(timeline.key_milestones)) {
+    return false;
+  }
+  if ('urgency' in timeline && typeof timeline.urgency !== 'string' && typeof timeline.urgency !== 'undefined') {
+    return false;
+  }
+
+  const geography = intake.geography as Record<string, unknown> | undefined;
+  if (!geography || typeof geography !== 'object' || typeof geography.is_digital_only !== 'boolean') {
+    return false;
+  }
+  if ('physical_locations' in geography && !isStringArray(geography.physical_locations)) {
+    return false;
+  }
+  if ('notes' in geography && typeof geography.notes !== 'string' && typeof geography.notes !== 'undefined') {
+    return false;
+  }
+
+  const optionalArrays: Array<keyof EnrichedPlanIntake> = [
+    'existing_resources',
+    'hard_constraints',
+    'success_criteria',
+    'key_stakeholders',
+    'areas_needing_clarification',
+  ];
+
+  if (!optionalArrays.every((key) => !(key in intake) || intake[key] === undefined || isStringArray(intake[key]))) {
+    return false;
+  }
+
+  if ('team_size' in intake && typeof intake.team_size !== 'string' && typeof intake.team_size !== 'undefined') {
+    return false;
+  }
+  if ('regulatory_context' in intake && typeof intake.regulatory_context !== 'string' && typeof intake.regulatory_context !== 'undefined') {
+    return false;
+  }
+
+  return true;
 }
