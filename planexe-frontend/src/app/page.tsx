@@ -28,7 +28,6 @@ import { ConversationFinalizeResult } from '@/lib/conversation/useResponsesConve
 // Prefer backend-provided models; only use these if the API returns none
 const FALLBACK_MODEL_OPTIONS = [
   { id: 'gpt-5-nano-2025-08-07', label: 'GPT-5 Nano (Default)' },
-  { id: 'gpt-5-mini-2025-08-07', label: 'GPT-5 Mini (Secondary)' },
 ];
 const PRIMARY_FALLBACK_MODEL_ID = FALLBACK_MODEL_OPTIONS[0].id;
 
