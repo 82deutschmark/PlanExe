@@ -56,7 +56,7 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
 }) => {
   const defaultModelFromStore = useConfigStore((state) => state.defaultModel);
   const initialPrompt = request?.prompt ?? '';
-  const fallbackModel = defaultModelFromStore || 'gpt-5-mini-2025-08-07';
+  const fallbackModel = defaultModelFromStore || 'gpt-5-nano-2025-08-07';
   const resolvedModel = request?.llm_model ?? fallbackModel;
   const metadata = useMemo(
     () => ({

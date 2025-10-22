@@ -27,8 +27,8 @@ import { ConversationFinalizeResult } from '@/lib/conversation/useResponsesConve
 
 // Prefer backend-provided models; only use these if the API returns none
 const FALLBACK_MODEL_OPTIONS = [
-  { id: 'gpt-4o-mini-2024-07-18', label: 'gpt-4o-mini' },
-  { id: 'gpt-4.1-mini', label: 'gpt-4.1-mini' },
+  { id: 'gpt-5-nano-2025-08-07', label: 'GPT-5 Nano (Default)' },
+  { id: 'gpt-5-mini-2025-08-07', label: 'GPT-5 Mini (Secondary)' },
 ];
 const PRIMARY_FALLBACK_MODEL_ID = FALLBACK_MODEL_OPTIONS[0].id;
 
@@ -41,7 +41,7 @@ const HomePage: React.FC = () => {
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
-  const [selectedModel, setSelectedModel] = useState<string>(FALLBACK_MODEL_OPTIONS[0].id);
+  const [selectedModel, setSelectedModel] = useState<string>(PRIMARY_FALLBACK_MODEL_ID);
 
   const availableModels = useMemo(() => {
     const deduped = new Map<string, { id: string; label: string }>();
@@ -123,7 +123,8 @@ const HomePage: React.FC = () => {
 
   const handlePlanSubmit = async (prompt: string) => {
     const fallbackModel = availableModels.find((option) => option.id === PRIMARY_FALLBACK_MODEL_ID)?.id;
-    const modelForRequest = selectedModel || fallbackModel || availableModels[0]?.id || FALLBACK_MODEL_OPTIONS[0].id;
+    const modelForRequest =
+      selectedModel || fallbackModel || availableModels[0]?.id || PRIMARY_FALLBACK_MODEL_ID;
     const planData: CreatePlanRequest = {
       prompt,
       llm_model: modelForRequest,

@@ -11,6 +11,12 @@
 - Normalised assistant messages in `planexe/lever/identify_potential_levers.py` so complex content types from the Responses API
   are converted to JSON-friendly structures before reuse, preventing `TypeError` crashes during lever detection.
 
+## [0.4.3] - 2025-10-22 - Frontend Model Defaults
+
+### FIX: Model Selector Alignment
+- Forced landing page fallback options to use `gpt-5-nano-2025-08-07` as the default with `gpt-5-mini-2025-08-07` as the secondary choice, preventing stale `gpt-4` entries from appearing when the API list is empty.
+- Updated plan creation form and intake conversation modal to mirror the new `gpt-5-nano-2025-08-07` default so manual submissions and conversation restarts always target the supported model.
+
 ## [0.4.2] - 2025-10-22 - Plan Files Metadata Contract
 
 ### UI: Twilight Landing Experience Refresh
