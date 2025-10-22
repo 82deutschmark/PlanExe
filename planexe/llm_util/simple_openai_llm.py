@@ -1,7 +1,7 @@
 # Author: GPT-5 Codex (Codex CLI)
-# Date: 2025-10-21T22:27:00Z
-# PURPOSE: Enforce Responses API compatibility and streaming behaviour for all OpenAI-backed LLM calls, including SDK version validation and structured output handling.
-# SRP and DRY check: Pass - Single class encapsulates OpenAI Responses interactions reused throughout the pipeline with shared helpers to avoid duplication.
+# Date: 2025-10-23T01:07:00Z
+# PURPOSE: Enforce Responses API compatibility and streaming behaviour for all OpenAI-backed LLM calls, including SDK version validation, structured output handling, and message normalization to align with updated content type requirements.
+# SRP and DRY check: Pass - Single class encapsulates OpenAI Responses interactions reused throughout the pipeline, and the normalization helpers remain unique within the project.
 """OpenAI Responses API client with reasoning-aware streaming hooks for PlanExe."""
 
 from __future__ import annotations
@@ -113,44 +113,49 @@ def _build_text_segment(item: Dict[str, Any], *, segment_type: str = "input_text
     return {"type": segment_type, "text": _stringify_text_value(text_value)}
 
 
-def _coerce_content_dict(item: Dict[str, Any]) -> Dict[str, Any]:
+def _coerce_content_dict(item: Dict[str, Any], *, role: str = "user") -> Dict[str, Any]:
     normalized = dict(item)
     raw_type = normalized.get("type")
     content_type = str(raw_type).strip().lower() if raw_type is not None else ""
+    target_text_type = "output_text" if role == "assistant" else "input_text"
 
     if content_type in SUPPORTED_INPUT_CONTENT_TYPES:
-        if content_type in {"input_text", "summary_text"}:
+        if content_type == "input_text":
+            return _build_text_segment(normalized, segment_type=target_text_type)
+        if content_type == "summary_text":
             return _build_text_segment(normalized, segment_type=content_type)
         return normalized
 
     if not content_type:
-        return _build_text_segment(normalized)
+        return _build_text_segment(normalized, segment_type=target_text_type)
 
     if content_type in {"text", "output_text", "message", "assistant", "user"}:
-        return _build_text_segment(normalized)
+        return _build_text_segment(normalized, segment_type="output_text" if content_type == "output_text" else target_text_type)
 
-    return _build_text_segment(normalized)
+    return _build_text_segment(normalized, segment_type=target_text_type)
 
 
-def _normalize_content(content: Any) -> List[Dict[str, Any]]:
+def _normalize_content(content: Any, *, role: str = "user") -> List[Dict[str, Any]]:
+    text_type = "output_text" if role == "assistant" else "input_text"
+
     if isinstance(content, str):
-        return [{"type": "input_text", "text": content}]
+        return [{"type": text_type, "text": content}]
 
     if isinstance(content, dict):
-        return [_coerce_content_dict(content)]
+        return [_coerce_content_dict(content, role=role)]
 
     if isinstance(content, list):
         normalized: List[Dict[str, Any]] = []
         for item in content:
             if isinstance(item, dict):
-                normalized.append(_coerce_content_dict(item))
+                normalized.append(_coerce_content_dict(item, role=role))
             elif isinstance(item, str):
-                normalized.append({"type": "input_text", "text": item})
+                normalized.append({"type": text_type, "text": item})
             else:
-                normalized.append({"type": "input_text", "text": str(item)})
+                normalized.append({"type": text_type, "text": str(item)})
         return normalized
 
-    return [{"type": "input_text", "text": str(content)}]
+    return [{"type": text_type, "text": str(content)}]
 
 
 class SimpleOpenAILLM(LLM):
@@ -237,7 +242,7 @@ class SimpleOpenAILLM(LLM):
             raw_role = message_dict.get("role", "user") or "user"
             role_value = getattr(raw_role, "value", raw_role)
             role = str(role_value).lower()
-            content = _normalize_content(message_dict.get("content", ""))
+            content = _normalize_content(message_dict.get("content", ""), role=role)
             normalized_messages.append({"role": role, "content": content})
         return normalized_messages
 
