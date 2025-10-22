@@ -32,6 +32,8 @@ import { CreatePlanRequest, EnrichedPlanIntake } from '@/lib/api/fastapi-client'
 import { useConfigStore } from '@/lib/stores/config';
 import { EnrichedIntakeReview } from '@/components/planning/EnrichedIntakeReview';
 
+const FALLBACK_MODEL_ID = 'gpt-5-nano-2025-08-07';
+
 interface ConversationModalProps {
   isOpen: boolean;
   request: CreatePlanRequest | null;
@@ -56,7 +58,7 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
 }) => {
   const defaultModelFromStore = useConfigStore((state) => state.defaultModel);
   const initialPrompt = request?.prompt ?? '';
-  const fallbackModel = defaultModelFromStore || 'gpt-5-nano-2025-08-07';
+  const fallbackModel = defaultModelFromStore || FALLBACK_MODEL_ID;
   const resolvedModel = request?.llm_model ?? fallbackModel;
   const metadata = useMemo(
     () => ({
