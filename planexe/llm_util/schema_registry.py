@@ -42,12 +42,14 @@ def sanitize_schema_label(raw_name: Optional[str], fallback: str) -> str:
     - Contain only a-z, A-Z, 0-9, underscores, and hyphens
 
     This function replaces invalid characters (e.g., dots) with underscores.
+    Leading underscores are preserved (valid Python convention), but trailing
+    underscores from substitution are removed for cleaner names.
     """
     if not raw_name:
         raw_name = fallback
-    sanitized = _INVALID_NAME_CHARS.sub("_", raw_name).strip("_")
+    sanitized = _INVALID_NAME_CHARS.sub("_", raw_name).rstrip("_")
     if not sanitized:
-        sanitized = _INVALID_NAME_CHARS.sub("_", fallback).strip("_") or "PlanExeSchema"
+        sanitized = _INVALID_NAME_CHARS.sub("_", fallback).rstrip("_") or "PlanExeSchema"
     return sanitized
 
 
