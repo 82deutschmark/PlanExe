@@ -1,6 +1,6 @@
 # Recovery Page Refactor Plan
 
-Status: Proposed
+Status: Implemented
 Owners: Frontend Platform, API Client Maintainers
 Scope: planexe-frontend/src/app/recovery and related shared components/hooks
 
@@ -151,7 +151,8 @@ All new/modified TSX files must include the project header block used in `page.m
 
 - Adopt a three-column responsive grid in `planexe-frontend/src/app/recovery/page.tsx`:
   - **Navigation column (left, ~20%)**: RecoveryHeader, connection HUD, StageTimeline, and rerun controls stay visible via sticky positioning.
-  - **Report workspace (center, flexible)**: Canonical/fallback report tabs live here with the terminal/logs stacked beneath on desktop, collapsing into accordions on tablet/mobile.
+  - **Report workspace (center, flexible)**: Canonical/fallback report tabs live here with the terminal/logs stacked beneath on
+    desktop, collapsing into accordions on tablet/mobile.
   - **Artefact workspace (right, ~30%)**: ArtefactList and ArtefactPreview share a split pane so selections reveal inline previews without pushing the list below the fold.
 - Ensure the preview and list occupy the same scroll context (e.g., CSS grid + nested flex) so selection changes keep the list visible while updating the preview.
 - Collapse gracefully on smaller breakpoints:
@@ -159,6 +160,21 @@ All new/modified TSX files must include the project header block used in `page.m
   - ≤768px: stack all sections with quick-jump tabs at the top so users can move between report, artefacts, and logs without excessive scrolling.
 - Relocate streaming logs to the central column (beneath the report) and give them a max-height with internal scrolling to avoid displacing artefact tools.
 - Capture the final grid, breakpoint behavior, and preview interaction model in a dedicated "Layout implementation" subsection of this document when the build is complete.
+
+### Layout implementation (2025-10-23)
+
+- **Grid + columns**: `xl:grid-cols-[minmax(260px,320px)_minmax(0,1fr)_minmax(320px,1fr)]` with a responsive fallback to two
+  columns at `lg` and a single column on mobile. Left rail contains a sticky `RecoveryMiniHud`, stage timeline, and pipeline
+  metadata; centre column holds the canonical/fallback report with logs stacked beneath; right column combines artefact list and
+  preview inside a shared scroll context.
+- **Sticky HUD**: compact status card shows connection mode, tasks completed (`61` max), artefact counts, and last artefact
+  timestamp with a refresh shortcut that batches plan/report/artefact reloads.
+- **Preview coupling**: artefact list and preview share the same column grid with `xl:grid-rows-[minmax(0,1fr)_auto]`, preventing
+  layout shifts while swapping preview targets and keeping download/close actions within the pane.
+- **Logs containment**: `PipelineLogsPanel` inherits `xl:max-h-[32rem]` to maintain vertical balance and avoid pushing artefact
+  tooling off screen.
+- **Feedback surfaces**: Toast stack (bottom-right) announces first artefact arrival, canonical report completion, fallback
+  availability, and terminal plan status transitions; notifications auto-expire after 6s but support manual dismissal.
 
 ## UX Improvements for “Show Me Progress”
 

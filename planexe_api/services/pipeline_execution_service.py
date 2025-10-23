@@ -1,3 +1,12 @@
+# Author: ChatGPT using gpt-5-codex
+# Date: 2025-10-23T00:00:00Z
+# PURPOSE: Manage Luigi pipeline execution, broadcasting live telemetry to
+#          WebSocket clients while coordinating subprocess lifecycle and
+#          database writes.
+# SRP and DRY check: Pass - centralises execution orchestration without
+#          duplicating WebSocket or database logic that already exists in
+#          shared helpers.
+
 """Luigi pipeline execution service with streaming-aware telemetry forwarding.
 
 The service extends the baseline execution flow to surface Responses API deltas to the
@@ -11,7 +20,7 @@ import os
 import subprocess
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 import platform
@@ -23,6 +32,18 @@ from planexe.plan.pipeline_environment import PipelineEnvironmentEnum
 from planexe.plan.filenames import FilenameEnum
 from planexe.plan.start_time import StartTime
 from planexe.plan.plan_file import PlanFile
+
+
+def _utcnow() -> datetime:
+    """Return a timezone-aware UTC datetime."""
+
+    return datetime.now(timezone.utc)
+
+
+def _utcnow_iso() -> str:
+    """Return an ISO8601 string with timezone information."""
+
+    return _utcnow().isoformat()
 
 # Thread-safe process management (replaces global dictionary)
 class ProcessRegistry:
@@ -88,7 +109,7 @@ class PipelineExecutionService:
                 "status": PlanStatus.running.value,
                 "progress_percentage": 0,
                 "progress_message": "Starting plan generation pipeline...",
-                "started_at": datetime.utcnow()
+                "started_at": _utcnow()
             })
 
             # Broadcast initial status via WebSocket
@@ -97,7 +118,7 @@ class PipelineExecutionService:
                 "status": "running",
                 "message": "Starting plan generation pipeline...",
                 "progress_percentage": 0,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": _utcnow_iso()
             })
 
             # Start Luigi subprocess
@@ -119,7 +140,7 @@ class PipelineExecutionService:
                 "type": "status",
                 "status": "failed",
                 "message": f"Pipeline execution failed: {str(e)}",
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": _utcnow_iso()
             })
         finally:
             # Clean up resources
@@ -275,7 +296,7 @@ class PipelineExecutionService:
         # PROOF OF CLEANUP: Write a marker file that Luigi can read to prove cleanup ran
         cleanup_marker = run_id_dir / "CLEANUP_RAN.txt"
         with open(cleanup_marker, "w", encoding="utf-8") as f:
-            f.write(f"Directory cleanup executed at {datetime.utcnow().isoformat()}\n")
+            f.write(f"Directory cleanup executed at {_utcnow_iso()}\n")
             f.write(f"Directory existed: {run_id_dir.exists()}\n")
             f.write(f"Cleanup function called from FastAPI process\n")
         logger.error(f"[PIPELINE][PIPELINE][PIPELINE] Wrote cleanup marker file: {cleanup_marker}")
@@ -403,10 +424,10 @@ class PipelineExecutionService:
                             stream_payload = {
                                 "type": "log",
                                 "message": f"[LLM_STREAM PARSE ERROR] {payload_text}",
-                                "timestamp": datetime.utcnow().isoformat(),
+                                "timestamp": _utcnow_iso(),
                             }
                         if isinstance(stream_payload, dict):
-                            stream_payload.setdefault("timestamp", datetime.utcnow().isoformat())
+                            stream_payload.setdefault("timestamp", _utcnow_iso())
                             stream_payload.setdefault("type", "llm_stream")
                             try:
                                 await websocket_manager.broadcast_to_plan(plan_id, stream_payload)
@@ -418,7 +439,7 @@ class PipelineExecutionService:
                     log_data = {
                         "type": "log",
                         "message": line,
-                        "timestamp": datetime.utcnow().isoformat()
+                        "timestamp": _utcnow_iso()
                     }
 
                     try:
@@ -433,7 +454,7 @@ class PipelineExecutionService:
                     "type": "status",
                     "status": "stdout_closed",
                     "message": "Pipeline stdout stream closed",
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": _utcnow_iso()
                 }
                 try:
                     await websocket_manager.broadcast_to_plan(plan_id, completion_data)
@@ -488,7 +509,7 @@ class PipelineExecutionService:
                     "status": "completed",
                     "message": "[OK] Pipeline completed successfully! All files generated.",
                     "progress_percentage": 100,
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": _utcnow_iso()
                 }
                 try:
                     await websocket_manager.broadcast_to_plan(plan_id, success_data)
@@ -499,7 +520,7 @@ class PipelineExecutionService:
                     "status": PlanStatus.completed.value,
                     "progress_percentage": 100,
                     "progress_message": f"Plan generation completed! {files_synced} files persisted to database.",
-                    "completed_at": datetime.utcnow()
+                    "completed_at": _utcnow()
                 })
             else:
                 # Pipeline completed but no final output
@@ -507,7 +528,7 @@ class PipelineExecutionService:
                     "type": "status",
                     "status": "failed",
                     "message": "[ERROR] Pipeline completed but final output file not found",
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": _utcnow_iso()
                 }
                 try:
                     await websocket_manager.broadcast_to_plan(plan_id, failure_data)
@@ -526,7 +547,7 @@ class PipelineExecutionService:
                         "type": "status",
                         "status": "fallback",
                         "message": "Luigi failed. Switching to minimal agent fallback...",
-                        "timestamp": datetime.utcnow().isoformat()
+                        "timestamp": _utcnow_iso()
                     })
 
                     if self._run_fallback_minimal_report(plan_id, run_id_dir, db_service):
@@ -536,21 +557,21 @@ class PipelineExecutionService:
                             "status": "completed",
                             "message": "[OK] Fallback completed. Minimal report generated.",
                             "progress_percentage": 100,
-                            "timestamp": datetime.utcnow().isoformat()
+                            "timestamp": _utcnow_iso()
                         })
 
                         db_service.update_plan(plan_id, {
                             "status": PlanStatus.completed.value,
                             "progress_percentage": 100,
                             "progress_message": "Plan completed via fallback (minimal report)",
-                            "completed_at": datetime.utcnow()
+                            "completed_at": _utcnow()
                         })
 
                         # End stream and cleanup
                         end_data = {
                             "type": "stream_end",
                             "message": "Pipeline execution completed - closing connections",
-                            "timestamp": datetime.utcnow().isoformat()
+                            "timestamp": _utcnow_iso()
                         }
                         try:
                             await websocket_manager.broadcast_to_plan(plan_id, end_data)
@@ -566,7 +587,7 @@ class PipelineExecutionService:
                 "type": "status",
                 "status": "failed",
                 "message": f"[ERROR] Pipeline failed with exit code {return_code}",
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": _utcnow_iso()
             }
             try:
                 await websocket_manager.broadcast_to_plan(plan_id, failure_data)
@@ -582,7 +603,7 @@ class PipelineExecutionService:
         end_data = {
             "type": "stream_end",
             "message": "Pipeline execution completed - closing connections",
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": _utcnow_iso()
         }
         try:
             await websocket_manager.broadcast_to_plan(plan_id, end_data)
@@ -604,7 +625,7 @@ class PipelineExecutionService:
             except Exception:
                 prompt_text = "(initial prompt unavailable)"
 
-            now_iso = datetime.utcnow().isoformat()
+            now_iso = _utcnow_iso()
             html = f"""
 <!doctype html>
 <html>
@@ -752,7 +773,7 @@ class PipelineExecutionService:
                     existing_content.content_type = content_type
                     existing_content.content = content
                     existing_content.content_size_bytes = content_size
-                    existing_content.created_at = datetime.utcnow()
+                    existing_content.created_at = _utcnow()
                     db_service.db.commit()
                 else:
                     db_service.create_plan_content({

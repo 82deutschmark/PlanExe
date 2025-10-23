@@ -243,6 +243,32 @@ const normaliseStageLabel = (stage?: string | null): string => {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
+const normaliseIsoString = (value?: string | null): string | null => {
+  if (!value) {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (/(?:[zZ]|[+-]\d{2}:\d{2})$/.test(trimmed)) {
+    return trimmed;
+  }
+  return `${trimmed}Z`;
+};
+
+export const parseRecoveryTimestamp = (value?: string | null): Date | null => {
+  const normalised = normaliseIsoString(value);
+  if (!normalised) {
+    return null;
+  }
+  const result = new Date(normalised);
+  if (Number.isNaN(result.getTime())) {
+    return null;
+  }
+  return result;
+};
+
 const isWebSocketMessage = (data: WebSocketMessage | CloseEvent): data is WebSocketMessage => {
   return (
     typeof (data as WebSocketMessage)?.type === 'string' &&
@@ -305,12 +331,13 @@ const mapArtefacts = (response: PlanArtefactListResponse): PlanFile[] => {
   const entries = (response.artefacts ?? []).filter((entry) => entry && entry.filename);
   const mapped = entries.map<PlanFile>((entry) => {
     const normalizedStage = normaliseStageKey(entry.stage);
+    const createdAt = normaliseIsoString(entry.created_at) ?? new Date().toISOString();
     return {
       filename: entry.filename,
       stage: normalizedStage,
       contentType: entry.content_type ?? 'unknown',
       sizeBytes: entry.size_bytes ?? 0,
-      createdAt: entry.created_at ?? new Date().toISOString(),
+      createdAt,
       description: entry.description ?? entry.filename,
       taskName: entry.task_name ?? normalizedStage ?? entry.filename,
       order: entry.order ?? Number.MAX_SAFE_INTEGER,
@@ -501,7 +528,7 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
         return;
       }
       const message = payload;
-      const timestamp = message.timestamp ? new Date(message.timestamp) : new Date();
+      const timestamp = parseRecoveryTimestamp(message.timestamp) ?? new Date();
       switch (message.type) {
         case 'status':
           setConnection((prev) => ({

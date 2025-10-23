@@ -1,3 +1,28 @@
+## [0.4.9] - 2025-10-23 - Recovery Workspace Layout + Timestamp Hardening
+
+### FEATURE: Three-column recovery workspace with live HUD + toasts
+**Files**:
+- [`planexe-frontend/src/app/recovery/page.tsx`](planexe-frontend/src/app/recovery/page.tsx)
+- [`planexe-frontend/src/app/recovery/components/RecoveryHeader.tsx`](planexe-frontend/src/app/recovery/components/RecoveryHeader.tsx)
+- [`planexe-frontend/src/app/recovery/components/ArtefactPreview.tsx`](planexe-frontend/src/app/recovery/components/ArtefactPreview.tsx)
+- [`planexe-frontend/src/app/recovery/useRecoveryPlan.ts`](planexe-frontend/src/app/recovery/useRecoveryPlan.ts)
+
+- Added sticky `RecoveryMiniHud` with task counter, connection signal, and quick refresh.
+- Reworked layout into responsive three-column grid (left nav, central reports/logs, right artefacts/preview) matching refactor plan.
+- Introduced bottom-right toast stack for first artefact, canonical/fallback readiness, and terminal status events.
+- Normalised preview meta text (UTF-8 middle dots) and surfaced timezone-safe timestamps to the header and HUD.
+
+### FIX: WebSocket telemetry emits timezone-aware timestamps
+**File**: [`planexe_api/services/pipeline_execution_service.py`](planexe_api/services/pipeline_execution_service.py)
+
+- Added repository-standard metadata header plus UTC helpers.
+- Replaced every `datetime.utcnow()` usage with `_utcnow()`/`_utcnow_iso()` ensuring `Z` suffix for all broadcast payloads and DB writes.
+
+### DOCS: Capture implemented recovery layout details
+**File**: [`docs/2025-10-23-recovery-page-refactor-plan.md`](docs/2025-10-23-recovery-page-refactor-plan.md)
+
+- Updated status to **Implemented** and documented final grid, HUD behaviour, preview coupling, and notification surfaces.
+
 ## [0.4.8] - 2025-10-23 - Critical: Fix $defs Schema Resolution Bug
 
 ### FIX: Repair Broken Schema $defs Inlining from Bad Merge
