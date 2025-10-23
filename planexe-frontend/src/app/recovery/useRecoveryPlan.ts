@@ -488,12 +488,15 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
 
     setConnection({ mode: 'websocket', status: 'connecting', lastEventAt: null, lastHeartbeatAt: null, error: null });
 
-    const handleMessage = (event: WebSocketMessage) => {
+    const handleMessage = (payload: WebSocketMessage | CloseEvent) => {
       if (cancelled) {
         return;
       }
-      const timestamp = 'timestamp' in event && event.timestamp ? new Date(event.timestamp) : new Date();
-      switch (event.type) {
+      if (!('type' in payload)) {
+        return;
+      }
+      const timestamp = 'timestamp' in payload && payload.timestamp ? new Date(payload.timestamp) : new Date();
+      switch (payload.type) {
         case 'status':
           setConnection((prev) => ({
             ...prev,
@@ -505,9 +508,9 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
           dispatch({
             type: 'plan:update',
             payload: {
-              status: event.status as PlanResponse['status'],
-              progress_percentage: event.progress_percentage,
-              progress_message: event.message,
+              status: payload.status as PlanResponse['status'],
+              progress_percentage: payload.progress_percentage,
+              progress_message: payload.message,
             },
           });
           break;
@@ -535,7 +538,7 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
             mode: 'websocket',
             status: 'error',
             lastEventAt: timestamp,
-            error: event.message,
+            error: payload.message,
           }));
           break;
         case 'llm_stream':
