@@ -40,6 +40,7 @@
   2. Fallback placeholder creation in `handleStreamTextDelta` if ref still missing
   3. Fallback placeholder creation in `handleStreamReasoningDelta` if ref still missing
   4. Fallback placeholder creation in `handleStreamFinal` if ref still missing (preserves token usage)
+  5. **Enhancement**: Ensure `createStreamState` explicitly initializes all optional fields (`finalText`, `finalReasoning`, `usage`, `error`) so fallback-created streams have complete state matching the reducer's shape
 - **Result**: No more empty completed tasks; all stream data survives even when start→final→end emits in <1 tick
 
 ## [0.6.1] - 2025-10-23
