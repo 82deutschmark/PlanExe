@@ -1,3 +1,54 @@
+## [0.4.8] - 2025-10-23 - Critical: Fix $defs Schema Resolution Bug
+
+### FIX: Repair Broken Schema $defs Inlining from Bad Merge
+**File**: [`planexe/llm_util/simple_openai_llm.py`](planexe/llm_util/simple_openai_llm.py)
+
+#### Problem
+OpenAI Responses API was rejecting schemas with error:
+```
+BadRequestError: Error code: 400 - {'error': {'message': "Invalid schema for response_format 'Decision':
+In context=('properties', 'verdict'), reference to component '#/$defs/Verdict' which was not found in the schema."}}
+```
+
+This affected **all structured outputs** using Pydantic models with enum fields or nested types.
+
+#### Root Cause
+Bad merge conflict (commit 3e51b6b) introduced incompatible code in `_enforce_openai_schema_requirements`:
+
+1. **Line 98-99**: `_visit` function stripped out `$defs` from schema (`if key == "$defs": continue`)
+2. **Line 93-94**: Referenced non-existent `_resolve_ref()` function (NameError)
+3. **Line 132-134**: Called `_inline_local_refs()` to expand `$ref` references, but `$defs` was already removed
+4. **Result**: `$ref` pointers like `#/$defs/Verdict` remained in schema, but `$defs` section was missing
+
+#### Solution
+**Simplified `_visit` function** (lines 91-120):
+- Removed broken `_resolve_ref()` call that referenced non-existent function
+- Removed code that stripped `$defs` from schema (lines 98-99)
+- Removed unnecessary `$ref` special-case handling (lines 100-101, 104-105)
+- Now processes ALL schema keys including `$defs`, allowing `_inline_local_refs` to work correctly
+
+**Execution flow** (now correct):
+1. `_visit(schema)` → adds `additionalProperties: false` and makes all properties required, **preserving $defs**
+2. `_inline_local_refs(enforced)` → expands all `$ref` references using the intact `$defs`, then removes `$defs` section
+
+#### Impact
+- ✅ All Pydantic models with enums (Verdict, Severity, ViolationCategory, etc.) now work
+- ✅ Redline gate decision schemas pass OpenAI validation
+- ✅ All 61 Luigi tasks using structured outputs unblocked
+- ✅ Removed latent NameError bug that would crash on certain schema shapes
+
+#### Testing
+Run the diagnostic tool that was failing:
+```bash
+python -m planexe.diagnostics.redline_gate
+```
+
+Verify structured outputs work end-to-end:
+```bash
+export SPEED_VS_DETAIL=FAST_BUT_SKIP_DETAILS
+python -m planexe.plan.run_plan_pipeline
+```
+
 ## [0.4.7] - 2025-10-23 - OpenAI API Schema Name Length Fix + Frontend Build Fix
 
 ### FIX: Schema Registry Uses Class Names Instead of Full Module Paths
