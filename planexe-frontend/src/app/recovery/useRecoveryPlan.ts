@@ -9,7 +9,7 @@
 'use client';
 
 import type { ReactElement } from 'react';
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { createElement, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import {
   fastApiClient,
@@ -249,31 +249,46 @@ const getStatusDisplay = (status: PlanResponse['status']): StatusDisplay => {
       return {
         label: 'Completed',
         badgeClass: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-        icon: <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden="true" />,
+        icon: createElement(CheckCircle2, {
+          className: 'h-4 w-4 text-emerald-600',
+          'aria-hidden': 'true',
+        }),
       };
     case 'running':
       return {
         label: 'Running',
         badgeClass: 'border-blue-200 bg-blue-50 text-blue-700',
-        icon: <Activity className="h-4 w-4 text-blue-600" aria-hidden="true" />,
+        icon: createElement(Activity, {
+          className: 'h-4 w-4 text-blue-600',
+          'aria-hidden': 'true',
+        }),
       };
     case 'failed':
       return {
         label: 'Failed',
         badgeClass: 'border-red-200 bg-red-50 text-red-700',
-        icon: <XCircle className="h-4 w-4 text-red-600" aria-hidden="true" />,
+        icon: createElement(XCircle, {
+          className: 'h-4 w-4 text-red-600',
+          'aria-hidden': 'true',
+        }),
       };
     case 'cancelled':
       return {
         label: 'Cancelled',
         badgeClass: 'border-slate-200 bg-slate-50 text-slate-700',
-        icon: <AlertCircle className="h-4 w-4 text-slate-600" aria-hidden="true" />,
+        icon: createElement(AlertCircle, {
+          className: 'h-4 w-4 text-slate-600',
+          'aria-hidden': 'true',
+        }),
       };
     default:
       return {
         label: 'Pending',
         badgeClass: 'border-amber-200 bg-amber-50 text-amber-700',
-        icon: <Clock className="h-4 w-4 text-amber-600" aria-hidden="true" />,
+        icon: createElement(Clock, {
+          className: 'h-4 w-4 text-amber-600',
+          'aria-hidden': 'true',
+        }),
       };
   }
 };
