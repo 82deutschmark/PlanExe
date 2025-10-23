@@ -63,7 +63,7 @@ const RecoveryPageContent: React.FC = () => {
   const planId = useMemo(() => rawPlanId.replace(/\s+/g, '').trim(), [rawPlanId]);
 
   const recovery = useRecoveryPlan(planId);
-  const { plan, llmStreams, connection, artefacts } = recovery;
+  const { plan, llmStreams, connection, artefacts, document } = recovery;
 
   // Convert artefacts to timeline tasks (simplified for now)
   const timelineTasks: TimelineTask[] = useMemo(() => {
@@ -76,19 +76,20 @@ const RecoveryPageContent: React.FC = () => {
     }));
   }, [artefacts.items]);
 
-  // Convert artefacts to plan sections (temporary until backend endpoint is ready)
+  // Use real assembled document data from backend
   const planSections: PlanSection[] = useMemo(() => {
-    return artefacts.items
-      .filter((file) => file.contentType.includes('json') || file.contentType.includes('text'))
-      .map((file) => ({
-        id: file.filename,
-        taskName: file.taskName || file.filename,
-        stage: file.stage || 'unknown',
-        content: `Content from ${file.filename}`,
-        createdAt: file.createdAt,
-        isFinal: true,
-      }));
-  }, [artefacts.items]);
+    if (!document.data || !document.data.sections) {
+      return [];
+    }
+    return document.data.sections.map((section) => ({
+      id: section.id,
+      taskName: section.task_name,
+      stage: section.stage,
+      content: section.content,
+      createdAt: section.created_at,
+      isFinal: section.is_final,
+    }));
+  }, [document.data]);
 
   // Mock logs for now
   const logs: LogEntry[] = useMemo(() => {
@@ -185,9 +186,9 @@ const RecoveryPageContent: React.FC = () => {
         <aside className="overflow-y-auto">
           <LivePlanDocument
             sections={planSections}
-            markdown={planSections.map((s) => `## ${s.taskName}\n\n${s.content}\n\n`).join('')}
-            wordCount={planSections.reduce((sum, s) => sum + s.content.split(/\s+/).length, 0)}
-            isLoading={artefacts.loading}
+            markdown={document.data?.markdown || ''}
+            wordCount={document.data?.word_count || 0}
+            isLoading={document.loading}
             isUpdating={llmStreams.active !== null && llmStreams.active.status === 'running'}
           />
         </aside>

@@ -12,7 +12,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Copy, Download, Maximize2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Copy, Download, Maximize2, X } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export interface PlanSection {
@@ -60,7 +61,10 @@ export const LivePlanDocument: React.FC<LivePlanDocumentProps> = ({
   className,
 }) => {
   const contentRef = useRef<HTMLDivElement>(null);
+  const fullscreenContentRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
+  const [fullscreenOpen, setFullscreenOpen] = useState(false);
+  const [fullscreenAutoScroll, setFullscreenAutoScroll] = useState(true);
 
   // Auto-scroll to bottom when new content arrives
   useEffect(() => {
@@ -69,11 +73,26 @@ export const LivePlanDocument: React.FC<LivePlanDocumentProps> = ({
     }
   }, [markdown, autoScroll, isUpdating]);
 
+  // Auto-scroll fullscreen content
+  useEffect(() => {
+    if (fullscreenAutoScroll && fullscreenContentRef.current && isUpdating) {
+      fullscreenContentRef.current.scrollTop = fullscreenContentRef.current.scrollHeight;
+    }
+  }, [markdown, fullscreenAutoScroll, isUpdating]);
+
   const handleScroll = () => {
     if (contentRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = contentRef.current;
       const isAtBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 50;
       setAutoScroll(isAtBottom);
+    }
+  };
+
+  const handleFullscreenScroll = () => {
+    if (fullscreenContentRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = fullscreenContentRef.current;
+      const isAtBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 50;
+      setFullscreenAutoScroll(isAtBottom);
     }
   };
 
@@ -118,10 +137,7 @@ export const LivePlanDocument: React.FC<LivePlanDocumentProps> = ({
               variant="ghost"
               size="sm"
               className="h-7 px-2"
-              onClick={() => {
-                // TODO: Implement fullscreen modal
-                alert('Fullscreen view coming soon!');
-              }}
+              onClick={() => setFullscreenOpen(true)}
               disabled={!hasContent}
               title="View fullscreen"
             >
@@ -214,6 +230,125 @@ export const LivePlanDocument: React.FC<LivePlanDocumentProps> = ({
           </Button>
         </div>
       )}
+
+      {/* Fullscreen Modal */}
+      <Dialog open={fullscreenOpen} onOpenChange={setFullscreenOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0 flex flex-col">
+          <DialogHeader className="border-b border-border px-6 py-4 shrink-0">
+            <div className="flex items-center justify-between w-full">
+              <DialogTitle>Plan Document - Full View</DialogTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0"
+                onClick={() => setFullscreenOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </DialogHeader>
+
+          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+            {/* Fullscreen Header with Actions */}
+            <div className="shrink-0 border-b border-border px-6 py-3 bg-muted/30 flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  {sections.length} sections • {wordCount.toLocaleString()} words
+                  {isUpdating && <span className="ml-2 text-blue-600 dark:text-blue-400 animate-pulse">• Live</span>}
+                </p>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2"
+                  onClick={() => copyToClipboard(markdown)}
+                  disabled={!hasContent}
+                  title="Copy markdown"
+                >
+                  <Copy className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2"
+                  onClick={() => downloadMarkdown(markdown, 'plan-document.md')}
+                  disabled={!hasContent}
+                  title="Download markdown"
+                >
+                  <Download className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Fullscreen Content */}
+            <div
+              ref={fullscreenContentRef}
+              onScroll={handleFullscreenScroll}
+              className="flex-1 min-h-0 overflow-y-auto p-6"
+            >
+              {isLoading ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-6 w-3/4" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-6 w-3/4 mt-6" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-5/6" />
+                </div>
+              ) : !hasContent ? (
+                <div className="text-center py-12">
+                  <div className="text-4xl text-muted-foreground mb-3">📄</div>
+                  <h3 className="text-sm font-semibold text-muted-foreground mb-2">No Plan Content Yet</h3>
+                  <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                    The plan document will appear here as Luigi pipeline tasks complete and generate content.
+                  </p>
+                </div>
+              ) : (
+                <div className="prose prose-sm dark:prose-invert max-w-none">
+                  {sections.map((section) => (
+                    <div key={section.id} className="mb-6">
+                      <h3 className="text-base font-semibold mb-2">{section.taskName}</h3>
+                      <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                        {section.content}
+                      </div>
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        Stage: {section.stage} • {new Date(section.createdAt).toLocaleTimeString()}
+                      </div>
+                    </div>
+                  ))}
+                  {isUpdating && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground italic">
+                      <span className="inline-block w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400 animate-pulse" />
+                      Document is being updated...
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Fullscreen Scroll to bottom hint */}
+            {!fullscreenAutoScroll && hasContent && (
+              <div className="shrink-0 border-t border-border px-6 py-2 bg-blue-50 dark:bg-blue-950/30">
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={() => {
+                    setFullscreenAutoScroll(true);
+                    if (fullscreenContentRef.current) {
+                      fullscreenContentRef.current.scrollTop = fullscreenContentRef.current.scrollHeight;
+                    }
+                  }}
+                  className="h-auto p-0 text-xs text-blue-600 dark:text-blue-400"
+                >
+                  New content available - click to scroll to bottom
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };

@@ -49,6 +49,9 @@ interface RecoveryState {
   canonicalHtml: string | null;
   canonicalError: string | null;
   reportLoading: boolean;
+  assembledDocument: AssembledDocumentResponse | null;
+  assembledDocumentLoading: boolean;
+  assembledDocumentError: string | null;
   previewFile: PlanFile | null;
   previewLoading: boolean;
   previewError: string | null;
@@ -72,6 +75,9 @@ type RecoveryAction =
   | { type: 'report:start' }
   | { type: 'report:success'; payload: string }
   | { type: 'report:error'; error: string | null }
+  | { type: 'document:start' }
+  | { type: 'document:success'; payload: AssembledDocumentResponse }
+  | { type: 'document:error'; error: string }
   | { type: 'preview:select'; file: PlanFile | null }
   | { type: 'preview:start' }
   | { type: 'preview:success'; payload: PreviewData }
@@ -108,6 +114,9 @@ const INITIAL_STATE: RecoveryState = {
   canonicalHtml: null,
   canonicalError: null,
   reportLoading: false,
+  assembledDocument: null,
+  assembledDocumentLoading: false,
+  assembledDocumentError: null,
   previewFile: null,
   previewLoading: false,
   previewError: null,
@@ -172,6 +181,12 @@ const recoveryReducer = (state: RecoveryState, action: RecoveryAction): Recovery
       return { ...state, reportLoading: false, canonicalHtml: action.payload, canonicalError: null };
     case 'report:error':
       return { ...state, reportLoading: false, canonicalHtml: null, canonicalError: action.error };
+    case 'document:start':
+      return { ...state, assembledDocumentLoading: true, assembledDocumentError: null };
+    case 'document:success':
+      return { ...state, assembledDocumentLoading: false, assembledDocument: action.payload, assembledDocumentError: null };
+    case 'document:error':
+      return { ...state, assembledDocumentLoading: false, assembledDocument: null, assembledDocumentError: action.error };
     case 'preview:select':
       return {
         ...state,
@@ -282,6 +297,12 @@ export interface UseRecoveryPlanReturn {
     canonicalHtml: string | null;
     canonicalError: string | null;
     loading: boolean;
+    refresh: () => Promise<void>;
+  };
+  document: {
+    data: AssembledDocumentResponse | null;
+    loading: boolean;
+    error: string | null;
     refresh: () => Promise<void>;
   };
   artefacts: {
@@ -430,6 +451,21 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
     }
   }, [planId]);
 
+  const refreshAssembledDocument = useCallback(async () => {
+    if (!planId) {
+      dispatch({ type: 'document:error', error: 'Missing plan identifier.' });
+      return;
+    }
+    dispatch({ type: 'document:start' });
+    try {
+      const doc = await fastApiClient.getAssembledDocument(planId);
+      dispatch({ type: 'document:success', payload: doc });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to assemble plan document.';
+      dispatch({ type: 'document:error', error: message });
+    }
+  }, [planId]);
+
   const selectPreview = useCallback((file: PlanFile | null) => {
     dispatch({ type: 'preview:select', file });
   }, []);
@@ -442,6 +478,28 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
     (context: RecoveryLLMStreamContext) => {
       const promptPreview = typeof context.data.prompt_preview === 'string' ? context.data.prompt_preview : undefined;
       const eventRecord = createStreamEventRecord(context.message, context.data);
+
+      // CRITICAL: Prime the ref immediately to avoid race condition where
+      // subsequent text_delta/reasoning_delta/final messages arrive before
+      // the reducer commits and the useEffect syncs the ref. Without this,
+      // fast streams (start→final in <16ms) lose all data.
+      const initialStream: LLMStreamState = {
+        interactionId: context.message.interaction_id,
+        planId: context.message.plan_id,
+        stage: context.message.stage,
+        taskName: context.message.stage,
+        textDeltas: [],
+        reasoningDeltas: [],
+        textBuffer: '',
+        reasoningBuffer: '',
+        status: 'running',
+        lastUpdated: Date.now(),
+        promptPreview: promptPreview ?? null,
+        rawPayload: null,
+        events: [eventRecord],
+      };
+      llmStreamsRef.current[context.message.interaction_id] = initialStream;
+
       dispatch({
         type: 'llm_stream:start',
         payload: {
@@ -462,9 +520,26 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
       if (!context.delta) {
         return;
       }
-      const existing = llmStreamsRef.current[context.message.interaction_id];
+      let existing = llmStreamsRef.current[context.message.interaction_id];
       if (!existing) {
-        return;
+        // Fallback: if start message was missed, create a placeholder
+        // This should rarely happen with the ref priming above
+        existing = {
+          interactionId: context.message.interaction_id,
+          planId: context.message.plan_id,
+          stage: context.message.stage,
+          taskName: context.message.stage,
+          textDeltas: [],
+          reasoningDeltas: [],
+          textBuffer: '',
+          reasoningBuffer: '',
+          status: 'running',
+          lastUpdated: Date.now(),
+          promptPreview: null,
+          rawPayload: null,
+          events: [],
+        };
+        llmStreamsRef.current[context.message.interaction_id] = existing;
       }
       const nextDeltas = [...existing.textDeltas, context.delta];
       if (nextDeltas.length > MAX_STREAM_DELTAS) {
@@ -491,9 +566,25 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
       if (!context.delta) {
         return;
       }
-      const existing = llmStreamsRef.current[context.message.interaction_id];
+      let existing = llmStreamsRef.current[context.message.interaction_id];
       if (!existing) {
-        return;
+        // Fallback: if start message was missed, create a placeholder
+        existing = {
+          interactionId: context.message.interaction_id,
+          planId: context.message.plan_id,
+          stage: context.message.stage,
+          taskName: context.message.stage,
+          textDeltas: [],
+          reasoningDeltas: [],
+          textBuffer: '',
+          reasoningBuffer: '',
+          status: 'running',
+          lastUpdated: Date.now(),
+          promptPreview: null,
+          rawPayload: null,
+          events: [],
+        };
+        llmStreamsRef.current[context.message.interaction_id] = existing;
       }
       const nextDeltas = [...existing.reasoningDeltas, context.delta];
       if (nextDeltas.length > MAX_STREAM_DELTAS) {
@@ -517,9 +608,25 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
 
   const handleStreamFinal = useCallback(
     (context: RecoveryLLMStreamContext) => {
-      const existing = llmStreamsRef.current[context.message.interaction_id];
+      let existing = llmStreamsRef.current[context.message.interaction_id];
       if (!existing) {
-        return;
+        // Fallback: if start message was missed, create a placeholder
+        existing = {
+          interactionId: context.message.interaction_id,
+          planId: context.message.plan_id,
+          stage: context.message.stage,
+          taskName: context.message.stage,
+          textDeltas: [],
+          reasoningDeltas: [],
+          textBuffer: '',
+          reasoningBuffer: '',
+          status: 'running',
+          lastUpdated: Date.now(),
+          promptPreview: null,
+          rawPayload: null,
+          events: [],
+        };
+        llmStreamsRef.current[context.message.interaction_id] = existing;
       }
 
       const updates: Partial<LLMStreamState> = {
@@ -663,7 +770,8 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
     void refreshPlan();
     void refreshArtefacts();
     void refreshReport();
-  }, [planId, refreshPlan, refreshArtefacts, refreshReport]);
+    void refreshAssembledDocument();
+  }, [planId, refreshPlan, refreshArtefacts, refreshReport, refreshAssembledDocument]);
 
   useEffect(() => {
     if (!planId) {
@@ -674,6 +782,16 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
     }, 5000);
     return () => window.clearInterval(interval);
   }, [planId, refreshArtefacts]);
+
+  useEffect(() => {
+    if (!planId) {
+      return;
+    }
+    const interval = window.setInterval(() => {
+      void refreshAssembledDocument();
+    }, 3000);
+    return () => window.clearInterval(interval);
+  }, [planId, refreshAssembledDocument]);
 
   useEffect(() => {
     if (!planId || !state.previewFile) {
@@ -786,6 +904,12 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
       canonicalError: state.canonicalError,
       loading: state.reportLoading,
       refresh: refreshReport,
+    },
+    document: {
+      data: state.assembledDocument,
+      loading: state.assembledDocumentLoading,
+      error: state.assembledDocumentError,
+      refresh: refreshAssembledDocument,
     },
     artefacts: {
       items: state.artefacts,
