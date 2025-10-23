@@ -1,3 +1,38 @@
+## [0.4.7] - 2025-10-23 - OpenAI API Schema Name Length Fix
+
+### FIX: Schema Registry Uses Class Names Instead of Full Module Paths
+**Files**: [`planexe/llm_util/schema_registry.py`](planexe/llm_util/schema_registry.py), [`planexe/llm_util/tests/test_schema_registry.py`](planexe/llm_util/tests/test_schema_registry.py)
+
+#### Problem
+EnrichLeversTask was failing with OpenAI API error:
+```
+BadRequestError: Error code: 400 - {'error': {'message': "Invalid 'text.format.name':
+string too long. Expected a string with maximum length 64, but got a string with
+length 65 instead."}}
+```
+
+**Root Cause**: Schema registry was using full module paths (e.g., `planexe.lever.enrich_potential_levers.BatchCharacterizationResult` = 65 chars) as schema names sent to OpenAI's Responses API, exceeding the 64-character limit.
+
+#### Solution
+- **Changed** [`schema_registry.py:79`](planexe/llm_util/schema_registry.py#L79): Use class name only (`model.__name__`) instead of full qualified path for `sanitized_name`
+- **Updated** `sanitize_schema_label()` to use `.rstrip("_")` instead of `.strip("_")` to preserve leading underscores in class names like `_ExampleModel`
+- **Preserved** `qualified_name` (full module path) for internal registry lookups while using short `sanitized_name` (class name only) for OpenAI API calls
+
+#### Impact
+- `BatchCharacterizationResult`: 65 chars → 27 chars (well under 64 limit)
+- All structured LLM outputs now use concise, readable schema names
+- No name collisions expected (schemas are registered per-task, not globally)
+- EnrichLeversTask and all dependent tasks unblocked
+
+#### Testing
+- Added `test_sanitize_schema_label_basic_functionality()` to verify character substitution behavior
+- Added `test_schema_registry_uses_class_name_not_full_path()` to validate end-to-end flow
+- Verified all existing tests pass with updated behavior
+- Tested OpenAI request format generation with `BatchCharacterizationResult`
+
+#### Why This Fix is Better Than Truncation
+The 64-character limit is a real OpenAI API constraint. Initial approach (truncating long names) was rejected in favor of the proper solution: OpenAI's `name` field is just a label within a single API request—it doesn't need globally unique module paths. Using class names is cleaner, more readable, and avoids artificial truncation entirely.
+
 ## [0.4.6] - 2025-10-22 - Recovery Page UX Improvements
 
 ### UI: Recovery Page Layout and Visual Hierarchy Cleanup
