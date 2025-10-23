@@ -1,3 +1,18 @@
+## [0.6.1] - 2025-10-23
+
+### REFACTOR: Make report pipeline database-authoritative
+**Files**:
+- [`planexe/plan/plan_content_target.py`](planexe/plan/plan_content_target.py) **NEW**
+- [`planexe/plan/run_plan_pipeline.py`](planexe/plan/run_plan_pipeline.py)
+- [`planexe_api/api.py`](planexe_api/api.py)
+- [`docs/run_plan_pipeline_documentation.md`](docs/run_plan_pipeline_documentation.md)
+
+**Highlights**:
+- Introduced a Luigi `PlanContentTarget` that marks completion when report HTML is stored in `plan_content`, eliminating the deployment-only filesystem dependency.
+- Updated `ReportTask` to persist the assembled HTML directly to the database while keeping the local write as a best-effort dev aid.
+- Updated the FastAPI `/api/plans/{plan_id}/report` download endpoint to serve the database artefact first, falling back to disk only for legacy runs.
+- Refreshed pipeline documentation to note the database-first report target for on-call awareness.
+
 ## [0.6.0] - 2025-10-23
 
 ### REFACTOR: Centralize recovery streaming and shared utilities

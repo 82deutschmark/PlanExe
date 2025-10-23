@@ -8,6 +8,10 @@
 
 # Run Plan Pipeline Documentation
 
+## Update (2025-10-23)
+- `ReportTask` now emits a Luigi `PlanContentTarget` that verifies the HTML report resides in the `plan_content` table. Treat the database copy as authoritative in production and only rely on disk artefacts for local debugging.
+- The FastAPI `/api/plans/{plan_id}/report` endpoint serves the stored HTML directly from the database and only falls back to filesystem reads when older runs are missing the new target.
+
 ## Update (2025-10-03)
 - Database-first writes introduced in v0.3.0 remain mandatory: tasks must call `db_service.create_plan_content` before writing files.
 - `ReportTask` now cooperates with the fallback assembler; ensure new tasks provide machine-readable output so the recovery path can use them.
