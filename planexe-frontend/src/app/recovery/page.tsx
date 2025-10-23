@@ -70,7 +70,7 @@ const RecoveryPageContent: React.FC = () => {
     return artefacts.items.map((artefact, index) => ({
       id: `task-${index}`,
       name: artefact.taskName || artefact.filename,
-      stage: artefact.stage,
+      stage: artefact.stage || 'unknown',
       status: 'completed' as const,
       order: artefact.order || index,
     }));

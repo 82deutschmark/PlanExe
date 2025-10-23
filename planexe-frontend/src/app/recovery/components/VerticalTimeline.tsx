@@ -40,20 +40,20 @@ export interface VerticalTimelineProps {
 }
 
 const STAGE_ORDER = [
-  'setup',
-  'initial_analysis',
-  'strategic_planning',
-  'scenario_planning',
-  'contextual_analysis',
-  'assumption_management',
-  'project_planning',
-  'governance',
-  'resource_planning',
-  'documentation',
-  'work_breakdown',
-  'scheduling',
-  'reporting',
   'completion',
+  'reporting',
+  'scheduling',
+  'work_breakdown',
+  'documentation',
+  'resource_planning',
+  'governance',
+  'project_planning',
+  'assumption_management',
+  'contextual_analysis',
+  'scenario_planning',
+  'strategic_planning',
+  'initial_analysis',
+  'setup',
 ];
 
 function groupTasksByStage(tasks: TimelineTask[]): TimelineStage[] {

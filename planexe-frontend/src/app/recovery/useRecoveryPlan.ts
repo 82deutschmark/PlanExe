@@ -510,21 +510,12 @@ export interface UseRecoveryPlanReturn {
 }
 
 const MAX_STREAM_DELTAS = 200;
-const MAX_STREAM_EVENTS = 100;
 
 function sanitizeStreamPayload(data: unknown): Record<string, unknown> {
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
     return {};
   }
   return data as Record<string, unknown>;
-}
-
-function cloneEventPayload(data: Record<string, unknown>): Record<string, unknown> {
-  try {
-    return JSON.parse(JSON.stringify(data));
-  } catch {
-    return {};
-  }
 }
 
 function appendReasoningChunk(buffer: { text: string; reasoning: string }, delta: string): void {
@@ -908,7 +899,7 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
       client.disconnect();
       wsClientRef.current = null;
     };
-  }, [planId]);
+  }, [planId, handleLlmStreamMessage]);
 
   // Preview loader
   useEffect(() => {
