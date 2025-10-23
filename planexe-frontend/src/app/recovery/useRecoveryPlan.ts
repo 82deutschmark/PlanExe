@@ -479,7 +479,7 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
   useEffect(() => {
     dispatch({ type: 'reset' });
     clearPreview();
-    setConnection((prev) => ({
+    setConnection(() => ({
       ...initialConnectionState,
       status: planId ? 'connecting' : 'closed',
       mode: planId ? 'websocket' : 'polling',
@@ -715,7 +715,7 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
     }));
   }, [state.artefacts]);
 
-  const statusDisplay = useMemo(() => (state.plan ? getStatusDisplay(state.plan.status) : null), [state.plan?.status]);
+  const statusDisplay = useMemo(() => (state.plan ? getStatusDisplay(state.plan.status) : null), [state.plan]);
 
   return {
     plan: {

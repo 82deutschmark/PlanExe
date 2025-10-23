@@ -92,7 +92,7 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
     }
     return `Last artefact ${formatDistanceToNow(lastWriteAt, { addSuffix: true })}`;
   }, [lastWriteAt]);
-  const createdAt = useMemo(() => (plan ? parseRecoveryTimestamp(plan.created_at) : null), [plan?.created_at]);
+  const createdAt = useMemo(() => (plan ? parseRecoveryTimestamp(plan.created_at) : null), [plan]);
 
   return (
     <>

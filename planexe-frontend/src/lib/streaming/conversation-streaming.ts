@@ -116,7 +116,7 @@ export function useConversationStreaming() {
       handlers?: ConversationStreamHandlers,
     ): Promise<ConversationRequestSession> => {
       closeStream(true);
-      setState((prev) => ({ ...INITIAL_STATE, status: 'connecting' }));
+      setState(() => ({ ...INITIAL_STATE, status: 'connecting' }));
       handlersRef.current = handlers ?? {};
 
       const session = await fastApiClient.createConversationRequest(conversationId, payload);

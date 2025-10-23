@@ -100,7 +100,7 @@ export const usePlanningStore = create<PlanningState>((set, get) => ({
   },
 
   // Stop plan execution
-  stopPlan: async (_reason) => {
+  stopPlan: async () => {
     const { activePlan } = get();
     if (!activePlan) return;
 
@@ -115,7 +115,7 @@ export const usePlanningStore = create<PlanningState>((set, get) => ({
         throw new Error(errorData.error?.message || 'Failed to stop plan');
       }
 
-      const _data = await response.json();
+      await response.json();
 
       // API returns message directly
       set((state) => ({

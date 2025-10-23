@@ -174,7 +174,7 @@ export const useConfigStore = create<ConfigState>()(
       },
 
       // Test LLM model availability
-      testLLMModel: async (modelId, apiKey) => {
+      testLLMModel: async (modelId) => {
         try {
           // Note: LLM testing endpoint doesn't exist in current backend
           // For now, assume all models are available

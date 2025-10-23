@@ -89,7 +89,7 @@ export const StreamingAnalysisPanel = ({
     } finally {
       setIsStarting(false);
     }
-  }, [supportsStreaming, state.status, startAnalysis, prompt, context, metadata]);
+  }, [supportsStreaming, state.status, startAnalysis, prompt, context]);
 
   const handleCancel = useCallback(() => {
     cancelAnalysis(true);

@@ -326,7 +326,7 @@ export const Terminal: React.FC<TerminalProps> = ({
             const logText = data.message || data.text || JSON.stringify(data);
             addLog(logText, detectLogLevel(logText));
           }
-        } catch (error) {
+        } catch {
           // If not JSON, treat as raw log line
           addLog(event.data, detectLogLevel(event.data));
         }
@@ -362,6 +362,7 @@ export const Terminal: React.FC<TerminalProps> = ({
       addLog(`❌ Failed to create WebSocket connection: ${error}`, 'error');
       scheduleReconnect();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId, addLog, onComplete, onError, handleLlmStreamMessage]);
 
   // REST polling fallback when WebSocket fails
@@ -405,6 +406,7 @@ export const Terminal: React.FC<TerminalProps> = ({
     // Start polling every 5 seconds
     pollingIntervalRef.current = setInterval(pollPlanStatus, 5000);
     pollPlanStatus(); // Initial poll
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId, fallbackToPolling, addLog, onComplete, onError]);
 
   const stopPolling = useCallback(() => {
@@ -565,7 +567,7 @@ export const Terminal: React.FC<TerminalProps> = ({
           {JSON.stringify(value, null, 2)}
         </pre>
       );
-    } catch (error) {
+    } catch {
       return <span className="text-slate-300">{String(value)}</span>;
     }
   };

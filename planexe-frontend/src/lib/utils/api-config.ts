@@ -47,7 +47,7 @@ export function getApiBaseUrl(): string {
       }
 
       return url.origin;
-    } catch (error) {
+    } catch {
       const protocol = window.location.protocol || 'http:';
       const host = normalizedHost === '0.0.0.0' ? 'localhost' : hostname;
       return `${protocol}//${host}:8080`;

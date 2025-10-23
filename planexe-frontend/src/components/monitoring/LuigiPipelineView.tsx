@@ -40,7 +40,6 @@ export const LuigiPipelineView: React.FC<LuigiPipelineViewProps> = ({
   const [phases, setPhases] = useState<TaskPhase[]>(createLuigiTaskPhases());
   const [wsConnected, setWsConnected] = useState(false);
   const [currentTask, setCurrentTask] = useState<string>('');
-  const [completedCount, setCompletedCount] = useState(0);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -78,14 +77,6 @@ export const LuigiPipelineView: React.FC<LuigiPipelineViewProps> = ({
         };
       });
     });
-
-    // Update overall completed count
-    if (status === 'completed') {
-      setCompletedCount(prev => {
-        const newCount = prev + 1;
-        return newCount;
-      });
-    }
 
     if (status === 'running') {
       setCurrentTask(taskId);
@@ -220,6 +211,7 @@ export const LuigiPipelineView: React.FC<LuigiPipelineViewProps> = ({
       console.error('Failed to create Luigi pipeline WebSocket connection:', error);
       scheduleReconnect();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId, updateTaskStatus]);
 
   // Schedule automatic reconnection with exponential backoff

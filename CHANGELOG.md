@@ -1,3 +1,24 @@
+## [Unreleased] - Frontend Lint Fixes
+
+### FIX: Resolve TypeScript and ESLint compilation errors
+**Files**:
+- [`planexe-frontend/src/app/recovery/page.tsx`](planexe-frontend/src/app/recovery/page.tsx)
+- [`planexe-frontend/src/app/recovery/components/RecoveryHeader.tsx`](planexe-frontend/src/app/recovery/components/RecoveryHeader.tsx)
+- [`planexe-frontend/src/app/recovery/useRecoveryPlan.ts`](planexe-frontend/src/app/recovery/useRecoveryPlan.ts)
+- [`planexe-frontend/src/components/analysis/StreamingAnalysisPanel.tsx`](planexe-frontend/src/components/analysis/StreamingAnalysisPanel.tsx)
+- [`planexe-frontend/src/components/files/ReportTaskFallback.tsx`](planexe-frontend/src/components/files/ReportTaskFallback.tsx)
+- [`planexe-frontend/src/components/monitoring/LuigiPipelineView.tsx`](planexe-frontend/src/components/monitoring/LuigiPipelineView.tsx)
+- [`planexe-frontend/src/components/monitoring/Terminal.tsx`](planexe-frontend/src/components/monitoring/Terminal.tsx)
+- [`planexe-frontend/src/lib/stores/config.ts`](planexe-frontend/src/lib/stores/config.ts)
+- [`planexe-frontend/src/lib/stores/planning.ts`](planexe-frontend/src/lib/stores/planning.ts)
+- [`planexe-frontend/src/lib/streaming/conversation-streaming.ts`](planexe-frontend/src/lib/streaming/conversation-streaming.ts)
+- [`planexe-frontend/src/lib/utils/api-config.ts`](planexe-frontend/src/lib/utils/api-config.ts)
+
+- Fixed Button size prop: changed invalid `"xs"` to `"sm"` (only valid sizes: default, sm, lg, icon).
+- Fixed React Hook dependency warnings by adding missing dependencies or correcting parameter usage.
+- Removed unused variables and imports to eliminate TypeScript and ESLint warnings.
+- Added eslint-disable comment for intentional circular dependency between `connectWebSocket` and `scheduleReconnect`.
+
 ## [0.4.9] - 2025-10-23 - Recovery Workspace Layout + Timestamp Hardening
 
 ### FEATURE: Three-column recovery workspace with live HUD + toasts

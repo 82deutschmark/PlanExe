@@ -180,7 +180,7 @@ const RecoveryMiniHud: React.FC<RecoveryMiniHudProps> = ({
         {plan?.progress_message && <p className="text-xs text-slate-500">{plan.progress_message}</p>}
         <div className="flex justify-end">
           <Button
-            size="xs"
+            size="sm"
             variant="outline"
             onClick={() => {
               void onRefresh();
@@ -354,7 +354,7 @@ const RecoveryPageContent: React.FC = () => {
 
   const handleMiniRefresh = useCallback(async () => {
     await Promise.allSettled([plan.refresh(), reports.refresh(), artefacts.refresh()]);
-  }, [plan.refresh, reports.refresh, artefacts.refresh]);
+  }, [plan, reports, artefacts]);
 
   const handleRelaunch = useCallback(async () => {
     if (!plan.data) {
