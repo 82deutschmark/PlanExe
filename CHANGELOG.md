@@ -33,6 +33,20 @@ length 65 instead."}}
 #### Why This Fix is Better Than Truncation
 The 64-character limit is a real OpenAI API constraint. Initial approach (truncating long names) was rejected in favor of the proper solution: OpenAI's `name` field is just a label within a single API request—it doesn't need globally unique module paths. Using class names is cleaner, more readable, and avoids artificial truncation entirely.
 
+#### Comprehensive Safety Analysis
+**Concern**: Using short class names instead of full module paths could cause collisions, as 18 class names appear multiple times across the codebase (e.g., `DocumentDetails` appears in 31 files, `Scenario` in 2 files).
+
+**Risk Assessment**:
+1. **Database Storage**: ✓ SAFE - `sanitized_name` is NOT stored in any database table (verified in `planexe_api/database.py`)
+2. **File Paths**: ✓ SAFE - `sanitized_name` is NOT used in file naming or path generation
+3. **Schema Registry Collisions**: ✓ SAFE - Registry uses `qualified_name` (full module path) as lookup key, so `planexe.assume.currency_strategy.DocumentDetails` and `planexe.assume.identify_plan_type.DocumentDetails` are stored as separate entries
+4. **OpenAI API Validation**: ✓ SAFE - Each API request includes the complete JSON schema in the request payload; OpenAI validates responses against schema content, not the `name` field (which is only a debugging label)
+5. **Within-Task Collisions**: ✓ SAFE - No Luigi task uses multiple Pydantic models with the same class name (verified by AST analysis)
+
+**Tested With Real Duplicate**: Verified that `planexe.lever.candidate_scenarios.Scenario` and `planexe.lever.scenarios_markdown.Scenario` both generate `text.format.name = "Scenario"` but include different schema content in their requests, confirming OpenAI handles this correctly.
+
+**Conclusion**: The change is production-safe. The `sanitized_name` field is only used for (1) OpenAI request labeling and (2) metadata logging. No lookups, persistence, or uniqueness constraints depend on it.
+
 ## [0.4.6] - 2025-10-22 - Recovery Page UX Improvements
 
 ### UI: Recovery Page Layout and Visual Hierarchy Cleanup
