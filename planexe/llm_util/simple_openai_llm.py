@@ -36,31 +36,57 @@ def _deep_copy_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
 def _enforce_openai_schema_requirements(schema: Dict[str, Any]) -> Dict[str, Any]:
     """Augment a JSON schema to satisfy OpenAI Responses strict schema requirements."""
 
-    schema_copy = _deep_copy_schema(schema)
-    defs: Dict[str, Any] = schema_copy.get("$defs", {}) if isinstance(schema_copy, dict) else {}
-    resolved_cache: Dict[str, Any] = {}
-    resolving: Set[str] = set()
+    def _inline_local_refs(processed_schema: Dict[str, Any]) -> Dict[str, Any]:
+        """Replace local $defs references with inline definitions for OpenAI compatibility."""
 
-    def _resolve_ref(ref: Any) -> Any:
-        if not isinstance(ref, str) or not ref.startswith("#/$defs/"):
-            return {"$ref": ref}
+        local_defs = processed_schema.get("$defs")
+        if not isinstance(local_defs, dict) or not local_defs:
+            return processed_schema
 
-        key = ref.split("/", 2)[-1]
-        if key in resolved_cache:
-            return _deep_copy_schema(resolved_cache[key])
+        cache: Dict[str, Any] = {}
 
-        if key in resolving:
-            return {"$ref": ref}
+        def _resolve_local_ref(ref: str) -> Optional[Dict[str, Any]]:
+            if not isinstance(ref, str):
+                return None
+            prefix = "#/$defs/"
+            if not ref.startswith(prefix):
+                return None
+            definition_key = ref[len(prefix) :]
+            target = local_defs.get(definition_key)
+            if target is None:
+                return None
+            return target
 
-        target = defs.get(key)
-        if not isinstance(target, (dict, list)):
-            return {"$ref": ref}
+        def _expand(node: Any) -> Any:
+            if isinstance(node, dict):
+                ref_value = node.get("$ref")
+                if ref_value:
+                    if ref_value in cache:
+                        return cache[ref_value]
+                    resolved = _resolve_local_ref(ref_value)
+                    if resolved is None:
+                        return {"$ref": ref_value}
+                    cache[ref_value] = {}  # placeholder to break potential recursive loops
+                    expanded = _expand(resolved)
+                    cache[ref_value] = expanded
+                    return expanded
 
-        resolving.add(key)
-        resolved = _visit(target)
-        resolving.remove(key)
-        resolved_cache[key] = resolved
-        return _deep_copy_schema(resolved)
+                expanded_dict: Dict[str, Any] = {}
+                for key, value in node.items():
+                    if key == "$defs":
+                        continue
+                    expanded_dict[key] = _expand(value)
+                return expanded_dict
+
+            if isinstance(node, list):
+                return [_expand(item) for item in node]
+
+            return node
+
+        expanded_schema = _expand(processed_schema)
+        if isinstance(expanded_schema, dict):
+            expanded_schema.pop("$defs", None)
+        return expanded_schema
 
     def _visit(node: Any) -> Any:
         if isinstance(node, dict):
@@ -86,7 +112,9 @@ def _enforce_openai_schema_requirements(schema: Dict[str, Any]) -> Dict[str, Any
                     existing_required = updated.get("required")
                     required_list: List[str]
                     if isinstance(existing_required, list):
-                        seen: Dict[str, None] = {name: None for name in existing_required if isinstance(name, str)}
+                        seen: Dict[str, None] = {
+                            name: None for name in existing_required if isinstance(name, str)
+                        }
                         for prop_name in properties.keys():
                             if prop_name not in seen:
                                 seen[prop_name] = None
@@ -101,7 +129,10 @@ def _enforce_openai_schema_requirements(schema: Dict[str, Any]) -> Dict[str, Any
 
         return node
 
-    return _visit(schema_copy)
+    enforced = _visit(schema)
+    if isinstance(enforced, dict):
+        return _inline_local_refs(enforced)
+    return enforced
 
 
 def _ensure_message_dict(message: Any) -> Dict[str, Any]:
