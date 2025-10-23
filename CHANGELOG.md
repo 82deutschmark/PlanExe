@@ -1,3 +1,47 @@
+## [0.6.2] - 2025-10-23
+
+### FIX & FEAT: Fully integrate assembled-document endpoint and fix streaming race condition
+
+**Files**:
+- [`planexe-frontend/src/app/recovery/useRecoveryPlan.ts`](planexe-frontend/src/app/recovery/useRecoveryPlan.ts)
+- [`planexe-frontend/src/app/recovery/page.tsx`](planexe-frontend/src/app/recovery/page.tsx)
+- [`planexe-frontend/src/app/recovery/components/LivePlanDocument.tsx`](planexe-frontend/src/app/recovery/components/LivePlanDocument.tsx)
+- [`planexe-frontend/src/lib/api/fastapi-client.ts`](planexe-frontend/src/lib/api/fastapi-client.ts)
+
+**Highlights**:
+
+**Assembled Document Integration** (REPLACES ALL MOCK DATA):
+- Added full state management for assembled document fetching (loading, error, data)
+- New `getAssembledDocument()` method in FastAPI client for `/api/plans/{id}/assembled-document` endpoint
+- Automatic polling every 3 seconds during plan execution (separate from 5s artefact polling)
+- Real markdown content and word counts from backend (replaces hardcoded mock data)
+- Proper section mapping from backend response to LivePlanDocument component
+
+**Token Calculation Fix**:
+- Replaced hardcoded `totalTokens={0}` with real calculation from all llmStreams
+- `totalTokens` computed via useMemo from `llmStreams.all` with proper dependency tracking
+
+**Fullscreen Modal Implementation**:
+- Replaced `alert('Fullscreen view coming soon!')` placeholder with full Dialog implementation
+- Independent auto-scroll tracking for modal vs compact view
+- Copy/download actions available in fullscreen mode
+- Consistent styling and prose formatting in expanded view
+- Smooth open/close transitions via shadcn Dialog component
+
+**CRITICAL: Race Condition Fix** (prevents data loss in short generations):
+- **Problem**: WebSocket handlers (`handleStreamTextDelta`, `handleStreamReasoningDelta`, `handleStreamFinal`)
+  bailed out if `llmStreamsRef.current[interaction_id]` was falsy. The ref only syncs via useEffect
+  AFTER the reducer commits. For very fast streams (start→final in <16ms, common for short responses),
+  the subsequent handlers would check the ref BEFORE the useEffect ran, find it empty, and return early,
+  losing all text, reasoning, and token data.
+- **Root Cause**: Async state update + useEffect dependency = ref sync delay
+- **Solution**: Three-layer defense:
+  1. Prime `llmStreamsRef.current` **synchronously** in `handleStreamStart` before dispatch
+  2. Fallback placeholder creation in `handleStreamTextDelta` if ref still missing
+  3. Fallback placeholder creation in `handleStreamReasoningDelta` if ref still missing
+  4. Fallback placeholder creation in `handleStreamFinal` if ref still missing (preserves token usage)
+- **Result**: No more empty completed tasks; all stream data survives even when start→final→end emits in <1 tick
+
 ## [0.6.1] - 2025-10-23
 
 ### REFACTOR: Make report pipeline database-authoritative
