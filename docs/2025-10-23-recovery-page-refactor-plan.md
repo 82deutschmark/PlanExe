@@ -140,6 +140,26 @@ Implementation Notes
 
 All new/modified TSX files must include the project header block used in `page.md` (Author, Date, PURPOSE, SRP/DRY check).
 
+## Live Activity Accuracy Plan
+
+- Normalize every timestamp emitted by the recovery WebSocket stream so browsers do not misinterpret naive ISO strings.
+  - Update backend payload assembly (see `planexe_api/services/pipeline_execution_service.py`) to emit timezone-aware ISO stamps (`datetime.now(timezone.utc).isoformat()` or equivalent) so clients always receive a `Z` or explicit offset.
+  - Harden the frontend parser in `planexe-frontend/src/app/recovery/useRecoveryPlan.ts` by centralizing timestamp coercion (append `Z` when missing) before calling `new Date(...)`, and reuse it for `lastEventAt`, `lastHeartbeatAt`, and any HUD copy that references “last activity”.
+- Re-run an in-progress recovery session and verify the HUD, StageTimeline, and timeline tooltips increment in real time without the fixed “4 hours ago” drift.
+
+## Layout Implementation Plan
+
+- Adopt a three-column responsive grid in `planexe-frontend/src/app/recovery/page.tsx`:
+  - **Navigation column (left, ~20%)**: RecoveryHeader, connection HUD, StageTimeline, and rerun controls stay visible via sticky positioning.
+  - **Report workspace (center, flexible)**: Canonical/fallback report tabs live here with the terminal/logs stacked beneath on desktop, collapsing into accordions on tablet/mobile.
+  - **Artefact workspace (right, ~30%)**: ArtefactList and ArtefactPreview share a split pane so selections reveal inline previews without pushing the list below the fold.
+- Ensure the preview and list occupy the same scroll context (e.g., CSS grid + nested flex) so selection changes keep the list visible while updating the preview.
+- Collapse gracefully on smaller breakpoints:
+  - ≤1024px: switch to a two-column layout (navigation sidebar + combined report/artefact column with vertically stacked sections).
+  - ≤768px: stack all sections with quick-jump tabs at the top so users can move between report, artefacts, and logs without excessive scrolling.
+- Relocate streaming logs to the central column (beneath the report) and give them a max-height with internal scrolling to avoid displacing artefact tools.
+- Capture the final grid, breakpoint behavior, and preview interaction model in a dedicated "Layout implementation" subsection of this document when the build is complete.
+
 ## UX Improvements for “Show Me Progress”
 
 - Live counters: “N/61 tasks completed”, per-stage artefact counts, and “last artefact at hh:mm:ss”.
