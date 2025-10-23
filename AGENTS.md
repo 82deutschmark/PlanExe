@@ -132,6 +132,10 @@ The API is served from the FastAPI backend on port `8080`.
 *   **Development Mode**: Use the `FAST_BUT_SKIP_DETAILS` environment variable for faster, less detailed test runs.
 *   **LLM Outputs**: Use the Responses API models to ensure structured outputs.
 
+#### Image Generation
+- Standard model for any image generation tasks is `gpt-image-1-mini`.
+- The model is declared in `llm_config.json` and will surface via `/api/models` for frontend selection/use.
+
 ---
 
 ## 5. Testing

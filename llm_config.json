@@ -4,5 +4,12 @@
         "priority": 1,
         "provider": "openai",
         "model": "gpt-5-nano-2025-08-07"
+    },
+    "gpt-image-1-mini": {
+        "comment": "Standard OpenAI image generation model for all image tasks",
+        "priority": 90,
+        "provider": "openai",
+        "model": "gpt-image-1-mini",
+        "capabilities": ["image_generation"]
     }
 }
