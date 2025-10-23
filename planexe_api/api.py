@@ -1,7 +1,7 @@
 # Author: gpt-5-codex
 # Date: 2025-10-22T03:20:00Z
-# PURPOSE: FastAPI entrypoint. Adds model-id validation on plan creation and keeps Responses-based streaming endpoints.
-# SRP and DRY check: Pass — validate inputs and route to services without duplicating business logic.
+# PURPOSE: FastAPI entrypoint orchestrating PlanExe HTTP and WebSocket APIs with database-first artefact delivery.
+# SRP and DRY check: Pass — Module handles routing while delegating persistence and pipeline logic to dedicated services.
 """
 Author: Claude Code using Sonnet 4
 Date: 2025-09-24
@@ -1315,27 +1315,26 @@ async def download_plan_report(plan_id: str, db: DatabaseService = Depends(get_d
         if not plan:
             raise HTTPException(status_code=404, detail="Plan not found")
 
-        report_path = Path(plan.output_dir) / FilenameEnum.REPORT.value
-
-        if report_path.exists():
-            return FileResponse(
-                path=str(report_path),
-                filename=f"{plan_id}-report.html",
-                media_type="text/html"
-            )
-
-        # Fallback to persisted database content when the filesystem copy is gone.
         try:
             report_record = db.get_plan_content_by_filename(plan_id, FilenameEnum.REPORT.value)
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"Failed to query stored report: {exc}") from exc
 
-        if not report_record or not report_record.content:
-            raise HTTPException(status_code=404, detail="Report not found")
+        if report_record and report_record.content:
+            media_type = _infer_media_type(report_record.content_type, FilenameEnum.REPORT.value, "text/html; charset=utf-8")
+            headers = {"Content-Disposition": f'attachment; filename="{plan_id}-report.html"'}
+            return Response(content=report_record.content, media_type=media_type, headers=headers)
 
-        media_type = _infer_media_type(report_record.content_type, FilenameEnum.REPORT.value, "text/html; charset=utf-8")
-        headers = {"Content-Disposition": f'attachment; filename="{plan_id}-report.html"'}
-        return Response(content=report_record.content, media_type=media_type, headers=headers)
+        if plan.output_dir:
+            report_path = Path(plan.output_dir) / FilenameEnum.REPORT.value
+            if report_path.exists():
+                return FileResponse(
+                    path=str(report_path),
+                    filename=f"{plan_id}-report.html",
+                    media_type="text/html",
+                )
+
+        raise HTTPException(status_code=404, detail="Report not found")
     except HTTPException:
         raise
     except Exception as e:

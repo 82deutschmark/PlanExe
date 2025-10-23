@@ -91,6 +91,7 @@ from planexe.llm_util.llm_executor import LLMExecutor, LLMModelFromName, ShouldS
 from planexe.llm_factory import get_llm_names_by_priority, SPECIAL_AUTO_ID, is_valid_llm_name
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
 from planexe.report.report_generator import ReportGenerator
+from planexe.plan.plan_content_target import PlanContentTarget
 from planexe.luigi_util.obtain_output_files import ObtainOutputFiles
 from planexe.plan.pipeline_environment import PipelineEnvironment
 # Import database service for Option 1 database-first architecture
@@ -5133,7 +5134,7 @@ class ReportTask(PlanTask):
     Generate a report html document.
     """
     def output(self):
-        return self.local_target(FilenameEnum.REPORT)
+        return PlanContentTarget(plan_id=self.get_plan_id(), filename=FilenameEnum.REPORT.value)
     
     def requires(self):
         return {
@@ -5189,10 +5190,24 @@ class ReportTask(PlanTask):
             rg.append_html('Questions & Answers', self.input()['questions_and_answers']['html'].path)
             rg.append_markdown_with_tables('Premortem', self.input()['premortem']['markdown'].path)
             rg.append_initial_prompt_vetted(document_title='Initial Prompt Vetted', initial_prompt_file_path=self.input()['setup'].path, redline_gate_markdown_file_path=self.input()['redline_gate']['markdown'].path, premise_attack_markdown_file_path=self.input()['premise_attack']['markdown'].path)
-            rg.save_report(self.output().path, title=title, execute_plan_section_hidden=REPORT_EXECUTE_PLAN_SECTION_HIDDEN)
-            with open(self.output().path, "r") as f:
-                report_html = f.read()
+            report_html = rg.generate_html_report(
+                title=title,
+                execute_plan_section_hidden=REPORT_EXECUTE_PLAN_SECTION_HIDDEN,
+            )
             db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.REPORT.value, "stage": "report", "content_type": "html", "content": report_html, "content_size_bytes": len(report_html.encode('utf-8'))})
+
+            # Optionally persist a local copy for development and debugging scenarios.
+            try:
+                local_report_target = self.local_target(FilenameEnum.REPORT)
+                local_report_target.makedirs()
+                with local_report_target.open("w") as report_file:
+                    report_file.write(report_html)
+            except Exception as file_error:  # pragma: no cover - non-fatal local persistence
+                logger.warning(
+                    "Unable to write local report copy for plan_id=%s: %s",
+                    plan_id,
+                    file_error,
+                )
         except Exception as e:
             raise
         finally:
