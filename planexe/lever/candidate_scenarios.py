@@ -1,7 +1,9 @@
 """
 Author: Codex using GPT-5
 Date: `2025-10-02T18:47:00Z`
+Updated: Claude Code using Sonnet 4.5 - 2025-10-22T00:00:00Z
 PURPOSE: Add reusable JSON helper for CandidateScenarios persistence.
+UPDATED: Added Pydantic conlist constraint to enforce exactly 3 scenarios (v0.4.5 - cascading failure prevention).
 SRP and DRY check: Pass - data wrapper serialization only.
 """
 """
@@ -25,7 +27,7 @@ from pathlib import Path
 from typing import List, Dict
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, conlist
 from planexe.llm_util.llm_executor import LLMExecutor, PipelineStopRequested
 
 logger = logging.getLogger(__name__)
@@ -55,7 +57,7 @@ class ScenarioAnalysisResult(BaseModel):
     core_tension: str = Field(
         description="A one-sentence summary of the central trade-off the scenarios are designed to explore (e.g., 'The central tension is between maximizing long-term technological dominance and ensuring short-term project viability and cost control.')."
     )
-    scenarios: List[Scenario] = Field(
+    scenarios: conlist(Scenario, min_length=3, max_length=3) = Field(
         description="A list of exactly 3 distinct strategic scenarios."
     )
 

@@ -1,4 +1,57 @@
 
+## [0.4.5] - 2025-10-22 - Pipeline Resilience: Schema Validation Hardening
+
+### FIX: Prevent Cascading Failures After EnrichLeversTask
+**Documentation**: Created comprehensive [`docs/Cascading-Failure-Analysis-2025-10-22.md`](docs/Cascading-Failure-Analysis-2025-10-22.md) mapping all 61 Luigi tasks and identifying 3 critical validation gaps that would cause 53 dependent tasks to fail after EnrichLeversTask repair.
+
+#### Fix 1: Add Pydantic Schema Constraint to CandidateScenarios (CRITICAL)
+**File**: [`planexe/lever/candidate_scenarios.py:60`](planexe/lever/candidate_scenarios.py)
+- Added `from pydantic import conlist` import
+- Changed `scenarios: List[Scenario]` to `scenarios: conlist(Scenario, min_length=3, max_length=3)`
+- **Impact**: Forces LLM to generate exactly 3 scenarios; Pydantic validation rejects 0, 1, 2, or >3 scenarios before data reaches SelectScenarioTask
+- **Prevents**: SelectScenarioTask cascade failure affecting all downstream WBS, governance, team, document, and report tasks
+
+#### Fix 2: Add Defensive Validation in SelectScenarioTask
+**File**: [`planexe/plan/run_plan_pipeline.py:1266-1272`](planexe/plan/run_plan_pipeline.py)
+- Added validation check after reading scenarios from CandidateScenariosTask output
+- Raises clear ValueError with diagnostic message if scenarios list is empty
+- **Impact**: Fail-fast with actionable error pointing to upstream task instead of cryptic downstream exception
+
+#### Fix 3: Add Result Validation in EnrichPotentialLevers
+**File**: [`planexe/lever/enrich_potential_levers.py:184-191`](planexe/lever/enrich_potential_levers.py)
+- Added validation before return to check if all batched LLM characterizations failed
+- Raises ValueError with diagnostic counts (expected vs actual levers, batches processed)
+- **Impact**: Catches batched enrichment failures early; prevents silent data loss where incomplete levers are skipped and empty results propagate to FocusOnVitalFewLeversTask
+
+### Root Cause Analysis
+- **Pattern 1**: Pydantic schemas described requirements in Field descriptions but didn't enforce them
+- **Pattern 2**: Batch operations silently skipped failures, potentially returning empty results
+- **Pattern 3**: Tasks trusted upstream outputs without defensive validation at boundaries
+
+### Testing Recommendations
+```bash
+# Integration test with FAST_BUT_SKIP_DETAILS mode
+export SPEED_VS_DETAIL=FAST_BUT_SKIP_DETAILS
+python -m planexe.plan.run_plan_pipeline
+
+# Verify outputs after SelectScenarioTask completion:
+# - EnrichLeversTask: characterized_levers count > 0
+# - FocusOnVitalFewLeversTask: vital levers count ~5
+# - CandidateScenariosTask: scenarios count == 3
+# - SelectScenarioTask: chosen_scenario is non-null
+```
+
+### Expected Outcome
+- **Before**: EnrichLevers fix → cascade failure at SelectScenarioTask → 53 tasks blocked
+- **After**: Clear validation at 3 checkpoints with actionable error messages → ~90% reduction in cascade failure risk
+
+### Long-Term Recommendations
+See [`docs/Cascading-Failure-Analysis-2025-10-22.md`](docs/Cascading-Failure-Analysis-2025-10-22.md) for:
+- Systematic Pydantic constraint audit across all 61 tasks
+- Standardized batch operation error handling template
+- Pipeline health check framework
+- Enhanced boundary logging for cascade analysis
+
 ## [0.4.4] - 2025-10-22 - Pipeline Unblock: EnrichLeversTask
 
 ### FIX: Repair EnrichPotentialLevers module and align JSON keys

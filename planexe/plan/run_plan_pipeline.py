@@ -1263,6 +1263,13 @@ class SelectScenarioTask(PlanTask):
                 lever_item_list = json.load(f)["levers"]
             with self.input()['candidate_scenarios']['clean'].open("r") as f:
                 scenarios_list = json.load(f).get('scenarios', [])
+            # v0.4.5: Defensive validation - prevent cascade failure if scenarios are empty
+            if not scenarios_list:
+                raise ValueError(
+                    "CandidateScenariosTask produced no scenarios. "
+                    "Check upstream task outputs and LLM interaction logs. "
+                    f"Expected 3 scenarios but got {len(scenarios_list)}."
+                )
             query = (
                 f"File 'plan.txt':\n{plan_prompt}\n\n"
                 f"File 'purpose.md':\n{identify_purpose_markdown}\n\n"

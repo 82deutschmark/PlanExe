@@ -181,6 +181,15 @@ class EnrichPotentialLevers:
                     f"Pydantic validation failed for characterized lever '{lever_id}'. Error: {e}"
                 )
 
+        # v0.4.5: Validate that at least some levers were successfully characterized
+        if not final_characterized_levers:
+            raise ValueError(
+                f"All lever characterizations failed. "
+                f"Expected {len(enriched_levers_map)} levers but got 0. "
+                f"Check LLM batch interaction logs for errors. "
+                f"Batches processed: {len(all_metadata)}"
+            )
+
         return cls(characterized_levers=final_characterized_levers, metadata=all_metadata)
 
     def to_dict(self, include_metadata: bool = True) -> dict:
