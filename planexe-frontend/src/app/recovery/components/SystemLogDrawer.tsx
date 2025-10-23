@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ChevronDown, ChevronUp, Pin, PinOff } from 'lucide-react';
-import { RecoveryConnectionState } from '../useRecoveryPlan';
+import type { RecoveryConnectionState } from '@/lib/types/recovery';
 
 export interface LogEntry {
   timestamp: string;

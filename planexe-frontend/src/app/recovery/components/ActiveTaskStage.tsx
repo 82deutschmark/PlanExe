@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Check, Copy, FileJson, Loader2, XCircle } from 'lucide-react';
-import { LLMStreamState } from '../useRecoveryPlan';
+import type { LLMStreamState } from '@/lib/types/recovery';
 
 export interface ActiveTaskStageProps {
   stream: LLMStreamState | null;
