@@ -1,9 +1,52 @@
+# Author: gpt-5-codex
+# Date: 2025-10-23
+# PURPOSE: Validate OpenAI schema normalization helpers, ensuring message coercion and schema formatting remain compliant with Responses API expectations.
+# SRP and DRY check: Pass - focuses solely on unit coverage for normalization utilities without duplicating test logic found elsewhere.
+import os
 import unittest
 
 from planexe.llm_util.simple_openai_llm import (
     SimpleOpenAILLM,
     _normalize_content,
 )
+from planexe.llm_util.schema_registry import get_schema_entry
+
+
+class BuildTextFormatTests(unittest.TestCase):
+    def test_inlines_defs_and_sets_required_properties(self) -> None:
+        previous = os.environ.get("PLANEXE_CLOUD_MODE")
+        os.environ["PLANEXE_CLOUD_MODE"] = "1"
+        try:
+            from planexe.lever.candidate_scenarios import ScenarioAnalysisResult
+
+            entry = get_schema_entry(ScenarioAnalysisResult)
+            text_format = SimpleOpenAILLM._build_text_format(entry)
+        finally:
+            if previous is None:
+                os.environ.pop("PLANEXE_CLOUD_MODE", None)
+            else:
+                os.environ["PLANEXE_CLOUD_MODE"] = previous
+
+        schema = text_format.get("schema", {})
+        self.assertNotIn("$defs", schema)
+
+        def assert_no_refs(node):
+            if isinstance(node, dict):
+                self.assertNotIn("$ref", node)
+                for value in node.values():
+                    assert_no_refs(value)
+            elif isinstance(node, list):
+                for value in node:
+                    assert_no_refs(value)
+
+        assert_no_refs(schema)
+
+        scenarios_schema = schema.get("properties", {}).get("scenarios", {})
+        items_schema = scenarios_schema.get("items", {})
+        properties = items_schema.get("properties", {})
+        required = items_schema.get("required", [])
+        self.assertTrue(properties)
+        self.assertEqual(set(required), set(properties.keys()))
 
 
 class NormalizeContentTests(unittest.TestCase):

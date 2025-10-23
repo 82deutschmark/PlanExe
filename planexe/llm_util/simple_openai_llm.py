@@ -10,7 +10,7 @@ import json
 import logging
 import os
 from contextlib import suppress
-from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Type
+from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Set, Type
 
 import openai
 from llama_index.core.llms.llm import LLM
@@ -90,13 +90,19 @@ def _enforce_openai_schema_requirements(schema: Dict[str, Any]) -> Dict[str, Any
 
     def _visit(node: Any) -> Any:
         if isinstance(node, dict):
+            if set(node.keys()) == {"$ref"}:
+                return _resolve_ref(node["$ref"])
+
             updated: Dict[str, Any] = {}
             for key, value in node.items():
+                if key == "$defs":
+                    continue
+                if key == "$ref" and len(node) == 1:
+                    continue
                 updated[key] = _visit(value)
 
-            if "$ref" in updated:
-                # OpenAI refuses schemas where $ref siblings exist (e.g. description/title).
-                return {"$ref": updated["$ref"]}
+            if "$ref" in node and len(node) == 1:
+                return updated
 
             schema_type = updated.get("type")
             if schema_type == "object" and "additionalProperties" not in updated:
