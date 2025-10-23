@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/card';
 import { PlanResponse } from '@/lib/api/fastapi-client';
 
-import { RecoveryConnectionState, StatusDisplay } from '../useRecoveryPlan';
+import { parseRecoveryTimestamp, RecoveryConnectionState, StatusDisplay } from '../useRecoveryPlan';
 
 interface RecoveryHeaderProps {
   planId: string;
@@ -38,7 +38,9 @@ interface RecoveryHeaderProps {
   onRelaunch: () => void | Promise<void>;
 }
 
-const describeConnection = (connection: RecoveryConnectionState): { label: string; tone: 'good' | 'warn' | 'idle'; detail: string } => {
+export const describeConnection = (
+  connection: RecoveryConnectionState,
+): { label: string; tone: 'good' | 'warn' | 'idle'; detail: string } => {
   if (connection.status === 'error') {
     return {
       label: 'Polling',
@@ -49,7 +51,7 @@ const describeConnection = (connection: RecoveryConnectionState): { label: strin
 
   if (connection.status === 'connected' && connection.mode === 'websocket') {
     const last = connection.lastEventAt || connection.lastHeartbeatAt;
-    const detail = last ? `Live Â· last event ${formatDistanceToNow(last, { addSuffix: true })}` : 'Live updates active';
+    const detail = last ? `Live · last event ${formatDistanceToNow(last, { addSuffix: true })}` : 'Live updates active';
     return {
       label: 'Live',
       tone: 'good',
@@ -90,6 +92,7 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
     }
     return `Last artefact ${formatDistanceToNow(lastWriteAt, { addSuffix: true })}`;
   }, [lastWriteAt]);
+  const createdAt = useMemo(() => (plan ? parseRecoveryTimestamp(plan.created_at) : null), [plan?.created_at]);
 
   return (
     <>
@@ -159,7 +162,9 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
                   {plan.progress_message && (
                     <span className="mt-1 max-w-sm text-xs text-slate-400">{plan.progress_message}</span>
                   )}
-                  <span className="mt-1 text-xs">Created {new Date(plan.created_at).toLocaleString()}</span>
+                  <span className="mt-1 text-xs">
+                    Created {createdAt ? createdAt.toLocaleString() : 'time unavailable'}
+                  </span>
                 </>
               ) : planError ? (
                 <span className="text-xs text-red-600">{planError}</span>

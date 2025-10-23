@@ -48,7 +48,7 @@ export const ArtefactPreview: React.FC<ArtefactPreviewProps> = ({ planId, previe
         <div>
           <CardTitle className="text-base">Preview: {file.filename}</CardTitle>
           <CardDescription className="text-sm">
-            {file.contentType.toUpperCase()} Â· {file.sizeBytes.toLocaleString()} bytes Â· {planId}
+            {file.contentType.toUpperCase()} · {file.sizeBytes.toLocaleString()} bytes · {planId}
           </CardDescription>
         </div>
         <div className="flex gap-2">
