@@ -243,6 +243,14 @@ const normaliseStageLabel = (stage?: string | null): string => {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
+const isWebSocketMessage = (data: WebSocketMessage | CloseEvent): data is WebSocketMessage => {
+  return (
+    typeof (data as WebSocketMessage)?.type === 'string' &&
+    'timestamp' in data &&
+    typeof (data as WebSocketMessage).timestamp === 'string'
+  );
+};
+
 const getStatusDisplay = (status: PlanResponse['status']): StatusDisplay => {
   switch (status) {
     case 'completed':
@@ -489,14 +497,12 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
     setConnection({ mode: 'websocket', status: 'connecting', lastEventAt: null, lastHeartbeatAt: null, error: null });
 
     const handleMessage = (payload: WebSocketMessage | CloseEvent) => {
-      if (cancelled) {
+      if (cancelled || !isWebSocketMessage(payload)) {
         return;
       }
-      if (!('type' in payload)) {
-        return;
-      }
-      const timestamp = 'timestamp' in payload && payload.timestamp ? new Date(payload.timestamp) : new Date();
-      switch (payload.type) {
+      const message = payload;
+      const timestamp = message.timestamp ? new Date(message.timestamp) : new Date();
+      switch (message.type) {
         case 'status':
           setConnection((prev) => ({
             ...prev,
@@ -508,9 +514,9 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
           dispatch({
             type: 'plan:update',
             payload: {
-              status: payload.status as PlanResponse['status'],
-              progress_percentage: payload.progress_percentage,
-              progress_message: payload.message,
+              status: message.status as PlanResponse['status'],
+              progress_percentage: message.progress_percentage,
+              progress_message: message.message,
             },
           });
           break;
@@ -538,7 +544,7 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
             mode: 'websocket',
             status: 'error',
             lastEventAt: timestamp,
-            error: payload.message,
+            error: message.message,
           }));
           break;
         case 'llm_stream':
