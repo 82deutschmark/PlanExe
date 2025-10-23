@@ -105,26 +105,30 @@ class RecoveryStreaming implements RecoveryStreamingController {
       this.handleWebSocketMessage(payload);
     };
 
-    const handleClose = (event: CloseEvent) => {
-      if (this.client === client) {
-        this.updateState((prev) => ({
-          ...prev,
-          status: event.code === 1000 ? 'completed' : 'error',
-          error: event.code === 1000 ? prev.error : event.reason || 'Recovery stream closed unexpectedly.',
-          lastEventAt: prev.lastEventAt ?? new Date(),
-        }));
-        if (event.code !== 1000) {
-          this.handlers.onError?.(event.reason || 'Recovery stream closed unexpectedly.');
-        }
+    const handleClose = (data: WebSocketMessage | CloseEvent) => {
+      if (this.client !== client || !this.isCloseEvent(data)) {
+        return;
+      }
+      const event = data;
+      this.updateState((prev) => ({
+        ...prev,
+        status: event.code === 1000 ? 'completed' : 'error',
+        error: event.code === 1000 ? prev.error : event.reason || 'Recovery stream closed unexpectedly.',
+        lastEventAt: prev.lastEventAt ?? new Date(),
+      }));
+      if (event.code !== 1000) {
+        this.handlers.onError?.(event.reason || 'Recovery stream closed unexpectedly.');
       }
     };
 
-    const handleError = (event: CloseEvent) => {
-      if (this.client === client) {
-        const message = event.reason || 'Recovery stream encountered an error.';
-        this.updateState((prev) => ({ ...prev, status: 'error', error: message }));
-        this.handlers.onError?.(message);
+    const handleError = (data: WebSocketMessage | CloseEvent) => {
+      if (this.client !== client || !this.isCloseEvent(data)) {
+        return;
       }
+      const event = data;
+      const message = event.reason || 'Recovery stream encountered an error.';
+      this.updateState((prev) => ({ ...prev, status: 'error', error: message }));
+      this.handlers.onError?.(message);
     };
 
     client.on('message', handleMessage);
@@ -310,6 +314,13 @@ class RecoveryStreaming implements RecoveryStreamingController {
       default:
         break;
     }
+  }
+
+  private isCloseEvent(data: WebSocketMessage | CloseEvent): data is CloseEvent {
+    return (
+      typeof (data as CloseEvent)?.code === 'number' &&
+      typeof (data as CloseEvent)?.reason === 'string'
+    );
   }
 
   private scheduleFlush(): void {

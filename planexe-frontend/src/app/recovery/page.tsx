@@ -16,6 +16,7 @@ import { Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
+import { AssembledDocumentSection } from '@/lib/api/fastapi-client';
 import { RecoveryHeader } from './components/RecoveryHeader';
 import { VerticalTimeline, TimelineTask } from './components/VerticalTimeline';
 import { ActiveTaskStage } from './components/ActiveTaskStage';
@@ -81,7 +82,7 @@ const RecoveryPageContent: React.FC = () => {
     if (!document.data || !document.data.sections) {
       return [];
     }
-    return document.data.sections.map((section) => ({
+    return document.data.sections.map((section: AssembledDocumentSection) => ({
       id: section.id,
       taskName: section.task_name,
       stage: section.stage,
