@@ -388,6 +388,7 @@ export interface WebSocketHeartbeatMessage {
 export interface WebSocketRawMessage {
   type: 'raw';
   message: string;
+  timestamp: string;
 }
 
 export interface WebSocketLLMStreamMessage {
@@ -449,7 +450,7 @@ export class WebSocketClient {
             this.emit('message', data);
           } catch {
             // If not JSON, emit as raw message
-            this.emit('message', { type: 'raw', message: event.data });
+            this.emit('message', { type: 'raw', message: event.data, timestamp: new Date().toISOString() });
           }
         };
 
