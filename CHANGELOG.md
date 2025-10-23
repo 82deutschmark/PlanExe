@@ -143,6 +143,11 @@ See [`docs/Cascading-Failure-Analysis-2025-10-22.md`](docs/Cascading-Failure-Ana
 - Rewrote planexe/lever/enrich_potential_levers.py to remove corrupted content that caused EnrichLeversTask to fail and block >50 dependent tasks.
 - Added required file header and restored a clean structured-LLM batching flow using Pydantic models.
 - Standardised serialization to emit characterized_levers (not enriched_levers) to match downstream readers in the pipeline.
+### FIX: Normalise Lever Settings Across Scenario Tasks
+- Added shared helper `planexe/lever/lever_setting_utils.py` to coerce lever payloads into `lever_name → selected_option` maps so both structured LLM responses and legacy consumers stay in sync.
+- Updated `planexe/lever/candidate_scenarios.py` to reuse the helper during serialization, guaranteeing the strict schema emitted to OpenAI matches the stored JSON contract.
+- Hardened downstream tasks (`planexe/lever/select_scenario.py`, `planexe/lever/scenarios_markdown.py`) to accept either array- or mapping-shaped lever settings, preventing future strict-schema regressions when scenario data flows through the pipeline.
+
 - Verified importability and compatibility with un_plan_pipeline.py consumers; EnrichLeversTask now reads and writes consistent keys.
 
 ### Ops/Dev Notes

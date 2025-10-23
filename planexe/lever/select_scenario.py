@@ -1,3 +1,10 @@
+# Author: gpt-5-codex
+# Date: 2025-10-24
+# PURPOSE: Select and justify the best strategic scenario with strict-schema
+#          compatibility and downstream serialization helpers.
+# SRP and DRY check: Pass - LLM orchestration and scenario selection remain
+#                    encapsulated without duplicating lever normalization logic.
+
 """
 Author: Codex using GPT-5
 Date: `2025-10-02T18:48:00Z`
@@ -12,13 +19,15 @@ PROMPT> python -m planexe.lever.select_scenario
 import json
 import logging
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
 from pydantic import BaseModel, Field
 from planexe.llm_util.llm_executor import LLMExecutor, PipelineStopRequested
+from planexe.lever.lever_setting_utils import lever_settings_to_mapping
 
 logger = logging.getLogger(__name__)
 
@@ -104,9 +113,16 @@ class SelectScenario:
         if not scenarios:
             raise ValueError("Scenarios list cannot be empty.")
 
-        logger.info(f"Analyzing plan and evaluating {len(scenarios)} scenarios.")
+        normalized_scenarios = [
+            cls._normalize_scenario_payload(scenario) for scenario in scenarios
+        ]
 
-        scenarios_json_str = json.dumps(scenarios, indent=2)
+        logger.info(
+            "Analyzing plan and evaluating %d scenarios.",
+            len(normalized_scenarios),
+        )
+
+        scenarios_json_str = json.dumps(normalized_scenarios, indent=2)
         user_prompt = (
             f"**Project Plan:**\n```\n{project_context}\n```\n\n"
             f"**Strategic Scenarios for Evaluation:**\n```json\n{scenarios_json_str}\n```\n\n"
@@ -164,6 +180,25 @@ class SelectScenario:
         """Saves the final analysis result to a JSON file."""
         response_dict = self.response.model_dump()
         Path(file_path).write_text(json.dumps(response_dict, indent=2))
+
+    @staticmethod
+    def _normalize_scenario_payload(scenario: Any) -> Dict[str, Any]:
+        """Return a JSON-safe scenario dict with lever settings as a mapping."""
+
+        if hasattr(scenario, "model_dump"):
+            scenario_dict = scenario.model_dump()
+        elif isinstance(scenario, Mapping):
+            scenario_dict = dict(scenario)
+        else:
+            raise TypeError(
+                "Each scenario must be a mapping or provide a model_dump() method."
+            )
+
+        lever_settings = lever_settings_to_mapping(
+            scenario_dict.get("lever_settings")
+        )
+        scenario_dict["lever_settings"] = lever_settings
+        return scenario_dict
 
 if __name__ == "__main__":
     from planexe.llm_util.llm_executor import LLMModelFromName
