@@ -1,30 +1,35 @@
-﻿/**
- * Author: Claude (Sonnet 4.5)
- * Date: 2025-10-23
- * PURPOSE: Focused Stage Recovery UI with asymmetric 15-70-15 layout maximizing
- *          streaming visibility and real-time feedback for Luigi pipeline execution.
- * SRP and DRY check: Pass - orchestrates layout composition using dedicated components
- *          and the useRecoveryPlan hook for state management.
+/**
+ * Author: ChatGPT using gpt-5-codex
+ * Date: 2025-10-23T00:00:00Z
+ * PURPOSE: Compose the recovery workspace layout using the decomposed data hook and
+ *          presentational panels while handling routing concerns.
+ * SRP and DRY check: Pass - isolates query/router glue in the page and defers data
+ *          orchestration plus UI rendering to dedicated modules introduced by the refactor plan.
  */
 'use client';
 
-import React, { Suspense, useMemo } from 'react';
+import React, { Suspense, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Home } from 'lucide-react';
 
+import { PipelineDetails, PipelineLogsPanel } from '@/components/PipelineDetails';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { fastApiClient, CreatePlanRequest } from '@/lib/api/fastapi-client';
 
-import { AssembledDocumentSection } from '@/lib/api/fastapi-client';
 import { RecoveryHeader } from './components/RecoveryHeader';
-import { VerticalTimeline, TimelineTask } from './components/VerticalTimeline';
-import { ActiveTaskStage } from './components/ActiveTaskStage';
-import { LivePlanDocument, PlanSection } from './components/LivePlanDocument';
-import { SystemLogDrawer, LogEntry } from './components/SystemLogDrawer';
+import { StageTimeline } from './components/StageTimeline';
+import { RecoveryReportPanel } from './components/ReportPanel';
+import { RecoveryArtefactPanel } from './components/ArtefactList';
+import { ArtefactPreview } from './components/ArtefactPreview';
 import { useRecoveryPlan } from './useRecoveryPlan';
-
-const TOTAL_PIPELINE_TASKS = 61;
 
 const MissingPlanMessage: React.FC = () => (
   <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
@@ -59,80 +64,59 @@ const MissingPlanMessage: React.FC = () => (
 );
 
 const RecoveryPageContent: React.FC = () => {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const rawPlanId = searchParams?.get('planId') ?? '';
   const planId = useMemo(() => rawPlanId.replace(/\s+/g, '').trim(), [rawPlanId]);
 
   const recovery = useRecoveryPlan(planId);
-  const { plan, llmStreams, connection, artefacts, document } = recovery;
+  const { plan, reports, artefacts, preview, stageSummary, connection, lastWriteAt } = recovery;
+  const { clear: clearPreview, select: selectPreview, file: previewFile } = preview;
 
-  // Convert artefacts to timeline tasks (simplified for now)
-  const timelineTasks: TimelineTask[] = useMemo(() => {
-    return artefacts.items.map((artefact, index) => ({
-      id: `task-${index}`,
-      name: artefact.taskName || artefact.filename,
-      stage: artefact.stage || 'unknown',
-      status: 'completed' as const,
-      order: artefact.order || index,
-    }));
-  }, [artefacts.items]);
-
-  // Use real assembled document data from backend
-  const planSections: PlanSection[] = useMemo(() => {
-    if (!document.data || !document.data.sections) {
-      return [];
+  const handleRelaunch = useCallback(async () => {
+    if (!plan.data) {
+      return;
     }
-    return document.data.sections.map((section: AssembledDocumentSection) => ({
-      id: section.id,
-      taskName: section.task_name,
-      stage: section.stage,
-      content: section.content,
-      createdAt: section.created_at,
-      isFinal: section.is_final,
-    }));
-  }, [document.data]);
 
-  // Mock logs for now
-  const logs: LogEntry[] = useMemo(() => {
-    const entries: LogEntry[] = [];
+    try {
+      const speedDefault: CreatePlanRequest['speed_vs_detail'] = 'balanced_speed_and_detail';
+      const llmModel =
+        typeof window !== 'undefined'
+          ? window.prompt('Enter LLM model ID for relaunch (leave blank for default):', '') ?? ''
+          : '';
+      const speedInput =
+        typeof window !== 'undefined'
+          ? window.prompt(
+              'Speed vs detail (fast_but_skip_details | balanced_speed_and_detail | all_details_but_slow):',
+              speedDefault,
+            ) ?? speedDefault
+          : speedDefault;
+      const allowedSpeeds: CreatePlanRequest['speed_vs_detail'][] = [
+        'fast_but_skip_details',
+        'balanced_speed_and_detail',
+        'all_details_but_slow',
+      ];
+      const normalisedSpeed = (speedInput || speedDefault).trim() as CreatePlanRequest['speed_vs_detail'];
+      const speed_vs_detail = allowedSpeeds.includes(normalisedSpeed) ? normalisedSpeed : speedDefault;
 
-    if (connection.status === 'connected') {
-      entries.push({
-        timestamp: new Date().toLocaleTimeString(),
-        text: 'WebSocket connection established',
-        level: 'info',
+      const newPlan = await fastApiClient.relaunchPlan(plan.data, {
+        llmModel: llmModel.trim() || undefined,
+        speedVsDetail: speed_vs_detail,
       });
+
+      clearPreview();
+      router.replace(`/recovery?planId=${encodeURIComponent(newPlan.plan_id)}`);
+    } catch (error) {
+      console.error('Failed to relaunch plan from recovery workspace', error);
     }
-
-    if (connection.error) {
-      entries.push({
-        timestamp: new Date().toLocaleTimeString(),
-        text: connection.error,
-        level: 'error',
-      });
-    }
-
-    return entries;
-  }, [connection]);
-
-  const hasErrors = logs.some((log) => log.level === 'error');
-
-  const completedTasksCount = timelineTasks.filter((t) => t.status === 'completed').length;
-
-  // Calculate total tokens from all llmStreams
-  const totalTokens = useMemo(() => {
-    return Object.values(llmStreams.all).reduce((sum, stream) => {
-      return sum + (stream.usage?.totalTokens ?? 0);
-    }, 0);
-  }, [llmStreams.all]);
+  }, [plan.data, clearPreview, router]);
 
   if (!planId) {
     return <MissingPlanMessage />;
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background">
-      {/* Header: 5vh */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
       <RecoveryHeader
         planId={planId}
         plan={plan.data}
@@ -140,67 +124,66 @@ const RecoveryPageContent: React.FC = () => {
         planLoading={plan.loading}
         statusDisplay={plan.statusDisplay}
         connection={connection}
-        lastWriteAt={recovery.lastWriteAt}
+        lastWriteAt={lastWriteAt}
         onRefreshPlan={plan.refresh}
-        onRelaunch={async () => {
-          // Simplified relaunch handler
-          alert('Relaunch feature coming soon!');
-        }}
+        onRelaunch={handleRelaunch}
       />
-
-      {/* Main Grid: 15-70-15 asymmetric */}
-      <div className="flex-1 grid grid-cols-[15vw_70vw_15vw] gap-2 p-2 overflow-hidden">
-        {/* Left Rail: Vertical Timeline */}
-        <aside className="overflow-y-auto">
-          <VerticalTimeline
-            tasks={timelineTasks}
-            activeTaskId={llmStreams.active?.interactionId.toString()}
-            onTaskClick={(taskId) => {
-              // Jump to task in stream history by finding the corresponding llm stream
-              const taskNum = parseInt(taskId.replace('task-', ''), 10);
-              if (!isNaN(taskNum) && timelineTasks[taskNum]) {
-                const targetArtefact = artefacts.items[taskNum];
-                if (targetArtefact && llmStreams.history.length > 0) {
-                  // Find the stream that corresponds to this task's stage
-                  const matchingStream = llmStreams.history.find(
-                    (stream) => stream.stage === targetArtefact.stage
-                  );
-                  if (matchingStream) {
-                    // Scroll to active task (would scroll in ActiveTaskStage)
-                    // For now, we're tracking by displaying the matching stream info
-                  }
+      <main className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4">
+        <div className="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)] xl:grid-cols-[380px_minmax(0,1fr)]">
+          <div className="flex flex-col gap-4">
+            <StageTimeline
+              stages={stageSummary}
+              isLoading={artefacts.loading && stageSummary.length === 0}
+              connection={connection}
+            />
+            <PipelineDetails planId={planId} className="h-fit" />
+          </div>
+          <div className="flex flex-col gap-4">
+            <PipelineLogsPanel planId={planId} className="h-fit" />
+            <RecoveryReportPanel
+              canonicalHtml={reports.canonicalHtml}
+              canonicalError={reports.canonicalError}
+              fallbackPlanId={planId}
+              isRefreshing={reports.loading || artefacts.loading}
+              onRefresh={() => {
+                void reports.refresh();
+                void artefacts.refresh();
+              }}
+              lastUpdated={lastWriteAt}
+            />
+            <RecoveryArtefactPanel
+              planId={planId}
+              artefacts={artefacts.items}
+              isLoading={artefacts.loading}
+              error={artefacts.error}
+              lastUpdated={artefacts.lastUpdated}
+              onRefresh={artefacts.refresh}
+              onPreview={selectPreview}
+            />
+            <ArtefactPreview
+              planId={planId}
+              preview={{
+                file: previewFile,
+                data: preview.data,
+                loading: preview.loading,
+                error: preview.error,
+                clear: clearPreview,
+              }}
+              onDownload={async () => {
+                if (!previewFile) {
+                  return;
                 }
-              }
-            }}
-            totalTasks={TOTAL_PIPELINE_TASKS}
-            completedTasks={completedTasksCount}
-            totalTokens={totalTokens}
-          />
-        </aside>
-
-        {/* Center Stage: Active Task Theater */}
-        <main className="flex flex-col overflow-hidden">
-          <ActiveTaskStage stream={llmStreams.active} />
-        </main>
-
-        {/* Right Rail: Live Plan Document */}
-        <aside className="overflow-y-auto">
-          <LivePlanDocument
-            sections={planSections}
-            markdown={document.data?.markdown || ''}
-            wordCount={document.data?.word_count || 0}
-            isLoading={document.loading}
-            isUpdating={llmStreams.active !== null && llmStreams.active.status === 'running'}
-          />
-        </aside>
-      </div>
-
-      {/* Bottom Drawer: System Logs (collapsed by default) */}
-      <SystemLogDrawer
-        logs={logs}
-        connection={connection}
-        hasErrors={hasErrors}
-      />
+                try {
+                  const blob = await fastApiClient.downloadFile(planId, previewFile.filename);
+                  fastApiClient.downloadBlob(blob, previewFile.filename);
+                } catch (err) {
+                  console.error('Download from preview failed', err);
+                }
+              }}
+            />
+          </div>
+        </div>
+      </main>
     </div>
   );
 };
@@ -212,5 +195,3 @@ const RecoveryPage: React.FC = () => (
 );
 
 export default RecoveryPage;
-
-

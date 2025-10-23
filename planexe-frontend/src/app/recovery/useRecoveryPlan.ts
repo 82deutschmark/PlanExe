@@ -1,43 +1,49 @@
+/**
+ * Author: ChatGPT using gpt-5-codex
+ * Date: 2025-10-23T00:00:00Z
+ * PURPOSE: Centralises recovery workspace data fetching, streaming integration, and
+ *          derived view state so the page and presentational components remain lean.
+ * SRP and DRY check: Pass - consolidates API/WebSocket orchestration without duplicating
+ *          logic across UI widgets, complementing existing FastAPI client helpers.
+ */
 'use client';
 
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import type { ReactElement } from 'react';
+import { createElement, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import {
-  AssembledDocumentResponse,
   fastApiClient,
   PlanArtefactListResponse,
   PlanResponse,
-  WebSocketHeartbeatMessage,
-  WebSocketLLMStreamMessage,
-  WebSocketStatusMessage,
+  WebSocketMessage,
 } from '@/lib/api/fastapi-client';
-import {
-  getStatusDisplay,
-  isTextRenderable,
-  KNOWN_STAGE_ORDER,
-  mapArtefacts,
-  normaliseStageKey,
-  normaliseStageLabel,
-  parseRecoveryTimestamp,
-  sanitizeStreamPayload,
-} from '@/lib/utils/recovery';
-import {
-  createRecoveryStreaming,
-  type RecoveryLLMStreamContext,
-  type RecoveryStreamHandlers,
-  type RecoveryStreamingController,
-  type RecoveryStreamingStatus,
-} from '@/lib/streaming/recovery-streaming';
-import type {
-  LLMStreamState,
-  PreviewData,
-  RecoveryConnectionState,
-  StageSummary,
-  StatusDisplay,
-  StreamEventRecord,
-  StreamStatus,
-} from '@/lib/types/recovery';
-import type { PlanFile } from '@/lib/types/pipeline';
+import { Activity, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { PlanFile } from '@/lib/types/pipeline';
+
+export interface StatusDisplay {
+  label: string;
+  badgeClass: string;
+  icon: ReactElement;
+}
+
+export interface StageSummary {
+  key: string;
+  label: string;
+  count: number;
+}
+
+export interface PreviewData {
+  mode: 'text' | 'html';
+  content: string;
+}
+
+export interface RecoveryConnectionState {
+  mode: 'websocket' | 'polling';
+  status: 'connecting' | 'connected' | 'error' | 'closed';
+  lastEventAt: Date | null;
+  lastHeartbeatAt: Date | null;
+  error?: string | null;
+}
 
 interface RecoveryState {
   plan: PlanResponse | null;
@@ -50,15 +56,10 @@ interface RecoveryState {
   canonicalHtml: string | null;
   canonicalError: string | null;
   reportLoading: boolean;
-  assembledDocument: AssembledDocumentResponse | null;
-  assembledDocumentLoading: boolean;
-  assembledDocumentError: string | null;
   previewFile: PlanFile | null;
   previewLoading: boolean;
   previewError: string | null;
   previewData: PreviewData | null;
-  llmStreams: Record<number, LLMStreamState>;
-  activeStreamId: number | null;
 }
 
 type RecoveryAction =
@@ -66,43 +67,53 @@ type RecoveryAction =
   | { type: 'plan:start' }
   | { type: 'plan:success'; payload: PlanResponse }
   | { type: 'plan:error'; error: string }
-  | {
-      type: 'plan:update';
-      payload: Partial<Pick<PlanResponse, 'status' | 'progress_percentage' | 'progress_message'>>;
-    }
+  | { type: 'plan:update'; payload: Partial<Pick<PlanResponse, 'status' | 'progress_percentage' | 'progress_message'>> }
   | { type: 'artefacts:start' }
   | { type: 'artefacts:success'; payload: { artefacts: PlanFile[]; timestamp: Date } }
   | { type: 'artefacts:error'; error: string }
   | { type: 'report:start' }
   | { type: 'report:success'; payload: string }
   | { type: 'report:error'; error: string | null }
-  | { type: 'document:start' }
-  | { type: 'document:success'; payload: AssembledDocumentResponse }
-  | { type: 'document:error'; error: string }
   | { type: 'preview:select'; file: PlanFile | null }
   | { type: 'preview:start' }
   | { type: 'preview:success'; payload: PreviewData }
   | { type: 'preview:error'; error: string }
-  | { type: 'preview:clear' }
-  | {
-      type: 'llm_stream:start';
-      payload: {
-        interactionId: number;
-        planId: string;
-        stage: string;
-        taskName?: string;
-        promptPreview?: string;
-        event: StreamEventRecord;
-      };
-    }
-  | {
-      type: 'llm_stream:update';
-      payload: { interactionId: number; updates: Partial<LLMStreamState>; event?: StreamEventRecord };
-    }
-  | {
-      type: 'llm_stream:complete';
-      payload: { interactionId: number; status: StreamStatus; error?: string; event?: StreamEventRecord };
-    };
+  | { type: 'preview:clear' };
+
+const KNOWN_STAGE_ORDER: string[] = [
+  'setup',
+  'initial_analysis',
+  'strategic_planning',
+  'scenario_planning',
+  'contextual_analysis',
+  'assumption_management',
+  'project_planning',
+  'governance',
+  'resource_planning',
+  'documentation',
+  'work_breakdown',
+  'scheduling',
+  'reporting',
+  'completion',
+];
+
+const STAGE_LABELS: Record<string, string> = {
+  setup: 'Setup',
+  initial_analysis: 'Initial Analysis',
+  strategic_planning: 'Strategic Planning',
+  scenario_planning: 'Scenario Planning',
+  contextual_analysis: 'Contextual Analysis',
+  assumption_management: 'Assumption Management',
+  project_planning: 'Project Planning',
+  governance: 'Governance',
+  resource_planning: 'Resource Planning',
+  documentation: 'Documentation',
+  work_breakdown: 'Work Breakdown',
+  scheduling: 'Scheduling',
+  reporting: 'Reporting',
+  completion: 'Completion',
+  unknown: 'Unclassified Stage',
+};
 
 const INITIAL_STATE: RecoveryState = {
   plan: null,
@@ -115,26 +126,19 @@ const INITIAL_STATE: RecoveryState = {
   canonicalHtml: null,
   canonicalError: null,
   reportLoading: false,
-  assembledDocument: null,
-  assembledDocumentLoading: false,
-  assembledDocumentError: null,
   previewFile: null,
   previewLoading: false,
   previewError: null,
   previewData: null,
-  llmStreams: {},
-  activeStreamId: null,
 };
 
 const initialConnectionState: RecoveryConnectionState = {
   mode: 'polling',
-  status: 'idle',
+  status: 'closed',
   lastEventAt: null,
   lastHeartbeatAt: null,
   error: null,
 };
-
-const MAX_STREAM_DELTAS = 200;
 
 const recoveryReducer = (state: RecoveryState, action: RecoveryAction): RecoveryState => {
   switch (action.type) {
@@ -155,8 +159,10 @@ const recoveryReducer = (state: RecoveryState, action: RecoveryAction): Recovery
         plan: {
           ...state.plan,
           ...action.payload,
-          progress_percentage: action.payload.progress_percentage ?? state.plan.progress_percentage,
-          progress_message: action.payload.progress_message ?? state.plan.progress_message,
+          progress_percentage:
+            action.payload.progress_percentage ?? state.plan.progress_percentage,
+          progress_message:
+            action.payload.progress_message ?? state.plan.progress_message,
         },
       };
     case 'artefacts:start':
@@ -179,15 +185,19 @@ const recoveryReducer = (state: RecoveryState, action: RecoveryAction): Recovery
     case 'report:start':
       return { ...state, reportLoading: true, canonicalError: null };
     case 'report:success':
-      return { ...state, reportLoading: false, canonicalHtml: action.payload, canonicalError: null };
+      return {
+        ...state,
+        reportLoading: false,
+        canonicalHtml: action.payload,
+        canonicalError: null,
+      };
     case 'report:error':
-      return { ...state, reportLoading: false, canonicalHtml: null, canonicalError: action.error };
-    case 'document:start':
-      return { ...state, assembledDocumentLoading: true, assembledDocumentError: null };
-    case 'document:success':
-      return { ...state, assembledDocumentLoading: false, assembledDocument: action.payload, assembledDocumentError: null };
-    case 'document:error':
-      return { ...state, assembledDocumentLoading: false, assembledDocument: null, assembledDocumentError: action.error };
+      return {
+        ...state,
+        reportLoading: false,
+        canonicalHtml: null,
+        canonicalError: action.error,
+      };
     case 'preview:select':
       return {
         ...state,
@@ -210,80 +220,128 @@ const recoveryReducer = (state: RecoveryState, action: RecoveryAction): Recovery
         previewError: null,
         previewData: null,
       };
-    case 'llm_stream:start':
-      return {
-        ...state,
-        llmStreams: {
-          ...state.llmStreams,
-          [action.payload.interactionId]: {
-            interactionId: action.payload.interactionId,
-            planId: action.payload.planId,
-            stage: action.payload.stage,
-            taskName: action.payload.taskName,
-            textDeltas: [],
-            reasoningDeltas: [],
-            textBuffer: '',
-            reasoningBuffer: '',
-            status: 'running',
-            lastUpdated: Date.now(),
-            promptPreview: action.payload.promptPreview ?? null,
-            rawPayload: null,
-            finalText: undefined,
-            finalReasoning: undefined,
-            usage: undefined,
-            error: undefined,
-            events: [action.payload.event],
-          },
-        },
-        activeStreamId: action.payload.interactionId,
-      };
-    case 'llm_stream:update': {
-      const existing = state.llmStreams[action.payload.interactionId];
-      if (!existing) return state;
-
-      const updatedEvents = action.payload.event
-        ? [...existing.events, action.payload.event]
-        : existing.events;
-
-      return {
-        ...state,
-        llmStreams: {
-          ...state.llmStreams,
-          [action.payload.interactionId]: {
-            ...existing,
-            ...action.payload.updates,
-            events: updatedEvents,
-            lastUpdated: Date.now(),
-          },
-        },
-      };
-    }
-    case 'llm_stream:complete': {
-      const existing = state.llmStreams[action.payload.interactionId];
-      if (!existing) return state;
-
-      const updatedEvents = action.payload.event
-        ? [...existing.events, action.payload.event]
-        : existing.events;
-
-      return {
-        ...state,
-        llmStreams: {
-          ...state.llmStreams,
-          [action.payload.interactionId]: {
-            ...existing,
-            status: action.payload.status,
-            error: action.payload.error,
-            events: updatedEvents,
-            lastUpdated: Date.now(),
-          },
-        },
-        activeStreamId: state.activeStreamId === action.payload.interactionId ? null : state.activeStreamId,
-      };
-    }
     default:
       return state;
   }
+};
+
+const normaliseStageKey = (stage?: string | null): string => {
+  if (!stage || typeof stage !== 'string' || stage.trim() === '') {
+    return 'unknown';
+  }
+  return stage.trim().toLowerCase();
+};
+
+const normaliseStageLabel = (stage?: string | null): string => {
+  const key = normaliseStageKey(stage);
+  if (STAGE_LABELS[key]) {
+    return STAGE_LABELS[key];
+  }
+  return key
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const isWebSocketMessage = (data: WebSocketMessage | CloseEvent): data is WebSocketMessage => {
+  return (
+    typeof (data as WebSocketMessage)?.type === 'string' &&
+    'timestamp' in data &&
+    typeof (data as WebSocketMessage).timestamp === 'string'
+  );
+};
+
+const getStatusDisplay = (status: PlanResponse['status']): StatusDisplay => {
+  switch (status) {
+    case 'completed':
+      return {
+        label: 'Completed',
+        badgeClass: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+        icon: createElement(CheckCircle2, {
+          className: 'h-4 w-4 text-emerald-600',
+          'aria-hidden': 'true',
+        }),
+      };
+    case 'running':
+      return {
+        label: 'Running',
+        badgeClass: 'border-blue-200 bg-blue-50 text-blue-700',
+        icon: createElement(Activity, {
+          className: 'h-4 w-4 text-blue-600',
+          'aria-hidden': 'true',
+        }),
+      };
+    case 'failed':
+      return {
+        label: 'Failed',
+        badgeClass: 'border-red-200 bg-red-50 text-red-700',
+        icon: createElement(XCircle, {
+          className: 'h-4 w-4 text-red-600',
+          'aria-hidden': 'true',
+        }),
+      };
+    case 'cancelled':
+      return {
+        label: 'Cancelled',
+        badgeClass: 'border-slate-200 bg-slate-50 text-slate-700',
+        icon: createElement(AlertCircle, {
+          className: 'h-4 w-4 text-slate-600',
+          'aria-hidden': 'true',
+        }),
+      };
+    default:
+      return {
+        label: 'Pending',
+        badgeClass: 'border-amber-200 bg-amber-50 text-amber-700',
+        icon: createElement(Clock, {
+          className: 'h-4 w-4 text-amber-600',
+          'aria-hidden': 'true',
+        }),
+      };
+  }
+};
+
+const mapArtefacts = (response: PlanArtefactListResponse): PlanFile[] => {
+  const entries = (response.artefacts ?? []).filter((entry) => entry && entry.filename);
+  const mapped = entries.map<PlanFile>((entry) => {
+    const normalizedStage = normaliseStageKey(entry.stage);
+    return {
+      filename: entry.filename,
+      stage: normalizedStage,
+      contentType: entry.content_type ?? 'unknown',
+      sizeBytes: entry.size_bytes ?? 0,
+      createdAt: entry.created_at ?? new Date().toISOString(),
+      description: entry.description ?? entry.filename,
+      taskName: entry.task_name ?? normalizedStage ?? entry.filename,
+      order: entry.order ?? Number.MAX_SAFE_INTEGER,
+    };
+  });
+
+  mapped.sort((a, b) => {
+    const orderDiff = (a.order ?? 9999) - (b.order ?? 9999);
+    if (orderDiff !== 0) {
+      return orderDiff;
+    }
+    return a.filename.localeCompare(b.filename);
+  });
+
+  return mapped;
+};
+
+const isTextRenderable = (file: PlanFile): boolean => {
+  const contentType = file.contentType.toLowerCase();
+  if (contentType.startsWith('text/')) {
+    return true;
+  }
+  if (
+    contentType.includes('json') ||
+    contentType.includes('csv') ||
+    contentType.includes('xml') ||
+    contentType.includes('html')
+  ) {
+    return true;
+  }
+  return /\.(md|txt|json|csv|html?)$/i.test(file.filename);
 };
 
 export interface UseRecoveryPlanReturn {
@@ -298,12 +356,6 @@ export interface UseRecoveryPlanReturn {
     canonicalHtml: string | null;
     canonicalError: string | null;
     loading: boolean;
-    refresh: () => Promise<void>;
-  };
-  document: {
-    data: AssembledDocumentResponse | null;
-    loading: boolean;
-    error: string | null;
     refresh: () => Promise<void>;
   };
   artefacts: {
@@ -321,125 +373,15 @@ export interface UseRecoveryPlanReturn {
     select: (file: PlanFile | null) => void;
     clear: () => void;
   };
-  llmStreams: {
-    active: LLMStreamState | null;
-    history: LLMStreamState[];
-    all: Record<number, LLMStreamState>;
-  };
   stageSummary: StageSummary[];
   connection: RecoveryConnectionState;
   lastWriteAt: Date | null;
 }
 
-const mapStreamingStatusToConnection = (
-  status: RecoveryStreamingStatus,
-): RecoveryConnectionState['status'] => {
-  switch (status) {
-    case 'idle':
-      return 'idle';
-    case 'connecting':
-      return 'connecting';
-    case 'running':
-      return 'connected';
-    case 'completed':
-      return 'closed';
-    case 'error':
-    default:
-      return 'error';
-  }
-};
-
-const createStreamEventRecord = (
-  message: WebSocketLLMStreamMessage,
-  payload: Record<string, unknown>,
-): StreamEventRecord => ({
-  sequence: typeof message.sequence === 'number' ? message.sequence : Date.now(),
-  event: message.event,
-  timestamp: message.timestamp,
-  payload,
-});
-
 export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
   const [state, dispatch] = useReducer(recoveryReducer, INITIAL_STATE);
   const [connection, setConnection] = useState<RecoveryConnectionState>(initialConnectionState);
-  const streamingRef = useRef<RecoveryStreamingController | null>(null);
-  const llmStreamsRef = useRef<Record<number, LLMStreamState>>({});
-  const planIdRef = useRef(planId);
-
-  const createStreamState = useCallback(
-    (
-      context: RecoveryLLMStreamContext,
-      overrides: Partial<LLMStreamState> = {},
-    ): LLMStreamState => ({
-      interactionId: context.message.interaction_id,
-      planId: context.message.plan_id,
-      stage: context.message.stage,
-      taskName: context.message.stage,
-      textDeltas: [],
-      reasoningDeltas: [],
-      textBuffer: '',
-      reasoningBuffer: '',
-      status: 'running',
-      lastUpdated: Date.now(),
-      promptPreview: null,
-      rawPayload: null,
-      // Initialize optional fields explicitly to ensure consistency with reducer state
-      // and to avoid potential issues when streams are created via fallback initializers
-      // in ensureStreamState (when delta/final arrive before start event).
-      finalText: undefined,
-      finalReasoning: undefined,
-      usage: undefined,
-      error: undefined,
-      events: [],
-      ...overrides,
-    }),
-    [],
-  );
-
-  const ensureStreamState = useCallback(
-    (
-      context: RecoveryLLMStreamContext,
-      initializer?: () => LLMStreamState,
-    ): LLMStreamState => {
-      const interactionId = context.message.interaction_id;
-      let existing = llmStreamsRef.current[interactionId];
-      if (!existing) {
-        existing = initializer ? initializer() : createStreamState(context);
-        llmStreamsRef.current[interactionId] = existing;
-      }
-      return existing;
-    },
-    [createStreamState],
-  );
-
-  useEffect(() => {
-    llmStreamsRef.current = state.llmStreams;
-  }, [state.llmStreams]);
-
-  useEffect(() => {
-    planIdRef.current = planId;
-  }, [planId]);
-
-  useEffect(() => {
-    const streaming = createRecoveryStreaming();
-    streamingRef.current = streaming;
-
-    const unsubscribe = streaming.subscribe((snapshot) => {
-      setConnection({
-        mode: planIdRef.current ? 'websocket' : 'polling',
-        status: mapStreamingStatusToConnection(snapshot.status),
-        lastEventAt: snapshot.lastEventAt,
-        lastHeartbeatAt: snapshot.lastHeartbeatAt,
-        error: snapshot.error,
-      });
-    });
-
-    return () => {
-      unsubscribe();
-      streaming.close();
-      streamingRef.current = null;
-    };
-  }, []);
+  const wsClientRef = useRef<ReturnType<typeof fastApiClient.streamProgress> | null>(null);
 
   const refreshPlan = useCallback(async () => {
     if (!planId) {
@@ -498,21 +440,6 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
     }
   }, [planId]);
 
-  const refreshAssembledDocument = useCallback(async () => {
-    if (!planId) {
-      dispatch({ type: 'document:error', error: 'Missing plan identifier.' });
-      return;
-    }
-    dispatch({ type: 'document:start' });
-    try {
-      const doc = await fastApiClient.getAssembledDocument(planId);
-      dispatch({ type: 'document:success', payload: doc });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to assemble plan document.';
-      dispatch({ type: 'document:error', error: message });
-    }
-  }, [planId]);
-
   const selectPreview = useCallback((file: PlanFile | null) => {
     dispatch({ type: 'preview:select', file });
   }, []);
@@ -521,253 +448,22 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
     dispatch({ type: 'preview:clear' });
   }, []);
 
-  const handleStreamStart = useCallback(
-    (context: RecoveryLLMStreamContext) => {
-      const promptPreview = typeof context.data.prompt_preview === 'string' ? context.data.prompt_preview : undefined;
-      const eventRecord = createStreamEventRecord(context.message, context.data);
-
-      // CRITICAL: Prime the ref immediately to avoid race condition where
-      // subsequent text_delta/reasoning_delta/final messages arrive before
-      // the reducer commits and the useEffect syncs the ref. Without this,
-      // fast streams (start→final in <16ms) lose all data.
-      const initialStream = createStreamState(context, {
-        promptPreview: promptPreview ?? null,
-        events: [eventRecord],
-      });
-      llmStreamsRef.current[context.message.interaction_id] = initialStream;
-
-      dispatch({
-        type: 'llm_stream:start',
-        payload: {
-          interactionId: context.message.interaction_id,
-          planId: context.message.plan_id,
-          stage: context.message.stage,
-          taskName: context.message.stage,
-          promptPreview,
-          event: eventRecord,
-        },
-      });
-    },
-    [createStreamState, dispatch],
-  );
-
-  const handleStreamTextDelta = useCallback(
-    (context: RecoveryLLMStreamContext) => {
-      if (!context.delta) {
-        return;
-      }
-      const eventRecord = createStreamEventRecord(context.message, context.data);
-      const existing = ensureStreamState(context, () =>
-        createStreamState(context, { events: [eventRecord] }),
-      );
-      const nextDeltas = [...existing.textDeltas, context.delta];
-      if (nextDeltas.length > MAX_STREAM_DELTAS) {
-        nextDeltas.splice(0, nextDeltas.length - MAX_STREAM_DELTAS);
-      }
-      existing.textDeltas = nextDeltas;
-      existing.textBuffer = context.buffer.text;
-      existing.lastUpdated = Date.now();
-      dispatch({
-        type: 'llm_stream:update',
-        payload: {
-          interactionId: context.message.interaction_id,
-          updates: {
-            textDeltas: nextDeltas,
-            textBuffer: context.buffer.text,
-          },
-          event: eventRecord,
-        },
-      });
-    },
-    [createStreamState, dispatch, ensureStreamState],
-  );
-
-  const handleStreamReasoningDelta = useCallback(
-    (context: RecoveryLLMStreamContext) => {
-      if (!context.delta) {
-        return;
-      }
-      const eventRecord = createStreamEventRecord(context.message, context.data);
-      const existing = ensureStreamState(context, () =>
-        createStreamState(context, { events: [eventRecord] }),
-      );
-      const nextDeltas = [...existing.reasoningDeltas, context.delta];
-      if (nextDeltas.length > MAX_STREAM_DELTAS) {
-        nextDeltas.splice(0, nextDeltas.length - MAX_STREAM_DELTAS);
-      }
-      existing.reasoningDeltas = nextDeltas;
-      existing.reasoningBuffer = context.buffer.reasoning;
-      existing.lastUpdated = Date.now();
-      dispatch({
-        type: 'llm_stream:update',
-        payload: {
-          interactionId: context.message.interaction_id,
-          updates: {
-            reasoningDeltas: nextDeltas,
-            reasoningBuffer: context.buffer.reasoning,
-          },
-          event: eventRecord,
-        },
-      });
-    },
-    [createStreamState, dispatch, ensureStreamState],
-  );
-
-  const handleStreamFinal = useCallback(
-    (context: RecoveryLLMStreamContext) => {
-      const eventRecord = createStreamEventRecord(context.message, context.data);
-      const existing = ensureStreamState(context, () =>
-        createStreamState(context, { events: [eventRecord] }),
-      );
-
-      const updates: Partial<LLMStreamState> = {
-        textBuffer: context.buffer.text,
-        reasoningBuffer: context.buffer.reasoning,
-      };
-
-      if (typeof context.data.text === 'string') {
-        updates.finalText = context.data.text;
-      }
-      if (typeof context.data.reasoning === 'string') {
-        updates.finalReasoning = context.data.reasoning;
-      }
-      if (context.data.usage && typeof context.data.usage === 'object' && !Array.isArray(context.data.usage)) {
-        const usage = context.data.usage as Record<string, unknown>;
-        updates.usage = {
-          inputTokens: typeof usage.input_tokens === 'number' ? usage.input_tokens : undefined,
-          outputTokens: typeof usage.output_tokens === 'number' ? usage.output_tokens : undefined,
-          reasoningTokens: typeof usage.reasoning_tokens === 'number' ? usage.reasoning_tokens : undefined,
-          totalTokens: typeof usage.total_tokens === 'number' ? usage.total_tokens : undefined,
-        };
-      }
-
-      const rawPayload = sanitizeStreamPayload((context.data as Record<string, unknown>).raw_payload);
-      if (Object.keys(rawPayload).length > 0) {
-        updates.rawPayload = rawPayload;
-      }
-
-      existing.textBuffer = updates.textBuffer ?? existing.textBuffer;
-      existing.reasoningBuffer = updates.reasoningBuffer ?? existing.reasoningBuffer;
-      if (updates.finalText !== undefined) {
-        existing.finalText = updates.finalText;
-      }
-      if (updates.finalReasoning !== undefined) {
-        existing.finalReasoning = updates.finalReasoning;
-      }
-      if (updates.usage) {
-        existing.usage = updates.usage;
-      }
-      if (updates.rawPayload) {
-        existing.rawPayload = updates.rawPayload;
-      }
-      existing.lastUpdated = Date.now();
-      dispatch({
-        type: 'llm_stream:update',
-        payload: {
-          interactionId: context.message.interaction_id,
-          updates,
-          event: eventRecord,
-        },
-      });
-    },
-    [createStreamState, dispatch, ensureStreamState],
-  );
-
-  const handleStreamEnd = useCallback(
-    (context: RecoveryLLMStreamContext) => {
-      const status = typeof context.data.status === 'string' ? context.data.status.toLowerCase() : 'completed';
-      const error = typeof context.data.error === 'string' ? context.data.error : undefined;
-      const eventRecord = createStreamEventRecord(context.message, context.data);
-      dispatch({
-        type: 'llm_stream:complete',
-        payload: {
-          interactionId: context.message.interaction_id,
-          status: status === 'failed' ? 'failed' : 'completed',
-          error,
-          event: eventRecord,
-        },
-      });
-    },
-    [dispatch],
-  );
-
-  const handleStatusMessage = useCallback(
-    (message: WebSocketStatusMessage) => {
-      dispatch({
-        type: 'plan:update',
-        payload: {
-          status: message.status as PlanResponse['status'],
-          progress_percentage: message.progress_percentage,
-          progress_message: message.message,
-        },
-      });
-    },
-    [dispatch],
-  );
-
-  const handleHeartbeatMessage = useCallback((message: WebSocketHeartbeatMessage) => {
-    const timestamp = parseRecoveryTimestamp(message.timestamp) ?? new Date();
-    setConnection((prev) => ({
-      ...prev,
-      lastHeartbeatAt: timestamp,
-      lastEventAt: timestamp,
-    }));
-  }, []);
-
-  const handleStreamError = useCallback((message: string) => {
-    setConnection((prev) => ({
-      ...prev,
-      mode: 'polling',
-      status: 'error',
-      error: message || 'Live connection lost. Falling back to polling.',
-    }));
-  }, []);
-
+  // Reset state when planId changes
   useEffect(() => {
     dispatch({ type: 'reset' });
     clearPreview();
-
-    if (!planId) {
-      setConnection(initialConnectionState);
-      streamingRef.current?.close();
-      return;
+    setConnection((prev) => ({
+      ...initialConnectionState,
+      status: planId ? 'connecting' : 'closed',
+      mode: planId ? 'websocket' : 'polling',
+    }));
+    if (wsClientRef.current) {
+      wsClientRef.current.disconnect();
+      wsClientRef.current = null;
     }
+  }, [planId, clearPreview]);
 
-    const streaming = streamingRef.current;
-    if (!streaming) {
-      return;
-    }
-
-    const handlers: RecoveryStreamHandlers = {
-      onStart: handleStreamStart,
-      onTextDelta: handleStreamTextDelta,
-      onReasoningDelta: handleStreamReasoningDelta,
-      onFinal: handleStreamFinal,
-      onEnd: handleStreamEnd,
-      onStatus: handleStatusMessage,
-      onHeartbeat: handleHeartbeatMessage,
-      onError: handleStreamError,
-    };
-
-    setConnection({ mode: 'websocket', status: 'connecting', lastEventAt: null, lastHeartbeatAt: null, error: null });
-
-    streaming
-      .start(planId, handlers)
-      .catch(() => {
-        setConnection({
-          mode: 'polling',
-          status: 'error',
-          lastEventAt: null,
-          lastHeartbeatAt: null,
-          error: 'Unable to establish live connection. Using polling updates.',
-        });
-      });
-
-    return () => {
-      streaming.close();
-    };
-  }, [planId, clearPreview, handleStreamStart, handleStreamTextDelta, handleStreamReasoningDelta, handleStreamFinal, handleStreamEnd, handleStatusMessage, handleHeartbeatMessage, handleStreamError]);
-
+  // Initial fetches
   useEffect(() => {
     if (!planId) {
       return;
@@ -775,9 +471,9 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
     void refreshPlan();
     void refreshArtefacts();
     void refreshReport();
-    void refreshAssembledDocument();
-  }, [planId, refreshPlan, refreshArtefacts, refreshReport, refreshAssembledDocument]);
+  }, [planId, refreshPlan, refreshArtefacts, refreshReport]);
 
+  // Artefact polling
   useEffect(() => {
     if (!planId) {
       return;
@@ -788,16 +484,129 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
     return () => window.clearInterval(interval);
   }, [planId, refreshArtefacts]);
 
+  // WebSocket connection for live updates
   useEffect(() => {
     if (!planId) {
       return;
     }
-    const interval = window.setInterval(() => {
-      void refreshAssembledDocument();
-    }, 3000);
-    return () => window.clearInterval(interval);
-  }, [planId, refreshAssembledDocument]);
 
+    let cancelled = false;
+    const client = fastApiClient.streamProgress(planId);
+    wsClientRef.current = client;
+
+    setConnection({ mode: 'websocket', status: 'connecting', lastEventAt: null, lastHeartbeatAt: null, error: null });
+
+    const handleMessage = (payload: WebSocketMessage | CloseEvent) => {
+      if (cancelled || !isWebSocketMessage(payload)) {
+        return;
+      }
+      const message = payload;
+      const timestamp = message.timestamp ? new Date(message.timestamp) : new Date();
+      switch (message.type) {
+        case 'status':
+          setConnection((prev) => ({
+            ...prev,
+            mode: 'websocket',
+            status: 'connected',
+            lastEventAt: timestamp,
+            error: null,
+          }));
+          dispatch({
+            type: 'plan:update',
+            payload: {
+              status: message.status as PlanResponse['status'],
+              progress_percentage: message.progress_percentage,
+              progress_message: message.message,
+            },
+          });
+          break;
+        case 'heartbeat':
+          setConnection((prev) => ({
+            ...prev,
+            mode: 'websocket',
+            status: 'connected',
+            lastHeartbeatAt: timestamp,
+            lastEventAt: timestamp,
+            error: null,
+          }));
+          break;
+        case 'stream_end':
+          setConnection((prev) => ({
+            ...prev,
+            mode: 'websocket',
+            status: 'closed',
+            lastEventAt: timestamp,
+          }));
+          break;
+        case 'error':
+          setConnection((prev) => ({
+            ...prev,
+            mode: 'websocket',
+            status: 'error',
+            lastEventAt: timestamp,
+            error: message.message,
+          }));
+          break;
+        case 'llm_stream':
+        case 'log':
+          setConnection((prev) => ({
+            ...prev,
+            lastEventAt: timestamp,
+          }));
+          break;
+        default:
+          break;
+      }
+    };
+
+    const handleClose = () => {
+      if (cancelled) {
+        return;
+      }
+      setConnection((prev) => ({
+        ...prev,
+        mode: 'polling',
+        status: 'error',
+        error: prev.error ?? 'Live connection lost. Falling back to polling.',
+      }));
+    };
+
+    client.on('message', handleMessage);
+    client.on('close', handleClose);
+    client.on('error', handleClose);
+
+    client
+      .connect()
+      .then(() => {
+        if (cancelled) {
+          return;
+        }
+        setConnection((prev) => ({ ...prev, status: 'connected', mode: 'websocket', error: null }));
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+        setConnection({
+          mode: 'polling',
+          status: 'error',
+          lastEventAt: null,
+          lastHeartbeatAt: null,
+          error: 'Unable to establish live connection. Using polling updates.',
+        });
+      });
+
+    return () => {
+      cancelled = true;
+      client.off('message', handleMessage);
+      client.off('close', handleClose);
+      client.off('error', handleClose);
+      client.disconnect();
+      wsClientRef.current = null;
+    };
+  }, [planId]);
+
+  // Preview loader
   useEffect(() => {
     if (!planId || !state.previewFile) {
       dispatch({ type: 'preview:clear' });
@@ -820,7 +629,7 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
         if (cancelled) {
           return;
         }
-        const maxPreviewSize = 2 * 1024 * 1024;
+        const maxPreviewSize = 2 * 1024 * 1024; // 2 MB
         if (blob.size > maxPreviewSize) {
           dispatch({ type: 'preview:error', error: 'File is too large to preview inline. Download it instead.' });
           return;
@@ -869,9 +678,7 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
       counts.set(key, (counts.get(key) ?? 0) + 1);
     });
 
-    const orderedKeys = KNOWN_STAGE_ORDER.concat(
-      [...counts.keys()].filter((key) => !KNOWN_STAGE_ORDER.includes(key)).sort(),
-    );
+    const orderedKeys = KNOWN_STAGE_ORDER.concat([...counts.keys()].filter((key) => !KNOWN_STAGE_ORDER.includes(key)).sort());
     const uniqueKeys = Array.from(new Set(orderedKeys));
 
     return uniqueKeys.map((key) => ({
@@ -881,20 +688,7 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
     }));
   }, [state.artefacts]);
 
-  const statusDisplay = useMemo(() => (state.plan ? getStatusDisplay(state.plan.status) : null), [state.plan]);
-
-  const llmStreams = useMemo(() => {
-    const activeStream = state.activeStreamId !== null ? state.llmStreams[state.activeStreamId] ?? null : null;
-    const history = Object.values(state.llmStreams)
-      .filter((s) => s.status !== 'running')
-      .sort((a, b) => b.lastUpdated - a.lastUpdated);
-
-    return {
-      active: activeStream,
-      history,
-      all: state.llmStreams,
-    };
-  }, [state.llmStreams, state.activeStreamId]);
+  const statusDisplay = useMemo(() => (state.plan ? getStatusDisplay(state.plan.status) : null), [state.plan?.status]);
 
   return {
     plan: {
@@ -909,12 +703,6 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
       canonicalError: state.canonicalError,
       loading: state.reportLoading,
       refresh: refreshReport,
-    },
-    document: {
-      data: state.assembledDocument,
-      loading: state.assembledDocumentLoading,
-      error: state.assembledDocumentError,
-      refresh: refreshAssembledDocument,
     },
     artefacts: {
       items: state.artefacts,
@@ -931,7 +719,6 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
       select: selectPreview,
       clear: clearPreview,
     },
-    llmStreams,
     stageSummary,
     connection,
     lastWriteAt: state.artefactLastUpdated,

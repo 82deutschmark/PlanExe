@@ -1,3 +1,32 @@
+## [0.6.3] - 2025-10-23
+
+### REVERT: Restore working recovery UI layout (2-column grid)
+
+**Problem**: Recent "Focused Stage Recovery UI" refactor broke the recovery workspace by:
+- Replacing the proven 2-column layout with experimental 15-70-15 asymmetric streaming UI
+- Deleting critical components: PipelineDetails, PipelineLogsPanel, RecoveryReportPanel, RecoveryArtefactPanel
+- Adding incomplete experimental components: ActiveTaskStage, LivePlanDocument, SystemLogDrawer, VerticalTimeline
+- Simplifying useRecoveryPlan hook beyond what the UI required
+
+**Solution**: Reverted recovery UI to working ui2 branch layout:
+
+**Files Restored**:
+- [`planexe-frontend/src/app/recovery/page.tsx`](planexe-frontend/src/app/recovery/page.tsx) - 2-column grid layout (360px sidebar + flexible main)
+- [`planexe-frontend/src/app/recovery/useRecoveryPlan.ts`](planexe-frontend/src/app/recovery/useRecoveryPlan.ts) - Full data orchestration hook
+- [`planexe-frontend/src/app/recovery/components/RecoveryHeader.tsx`](planexe-frontend/src/app/recovery/components/RecoveryHeader.tsx)
+- [`planexe-frontend/src/app/recovery/components/StageTimeline.tsx`](planexe-frontend/src/app/recovery/components/StageTimeline.tsx)
+- [`planexe-frontend/src/app/recovery/components/ArtefactPreview.tsx`](planexe-frontend/src/app/recovery/components/ArtefactPreview.tsx)
+
+**Files Deleted**:
+- ❌ ActiveTaskStage.tsx
+- ❌ LivePlanDocument.tsx
+- ❌ SystemLogDrawer.tsx
+- ❌ VerticalTimeline.tsx
+
+**Result**: Recovery workspace now shows all 6 functional panels in proven 2-column layout:
+1. Left: Stage Timeline + Pipeline Details
+2. Right: Pipeline Logs + Report Panel + Artefact List + Artefact Preview
+
 ## [0.6.2] - 2025-10-23
 
 ### FIX & FEAT: Fully integrate assembled-document endpoint and fix streaming race condition

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Author: ChatGPT using gpt-5-codex
  * Date: 2025-10-23T00:00:00Z
  * PURPOSE: Present the recovery workspace header, status bar, and plan summary card
@@ -24,8 +24,7 @@ import {
 } from '@/components/ui/card';
 import { PlanResponse } from '@/lib/api/fastapi-client';
 
-import { parseRecoveryTimestamp } from '@/lib/utils/recovery';
-import type { RecoveryConnectionState, StatusDisplay } from '@/lib/types/recovery';
+import { RecoveryConnectionState, StatusDisplay } from '../useRecoveryPlan';
 
 interface RecoveryHeaderProps {
   planId: string;
@@ -39,9 +38,7 @@ interface RecoveryHeaderProps {
   onRelaunch: () => void | Promise<void>;
 }
 
-export const describeConnection = (
-  connection: RecoveryConnectionState,
-): { label: string; tone: 'good' | 'warn' | 'idle'; detail: string } => {
+const describeConnection = (connection: RecoveryConnectionState): { label: string; tone: 'good' | 'warn' | 'idle'; detail: string } => {
   if (connection.status === 'error') {
     return {
       label: 'Polling',
@@ -93,7 +90,6 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
     }
     return `Last artefact ${formatDistanceToNow(lastWriteAt, { addSuffix: true })}`;
   }, [lastWriteAt]);
-  const createdAt = useMemo(() => (plan ? parseRecoveryTimestamp(plan.created_at) : null), [plan]);
 
   return (
     <>
@@ -137,7 +133,7 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
               <CardTitle className="flex items-center gap-2 text-lg">
                 <span className="font-mono text-base">{planId}</span>
                 {statusDisplay && (
-                  <Badge className={`${statusDisplay.badgeClass} flex items-center gap-1`}> 
+                  <Badge className={`${statusDisplay.badgeClass} flex items-center gap-1`}>
                     {statusDisplay.icon}
                     {statusDisplay.label}
                   </Badge>
@@ -163,9 +159,7 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
                   {plan.progress_message && (
                     <span className="mt-1 max-w-sm text-xs text-slate-400">{plan.progress_message}</span>
                   )}
-                  <span className="mt-1 text-xs">
-                    Created {createdAt ? createdAt.toLocaleString() : 'time unavailable'}
-                  </span>
+                  <span className="mt-1 text-xs">Created {new Date(plan.created_at).toLocaleString()}</span>
                 </>
               ) : planError ? (
                 <span className="text-xs text-red-600">{planError}</span>
@@ -186,5 +180,3 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
     </>
   );
 };
-
-

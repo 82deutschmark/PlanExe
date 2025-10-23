@@ -12,7 +12,7 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDistanceToNow } from 'date-fns';
 
-import type { RecoveryConnectionState, StageSummary } from '@/lib/types/recovery';
+import { RecoveryConnectionState, StageSummary } from '../useRecoveryPlan';
 
 interface StageTimelineProps {
   stages: StageSummary[];

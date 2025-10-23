@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Author: ChatGPT using gpt-5-codex
  * Date: 2025-10-23T00:00:00Z
  * PURPOSE: Inline artefact preview card with error boundaries so large or
@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/card';
 import { PlanFile } from '@/lib/types/pipeline';
 
-import type { PreviewData } from '@/lib/types/recovery';
+import { PreviewData } from '../useRecoveryPlan';
 
 interface ArtefactPreviewProps {
   planId: string;
@@ -98,5 +98,3 @@ export const ArtefactPreview: React.FC<ArtefactPreviewProps> = ({ planId, previe
     </Card>
   );
 };
-
-
