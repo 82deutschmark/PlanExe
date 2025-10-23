@@ -20,7 +20,8 @@ COPY planexe_api/requirements.txt ./planexe_api/
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -e . && \
-    pip install --no-cache-dir -r planexe_api/requirements.txt
+    pip install --no-cache-dir -r planexe_api/requirements.txt && \
+    pip install --no-cache-dir --upgrade "openai>=2.5.0"
 
 # Copy application code
 COPY . .
