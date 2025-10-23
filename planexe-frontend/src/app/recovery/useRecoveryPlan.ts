@@ -366,6 +366,45 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
   const llmStreamsRef = useRef<Record<number, LLMStreamState>>({});
   const planIdRef = useRef(planId);
 
+  const createStreamState = useCallback(
+    (
+      context: RecoveryLLMStreamContext,
+      overrides: Partial<LLMStreamState> = {},
+    ): LLMStreamState => ({
+      interactionId: context.message.interaction_id,
+      planId: context.message.plan_id,
+      stage: context.message.stage,
+      taskName: context.message.stage,
+      textDeltas: [],
+      reasoningDeltas: [],
+      textBuffer: '',
+      reasoningBuffer: '',
+      status: 'running',
+      lastUpdated: Date.now(),
+      promptPreview: null,
+      rawPayload: null,
+      events: [],
+      ...overrides,
+    }),
+    [],
+  );
+
+  const ensureStreamState = useCallback(
+    (
+      context: RecoveryLLMStreamContext,
+      initializer?: () => LLMStreamState,
+    ): LLMStreamState => {
+      const interactionId = context.message.interaction_id;
+      let existing = llmStreamsRef.current[interactionId];
+      if (!existing) {
+        existing = initializer ? initializer() : createStreamState(context);
+        llmStreamsRef.current[interactionId] = existing;
+      }
+      return existing;
+    },
+    [createStreamState],
+  );
+
   useEffect(() => {
     llmStreamsRef.current = state.llmStreams;
   }, [state.llmStreams]);
@@ -484,21 +523,10 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
       // subsequent text_delta/reasoning_delta/final messages arrive before
       // the reducer commits and the useEffect syncs the ref. Without this,
       // fast streams (start→final in <16ms) lose all data.
-      const initialStream: LLMStreamState = {
-        interactionId: context.message.interaction_id,
-        planId: context.message.plan_id,
-        stage: context.message.stage,
-        taskName: context.message.stage,
-        textDeltas: [],
-        reasoningDeltas: [],
-        textBuffer: '',
-        reasoningBuffer: '',
-        status: 'running',
-        lastUpdated: Date.now(),
+      const initialStream = createStreamState(context, {
         promptPreview: promptPreview ?? null,
-        rawPayload: null,
         events: [eventRecord],
-      };
+      });
       llmStreamsRef.current[context.message.interaction_id] = initialStream;
 
       dispatch({
@@ -513,7 +541,7 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
         },
       });
     },
-    [dispatch],
+    [createStreamState, dispatch],
   );
 
   const handleStreamTextDelta = useCallback(
@@ -521,32 +549,17 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
       if (!context.delta) {
         return;
       }
-      let existing = llmStreamsRef.current[context.message.interaction_id];
-      if (!existing) {
-        // Fallback: if start message was missed, create a placeholder
-        // This should rarely happen with the ref priming above
-        existing = {
-          interactionId: context.message.interaction_id,
-          planId: context.message.plan_id,
-          stage: context.message.stage,
-          taskName: context.message.stage,
-          textDeltas: [],
-          reasoningDeltas: [],
-          textBuffer: '',
-          reasoningBuffer: '',
-          status: 'running',
-          lastUpdated: Date.now(),
-          promptPreview: null,
-          rawPayload: null,
-          events: [],
-        };
-        llmStreamsRef.current[context.message.interaction_id] = existing;
-      }
+      const eventRecord = createStreamEventRecord(context.message, context.data);
+      const existing = ensureStreamState(context, () =>
+        createStreamState(context, { events: [eventRecord] }),
+      );
       const nextDeltas = [...existing.textDeltas, context.delta];
       if (nextDeltas.length > MAX_STREAM_DELTAS) {
         nextDeltas.splice(0, nextDeltas.length - MAX_STREAM_DELTAS);
       }
-      const eventRecord = createStreamEventRecord(context.message, context.data);
+      existing.textDeltas = nextDeltas;
+      existing.textBuffer = context.buffer.text;
+      existing.lastUpdated = Date.now();
       dispatch({
         type: 'llm_stream:update',
         payload: {
@@ -559,7 +572,7 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
         },
       });
     },
-    [dispatch],
+    [createStreamState, dispatch, ensureStreamState],
   );
 
   const handleStreamReasoningDelta = useCallback(
@@ -567,31 +580,17 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
       if (!context.delta) {
         return;
       }
-      let existing = llmStreamsRef.current[context.message.interaction_id];
-      if (!existing) {
-        // Fallback: if start message was missed, create a placeholder
-        existing = {
-          interactionId: context.message.interaction_id,
-          planId: context.message.plan_id,
-          stage: context.message.stage,
-          taskName: context.message.stage,
-          textDeltas: [],
-          reasoningDeltas: [],
-          textBuffer: '',
-          reasoningBuffer: '',
-          status: 'running',
-          lastUpdated: Date.now(),
-          promptPreview: null,
-          rawPayload: null,
-          events: [],
-        };
-        llmStreamsRef.current[context.message.interaction_id] = existing;
-      }
+      const eventRecord = createStreamEventRecord(context.message, context.data);
+      const existing = ensureStreamState(context, () =>
+        createStreamState(context, { events: [eventRecord] }),
+      );
       const nextDeltas = [...existing.reasoningDeltas, context.delta];
       if (nextDeltas.length > MAX_STREAM_DELTAS) {
         nextDeltas.splice(0, nextDeltas.length - MAX_STREAM_DELTAS);
       }
-      const eventRecord = createStreamEventRecord(context.message, context.data);
+      existing.reasoningDeltas = nextDeltas;
+      existing.reasoningBuffer = context.buffer.reasoning;
+      existing.lastUpdated = Date.now();
       dispatch({
         type: 'llm_stream:update',
         payload: {
@@ -604,31 +603,15 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
         },
       });
     },
-    [dispatch],
+    [createStreamState, dispatch, ensureStreamState],
   );
 
   const handleStreamFinal = useCallback(
     (context: RecoveryLLMStreamContext) => {
-      let existing = llmStreamsRef.current[context.message.interaction_id];
-      if (!existing) {
-        // Fallback: if start message was missed, create a placeholder
-        existing = {
-          interactionId: context.message.interaction_id,
-          planId: context.message.plan_id,
-          stage: context.message.stage,
-          taskName: context.message.stage,
-          textDeltas: [],
-          reasoningDeltas: [],
-          textBuffer: '',
-          reasoningBuffer: '',
-          status: 'running',
-          lastUpdated: Date.now(),
-          promptPreview: null,
-          rawPayload: null,
-          events: [],
-        };
-        llmStreamsRef.current[context.message.interaction_id] = existing;
-      }
+      const eventRecord = createStreamEventRecord(context.message, context.data);
+      const existing = ensureStreamState(context, () =>
+        createStreamState(context, { events: [eventRecord] }),
+      );
 
       const updates: Partial<LLMStreamState> = {
         textBuffer: context.buffer.text,
@@ -656,7 +639,21 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
         updates.rawPayload = rawPayload;
       }
 
-      const eventRecord = createStreamEventRecord(context.message, context.data);
+      existing.textBuffer = updates.textBuffer ?? existing.textBuffer;
+      existing.reasoningBuffer = updates.reasoningBuffer ?? existing.reasoningBuffer;
+      if (updates.finalText !== undefined) {
+        existing.finalText = updates.finalText;
+      }
+      if (updates.finalReasoning !== undefined) {
+        existing.finalReasoning = updates.finalReasoning;
+      }
+      if (updates.usage) {
+        existing.usage = updates.usage;
+      }
+      if (updates.rawPayload) {
+        existing.rawPayload = updates.rawPayload;
+      }
+      existing.lastUpdated = Date.now();
       dispatch({
         type: 'llm_stream:update',
         payload: {
@@ -666,7 +663,7 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
         },
       });
     },
-    [dispatch],
+    [createStreamState, dispatch, ensureStreamState],
   );
 
   const handleStreamEnd = useCallback(

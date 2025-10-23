@@ -499,15 +499,34 @@ class PipelineExecutionService:
             print(f"WARNING: Run directory {run_id_dir} missing for plan {plan_id}; attempting DB fallback only")
 
         if return_code == 0:
-            # Check for expected final output file
+            # Treat database artefacts as authoritative to avoid misclassifying successes
             final_output_file = run_id_dir / FilenameEnum.REPORT.value
+            has_local_report = final_output_file.exists()
+            has_database_report = False
 
-            if final_output_file.exists():
+            try:
+                has_database_report = (
+                    db_service.get_plan_content_by_filename(plan_id, FilenameEnum.REPORT.value)
+                    is not None
+                )
+            except Exception as exc:
+                print(f"WARNING: Failed to query database for report content for plan {plan_id}: {exc}")
+
+            if not has_local_report and has_database_report:
+                print(
+                    f"INFO: Plan {plan_id} report missing on filesystem; serving from database copy instead."
+                )
+
+            if has_local_report or has_database_report:
                 # Success - broadcast completion message
+                progress_message = f"Plan generation completed! {files_synced} files persisted to database."
+                if not has_local_report and has_database_report:
+                    progress_message += " Local report copy unavailable; continuing with database artefact."
+
                 success_data = {
                     "type": "status",
                     "status": "completed",
-                    "message": "[OK] Pipeline completed successfully! All files generated.",
+                    "message": "[OK] Pipeline completed successfully! Final report stored in database.",
                     "progress_percentage": 100,
                     "timestamp": _utcnow_iso()
                 }
@@ -519,7 +538,7 @@ class PipelineExecutionService:
                 db_service.update_plan(plan_id, {
                     "status": PlanStatus.completed.value,
                     "progress_percentage": 100,
-                    "progress_message": f"Plan generation completed! {files_synced} files persisted to database.",
+                    "progress_message": progress_message,
                     "completed_at": _utcnow()
                 })
             else:
@@ -527,7 +546,7 @@ class PipelineExecutionService:
                 failure_data = {
                     "type": "status",
                     "status": "failed",
-                    "message": "[ERROR] Pipeline completed but final output file not found",
+                    "message": "[ERROR] Pipeline completed but final report not found in filesystem or database",
                     "timestamp": _utcnow_iso()
                 }
                 try:
