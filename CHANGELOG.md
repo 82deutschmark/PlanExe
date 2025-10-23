@@ -1,4 +1,4 @@
-## [Unreleased] - Pipeline Error Fixes + Method Consistency
+## [0.5.0] - 2025-10-23
 
 ### FIX: Add Missing to_markdown() Methods to Pipeline Classes
 **Files**:
@@ -373,7 +373,8 @@ See [`docs/Cascading-Failure-Analysis-2025-10-22.md`](docs/Cascading-Failure-Ana
 - Updated `planexe/lever/candidate_scenarios.py` to reuse the helper during serialization, guaranteeing the strict schema emitted to OpenAI matches the stored JSON contract.
 - Hardened downstream tasks (`planexe/lever/select_scenario.py`, `planexe/lever/scenarios_markdown.py`) to accept either array- or mapping-shaped lever settings, preventing future strict-schema regressions when scenario data flows through the pipeline.
 
-- Verified importability and compatibility with un_plan_pipeline.py consumers; EnrichLeversTask now reads and writes consistent keys.
+- Verified importability and compatibility with 
+un_plan_pipeline.py consumers; EnrichLeversTask now reads and writes consistent keys.
 
 ### Ops/Dev Notes
 - Root cause: prior file corruption led to malformed code segments and inconsistent JSON keys.
