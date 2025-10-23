@@ -1,3 +1,21 @@
+## [0.4.6] - 2025-10-22 - Recovery Page UX Improvements
+
+### UI: Recovery Page Layout and Visual Hierarchy Cleanup
+**Files**: [`planexe-frontend/src/app/recovery/page.tsx`](planexe-frontend/src/app/recovery/page.tsx), [`planexe-frontend/src/components/files/ReportTaskFallback.tsx`](planexe-frontend/src/components/files/ReportTaskFallback.tsx)
+
+#### Changes
+- **Reduced Margins**: Changed main container padding from `px-6 py-8` to `px-4 py-4`; header from `px-6 py-4` to `px-4 py-3`; increased max-width from `max-w-6xl` to `max-w-7xl` for better screen utilization
+- **Improved Layout**: Responsive grid layout `lg:grid-cols-[360px_minmax(0,1fr)] xl:grid-cols-[380px_minmax(0,1fr)]` with consistent `gap-4` spacing throughout
+- **Flattened Component Hierarchy**: Added `variant` prop to `ReportTaskFallback` (`'embedded'` | `'standalone'`) to remove redundant Card wrapper when embedded in `ReportPanel`
+- **Removed Non-functional UI**: Hidden completion badges, download buttons, and section counts when no report data exists; buttons now appear only when data is loaded
+- **Visual Consistency**: Reduced all CardTitle sizes to `text-base`, CardDescription to `text-sm`, added `pb-3` to CardHeaders; removed gradient backgrounds for cleaner appearance
+- **Code Cleanup**: Removed unused `planId` prop from `ReportPanel` component
+
+#### Impact
+- Eliminates confusing card-within-card nesting and repetitive UI elements
+- Better use of screen real estate with tighter, more balanced spacing
+- Clearer visual hierarchy and improved scannability
+- Reduced cognitive load by hiding non-functional elements until relevant
 
 ## [0.4.5] - 2025-10-22 - Pipeline Resilience: Schema Validation Hardening
 

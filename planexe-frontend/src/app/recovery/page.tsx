@@ -138,9 +138,9 @@ const getStatusDisplay = (status: PlanResponse['status']): StatusDisplay => {
 
 const StageTimeline: React.FC<{ stages: StageSummary[] }> = ({ stages }) => (
   <Card className="h-fit">
-    <CardHeader>
-      <CardTitle className="text-lg">Stage Progress</CardTitle>
-      <CardDescription>
+    <CardHeader className="pb-3">
+      <CardTitle className="text-base">Stage Progress</CardTitle>
+      <CardDescription className="text-sm">
         Stages are marked as soon as artefacts land in plan_content.
       </CardDescription>
     </CardHeader>
@@ -172,13 +172,12 @@ const StageTimeline: React.FC<{ stages: StageSummary[] }> = ({ stages }) => (
 );
 
 const ReportPanel: React.FC<{
-  planId: string;
   canonicalHtml: string | null;
   canonicalError: string | null;
   fallbackPlanId: string;
   onRefresh: () => void;
   isRefreshing: boolean;
-}> = ({ planId, canonicalHtml, canonicalError, fallbackPlanId, onRefresh, isRefreshing }) => {
+}> = ({ canonicalHtml, canonicalError, fallbackPlanId, onRefresh, isRefreshing }) => {
   const canonicalAvailable = Boolean(canonicalHtml);
   const [activeTab, setActiveTab] = useState<'canonical' | 'fallback'>(
     canonicalAvailable ? 'canonical' : 'fallback'
@@ -192,10 +191,10 @@ const ReportPanel: React.FC<{
 
   return (
     <Card>
-      <CardHeader className="flex flex-wrap items-center justify-between gap-3">
+      <CardHeader className="flex flex-wrap items-center justify-between gap-3 pb-3">
         <div>
-          <CardTitle className="text-lg">Plan Report</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-base">Plan Report</CardTitle>
+          <CardDescription className="text-sm">
             Select between canonical output and database-assembled fallback.
           </CardDescription>
         </div>
@@ -235,7 +234,7 @@ const ReportPanel: React.FC<{
             )}
           </TabsContent>
           <TabsContent value="fallback">
-            <ReportTaskFallback planId={fallbackPlanId} />
+            <ReportTaskFallback planId={fallbackPlanId} variant="embedded" />
           </TabsContent>
         </Tabs>
       </CardContent>
@@ -541,8 +540,8 @@ const WorkspaceContent: React.FC = () => {
   if (!planId) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
-        <header className="border-b border-slate-200 bg-white/90 backdrop-blur px-6 py-4">
-          <div className="mx-auto flex max-w-6xl items-center justify-between">
+        <header className="border-b border-slate-200 bg-white/90 backdrop-blur px-4 py-3">
+          <div className="mx-auto flex max-w-7xl items-center justify-between">
             <h1 className="text-2xl font-semibold text-slate-800">Plan Recovery Workspace</h1>
             <Button asChild variant="outline" size="sm">
               <Link href="/">
@@ -552,7 +551,7 @@ const WorkspaceContent: React.FC = () => {
             </Button>
           </div>
         </header>
-        <main className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-8">
+        <main className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4">
           <Card className="border-amber-200 bg-amber-50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-amber-800">
@@ -573,8 +572,8 @@ const WorkspaceContent: React.FC = () => {
   const statusDisplay = plan ? getStatusDisplay(plan.status) : null;
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
-      <header className="border-b border-slate-200 bg-white/90 backdrop-blur px-6 py-4">
-        <div className="mx-auto flex max-w-6xl items-center justify-between">
+      <header className="border-b border-slate-200 bg-white/90 backdrop-blur px-4 py-3">
+        <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-slate-800">Plan Recovery Workspace</h1>
             <p className="text-sm text-slate-500">
@@ -602,9 +601,9 @@ const WorkspaceContent: React.FC = () => {
           </div>
         </div>
       </header>
-      <main className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-8">
+      <main className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4">
         <Card>
-          <CardHeader className="flex flex-wrap items-center justify-between gap-4">
+          <CardHeader className="flex flex-wrap items-center justify-between gap-4 pb-3">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <span className="font-mono text-base">{planId}</span>
@@ -632,15 +631,14 @@ const WorkspaceContent: React.FC = () => {
             </div>
           </CardHeader>
         </Card>
-        <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-          <div className="flex flex-col gap-6">
+        <div className="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)] xl:grid-cols-[380px_minmax(0,1fr)]">
+          <div className="flex flex-col gap-4">
             <StageTimeline stages={stageSummary} />
             <PipelineDetails planId={planId} className="h-fit" />
           </div>
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-4">
             <PipelineLogsPanel planId={planId} className="h-fit" />
             <ReportPanel
-              planId={planId}
               canonicalHtml={canonicalHtml}
               canonicalError={canonicalError}
               fallbackPlanId={planId}
@@ -661,10 +659,10 @@ const WorkspaceContent: React.FC = () => {
             />
             {previewFile && (
               <Card>
-                <CardHeader className="flex flex-wrap items-center justify-between gap-4">
+                <CardHeader className="flex flex-wrap items-center justify-between gap-4 pb-3">
                   <div>
-                    <CardTitle className="text-lg">Preview: {previewFile.filename}</CardTitle>
-                    <CardDescription>
+                    <CardTitle className="text-base">Preview: {previewFile.filename}</CardTitle>
+                    <CardDescription className="text-sm">
                       {previewFile.contentType.toUpperCase()} ·{' '}
                       {previewFile.sizeBytes.toLocaleString()} bytes
                     </CardDescription>

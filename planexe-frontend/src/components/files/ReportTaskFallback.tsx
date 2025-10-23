@@ -23,6 +23,7 @@ import {
 interface ReportTaskFallbackProps {
   planId: string;
   className?: string;
+  variant?: 'embedded' | 'standalone';
 }
 
 const downloadStringAsFile = (content: string, filename: string, mimeType: string) => {
@@ -37,7 +38,7 @@ const downloadStringAsFile = (content: string, filename: string, mimeType: strin
   URL.revokeObjectURL(url);
 };
 
-export const ReportTaskFallback: React.FC<ReportTaskFallbackProps> = ({ planId, className = '' }) => {
+export const ReportTaskFallback: React.FC<ReportTaskFallbackProps> = ({ planId, className = '', variant = 'standalone' }) => {
   const [report, setReport] = useState<FallbackReportResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -144,38 +145,50 @@ export const ReportTaskFallback: React.FC<ReportTaskFallbackProps> = ({ planId, 
     );
   };
 
-  return (
-    <Card className={`border-blue-200 bg-gradient-to-r from-blue-50 via-white to-purple-50 ${className}`}>
-      <CardHeader className="pb-4">
-        <CardTitle className="flex items-center justify-between text-xl">
-          <span>Recovered Report Assembly</span>
-          <div className="flex items-center space-x-2">
-            <Badge variant="outline" className="text-xs">
-              Completion {report ? `${report.completion_percentage.toFixed(2)}%` : 'N/A'}
-            </Badge>
-            <Badge variant="secondary" className="text-xs">
-              {recoveredSectionCount} sections
-            </Badge>
-          </div>
-        </CardTitle>
-        <CardDescription>
-          Build a fallback report directly from <code className="rounded bg-slate-900 px-1 py-0.5 text-xs text-white">plan_content</code> when Luigi fails to assemble <code className="rounded bg-slate-900 px-1 py-0.5 text-xs text-white">029-report.html</code>.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+  const content = (
+    <div className={variant === 'embedded' ? 'space-y-4' : ''}>
+      {variant === 'standalone' && (
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center justify-between text-xl">
+            <span>Recovered Report Assembly</span>
+            <div className="flex items-center space-x-2">
+              {report && (
+                <>
+                  <Badge variant="outline" className="text-xs">
+                    Completion {report.completion_percentage.toFixed(2)}%
+                  </Badge>
+                  <Badge variant="secondary" className="text-xs">
+                    {recoveredSectionCount} sections
+                  </Badge>
+                </>
+              )}
+            </div>
+          </CardTitle>
+          <CardDescription>
+            Build a fallback report directly from <code className="rounded bg-slate-900 px-1 py-0.5 text-xs text-white">plan_content</code> when Luigi fails to assemble <code className="rounded bg-slate-900 px-1 py-0.5 text-xs text-white">029-report.html</code>.
+          </CardDescription>
+        </CardHeader>
+      )}
+      <div className={variant === 'embedded' ? 'space-y-4' : 'space-y-6'}>
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="outline" size="sm" onClick={loadReport} disabled={isLoading}>
             <RefreshCcw className="mr-2 h-4 w-4" />
             {isLoading ? 'Refreshing...' : hasAttempted ? 'Refresh' : 'Check availability'}
           </Button>
-          <Button variant="default" size="sm" onClick={handleDownloadHtml} disabled={!report || isLoading}>
-            <Download className="mr-2 h-4 w-4" />
-            Download HTML
-          </Button>
-          <Button variant="ghost" size="sm" onClick={handleDownloadMissingJson} disabled={!report || missingSectionCount === 0 || isLoading}>
-            <Download className="mr-2 h-4 w-4" />
-            Missing Sections JSON
-          </Button>
+          {report && (
+            <>
+              <Button variant="default" size="sm" onClick={handleDownloadHtml} disabled={isLoading}>
+                <Download className="mr-2 h-4 w-4" />
+                Download HTML
+              </Button>
+              {missingSectionCount > 0 && (
+                <Button variant="ghost" size="sm" onClick={handleDownloadMissingJson} disabled={isLoading}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Missing Sections JSON
+                </Button>
+              )}
+            </>
+          )}
           {report?.generated_at && (
             <span className="text-xs text-slate-500">
               Generated at {new Date(report.generated_at).toLocaleString()}
@@ -214,17 +227,29 @@ export const ReportTaskFallback: React.FC<ReportTaskFallbackProps> = ({ planId, 
         )}
 
         {!error && !isLoading && !report && (
-          <div className="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+          <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
             {hasAttempted
               ? 'Fallback report not yet available. Retry after the pipeline writes plan content.'
-              : 'No request sent yet. Select “Check availability” once the pipeline has created outputs.'}
+              : variant === 'embedded'
+                ? 'Click "Check availability" to load the fallback report.'
+                : 'No request sent yet. Select "Check availability" once the pipeline has created outputs.'}
           </div>
         )}
 
         {isLoading && (
           <div className="text-sm text-slate-500">Loading fallback report...</div>
         )}
-      </CardContent>
+      </div>
+    </div>
+  );
+
+  if (variant === 'embedded') {
+    return <div className={className}>{content}</div>;
+  }
+
+  return (
+    <Card className={`border-blue-200 bg-white ${className}`}>
+      {content}
     </Card>
   );
 };
