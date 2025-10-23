@@ -1,3 +1,10 @@
+# Author: gpt-5-codex
+# Date: 2025-10-24
+# PURPOSE: Render strategic scenarios into markdown while normalising lever
+#          payloads emitted by strict structured LLM outputs.
+# SRP and DRY check: Pass - focuses solely on formatting and lever coercion
+#                    without duplicating markdown generation elsewhere.
+
 """
 Present the scenarios in a human readable format.
 Where the selected scenario is presented first, and the rejected scenarios at the end.
@@ -12,8 +19,11 @@ Output file:
 PROMPT> python -m planexe.lever.scenarios_markdown
 """
 import logging
-from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
+from pydantic import BaseModel, field_validator
+
+from planexe.lever.lever_setting_utils import lever_settings_to_mapping
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +32,11 @@ class Scenario(BaseModel):
     scenario_name: str
     strategic_logic: str
     lever_settings: Dict[str, str]
+
+    @field_validator("lever_settings", mode="before")
+    @classmethod
+    def _coerce_lever_settings(cls, value: Any) -> Dict[str, str]:
+        return lever_settings_to_mapping(value)
 
 class ScenarioAssessment(BaseModel):
     """Represents the assessment of a single scenario from the select_scenario.py module."""
