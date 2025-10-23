@@ -24,7 +24,8 @@ import {
 } from '@/components/ui/card';
 import { PlanResponse } from '@/lib/api/fastapi-client';
 
-import { parseRecoveryTimestamp, RecoveryConnectionState, StatusDisplay } from '../useRecoveryPlan';
+import { parseRecoveryTimestamp } from '@/lib/utils/recovery';
+import type { RecoveryConnectionState, StatusDisplay } from '@/lib/types/recovery';
 
 interface RecoveryHeaderProps {
   planId: string;

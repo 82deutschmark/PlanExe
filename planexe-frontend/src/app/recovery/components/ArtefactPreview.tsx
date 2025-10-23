@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/card';
 import { PlanFile } from '@/lib/types/pipeline';
 
-import { PreviewData } from '../useRecoveryPlan';
+import type { PreviewData } from '@/lib/types/recovery';
 
 interface ArtefactPreviewProps {
   planId: string;

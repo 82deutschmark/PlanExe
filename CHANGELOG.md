@@ -1,3 +1,22 @@
+## [0.6.0] - 2025-10-23
+
+### REFACTOR: Centralize recovery streaming and shared utilities
+**Files**:
+- [`planexe-frontend/src/app/recovery/useRecoveryPlan.ts`](planexe-frontend/src/app/recovery/useRecoveryPlan.ts)
+- [`planexe-frontend/src/lib/streaming/recovery-streaming.ts`](planexe-frontend/src/lib/streaming/recovery-streaming.ts)
+- [`planexe-frontend/src/lib/utils/recovery.ts`](planexe-frontend/src/lib/utils/recovery.ts)
+- [`planexe-frontend/src/lib/types/recovery.ts`](planexe-frontend/src/lib/types/recovery.ts)
+- [`planexe-frontend/src/app/recovery/components/ActiveTaskStage.tsx`](planexe-frontend/src/app/recovery/components/ActiveTaskStage.tsx)
+- [`planexe-frontend/src/app/recovery/components/RecoveryHeader.tsx`](planexe-frontend/src/app/recovery/components/RecoveryHeader.tsx)
+- [`planexe-frontend/src/app/recovery/components/StageTimeline.tsx`](planexe-frontend/src/app/recovery/components/StageTimeline.tsx)
+- [`planexe-frontend/src/app/recovery/components/SystemLogDrawer.tsx`](planexe-frontend/src/app/recovery/components/SystemLogDrawer.tsx)
+- [`planexe-frontend/src/app/recovery/components/ArtefactPreview.tsx`](planexe-frontend/src/app/recovery/components/ArtefactPreview.tsx)
+
+**Highlights**:
+- Extracted a dedicated `createRecoveryStreaming` controller to wrap the FastAPI WebSocket client with buffered delta handling and lifecycle callbacks, mirroring the conversation streaming utilities.
+- Slimmed `useRecoveryPlan` by delegating transport concerns to the streaming controller, leaning on typed callbacks to update reducer state and connection telemetry.
+- Moved shared types and helpers into `lib/types/recovery` and `lib/utils/recovery`, updating presentational components to consume the centralized exports.
+
 ## [0.5.0] - 2025-10-23
 
 ### FIX: Add Missing to_markdown() Methods to Pipeline Classes
