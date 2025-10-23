@@ -1,4 +1,14 @@
-## [Unreleased] - Frontend Lint Fixes + Streaming Architecture Analysis
+## [Unreleased] - Frontend Refactoring + Streaming Integration
+
+### DOCS: Recovery Page Streaming Reasoning Integration Plan
+**File**: [`docs/2025-10-23-recovery-page-streaming-reasoning-plan.md`](docs/2025-10-23-recovery-page-streaming-reasoning-plan.md)
+
+- Comprehensive plan for integrating live LLM streaming reasoning into recovery page.
+- Redesigned layout inspired by ARC-Explainer: 3-panel with 50% center focus on live streams.
+- Addresses current UX problems: confusing empty artefacts, no live reasoning visibility.
+- References Terminal.tsx proven streaming implementation (output + reasoning traces).
+- Proposes information-dense layout: left sidebar (metrics/status), center (live streams), right (reports/artefacts).
+- Implementation phases: data integration, core components, layout refactor, polish (6-10 hours).
 
 ### DOCS: Streaming Architecture Analysis
 **File**: [`docs/2025-10-23-streaming-architecture-analysis.md`](docs/2025-10-23-streaming-architecture-analysis.md)
