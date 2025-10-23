@@ -83,7 +83,7 @@ const RecoveryPageContent: React.FC = () => {
       .map((file) => ({
         id: file.filename,
         taskName: file.taskName || file.filename,
-        stage: file.stage,
+        stage: file.stage || 'unknown',
         content: `Content from ${file.filename}`,
         createdAt: file.createdAt,
         isFinal: true,
@@ -153,7 +153,6 @@ const RecoveryPageContent: React.FC = () => {
             totalTasks={TOTAL_PIPELINE_TASKS}
             completedTasks={completedTasksCount}
             totalTokens={0} // TODO: Calculate from llmStreams
-            elapsedTime={plan.data?.elapsed_time}
           />
         </aside>
 

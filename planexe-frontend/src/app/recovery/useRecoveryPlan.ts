@@ -611,7 +611,7 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
             interactionId: message.interaction_id,
             planId: message.plan_id,
             stage: message.stage,
-            taskName: message.task_name,
+            taskName: message.stage, // Use stage as task name fallback
             promptPreview,
           },
         });
