@@ -8,7 +8,7 @@
       "Bash",
       "WebFetch",
       "WebSearch",
-      "Read(/D:\\1Projects\\arc-explainer\\server\\services\\base/**)",
+      "Read(/D:\\1Projects\\arc-explainer\\**)",
       "Read(/D:\\1Projects\\arc-explainer\\server\\services/**)"
     ],
     "defaultMode": "bypassPermissions"
