@@ -7,7 +7,7 @@
 
 ## Problem Statement
 
-The current recovery page uses a 3-column layout that is:
+The current recovery page uses a 3-column layout that is SHITTY!!!:
 - **Confusing**: Shows many empty artefact panels that provide no value
 - **Inefficient**: Wastes screen real estate on low-information-density components
 - **Missing critical data**: Does NOT display live LLM streaming reasoning, which is the most valuable debugging information
@@ -65,22 +65,20 @@ The Terminal renders LLM streams as:
 
 The provided screenshot shows a superior information-dense layout:
 
-### Left Sidebar (~25% width)
+
 - **Monitoring Table**: Status, phase, progress, images, log lines
 - **Work Table**: Phase-by-phase breakdown with messages and timestamps
 - **Puzzle Info**: Metadata about current task
 - **Total phases counter**: Clear progress indicator
 
-### Center Panel (~50% width)
 - **AI Reasoning Output**: Large, prominent panel showing real-time reasoning
 - **Token counters**: Input/Output/Reasoning/Total clearly displayed
-- **Status indicators**: Model config, temperature, reasoning effort, verbosity
+- **Status indicators**: Model config, reasoning effort
 - **Action buttons**: Start Analysis, Render, etc.
 
-### Right Panel (~25% width)
-- **Visual Representations**: Generated images
-- **Image counter**: "0 images" clearly shown
-- **Placeholder state**: "No images generated yet" with helpful text
+
+- **The plan being assembled as markdown**
+- **Each parsed reply fitted into the correct spot in the plan**
 
 ### Key UX Principles from Screenshot
 1. **Information density**: Every pixel serves a purpose
@@ -105,56 +103,12 @@ The provided screenshot shows a superior information-dense layout:
 3. **Static content focus** - Reports are post-execution; no live execution visibility
 4. **Poor information scent** - Users can't see what the AI is thinking RIGHT NOW
 5. **Wasted vertical space** - Mini HUD repeats header info
-6. **No token metrics** - Can't see LLM cost/performance at a glance
+6. **Wasted horizontal space** - Margins and padding are excessive
+7. **
+
 
 ## Proposed Layout Redesign
 
-### New 3-Panel Layout (Inspired by ARC-Explainer)
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ HEADER: Plan ID, Status Badge, Created At, Connection Signal, Refresh Btn  │
-├────────────┬──────────────────────────────────────────────┬─────────────────┤
-│ LEFT       │ CENTER (PRIMARY)                            │ RIGHT           │
-│ 20-25%     │ 50-55%                                      │ 20-25%          │
-│            │                                             │                 │
-│ ┌────────┐ │ ┌─────────────────────────────────────────┐ │ ┌─────────────┐ │
-│ │PIPELINE│ │ │ LIVE LLM STREAMING REASONING            │ │ │ REPORTS     │ │
-│ │STATUS  │ │ │                                         │ │ │ & ARTEFACTS │ │
-│ └────────┘ │ │ Stage: contextual_analysis              │ │ └─────────────┘ │
-│            │ │ Status: [RUNNING] (animated)            │ │                 │
-│ ┌────────┐ │ │                                         │ │ ┌─────────────┐ │
-│ │STAGES  │ │ │ ╔═══════════════════════════════════╗   │ │ │ CANONICAL   │ │
-│ │PROGRESS│ │ │ ║ Model Output                      ║   │ │ │ HTML REPORT │ │
-│ └────────┘ │ │ ║───────────────────────────────────║   │ │ └─────────────┘ │
-│            │ │ ║ The contextual analysis shows...  ║   │ │                 │
-│ ┌────────┐ │ │ ║ Based on project scope, we need   ║   │ │ ┌─────────────┐ │
-│ │METRICS │ │ │ ║ to consider stakeholder impact... ║   │ │ │ FALLBACK    │ │
-│ │        │ │ │ ╚═══════════════════════════════════╝   │ │ │ REPORT      │ │
-│ │Tokens: │ │ │                                         │ │ └─────────────┘ │
-│ │Input   │ │ │ ╔═══════════════════════════════════╗   │ │                 │
-│ │Output  │ │ │ ║ Reasoning Trace                   ║   │ │ ┌─────────────┐ │
-│ │Total   │ │ │ ║───────────────────────────────────║   │ │ │ ARTEFACTS   │ │
-│ │        │ │ │ ║ First, I need to map dependencies ║   │ │ │ (collapsed) │ │
-│ │Tasks:  │ │ │ ║ Then, identify critical path...   ║   │ │ │             │ │
-│ │12/61   │ │ │ ║ Risk assessment requires...       ║   │ │ │ [5 files]   │ │
-│ └────────┘ │ │ ╚═══════════════════════════════════╝   │ │ │ Click to    │ │
-│            │ │                                         │ │ │ expand      │ │
-│ ┌────────┐ │ │ Usage: 1.2K in | 3.5K out | 500 reas   │ │ └─────────────┘ │
-│ │LOGS    │ │ │                                         │ │                 │
-│ │(mini)  │ │ │ [Previous streams collapsed above]     │ │ ┌─────────────┐ │
-│ │        │ │ └─────────────────────────────────────────┘ │ │ PREVIEW     │ │
-│ │Latest: │ │                                             │ │ PANE        │ │
-│ │✓ Setup │ │ ┌─────────────────────────────────────────┐ │ │ (if file    │ │
-│ │⚙ WBS   │ │ │ TERMINAL / RAW LOGS                     │ │ │ selected)   │ │
-│ │        │ │ │ (collapsible panel)                     │ │ └─────────────┘ │
-│ └────────┘ │ └─────────────────────────────────────────┘ │                 │
-└────────────┴──────────────────────────────────────────────┴─────────────────┘
-```
-
-### Panel Responsibilities
-
-#### Left Sidebar (20-25% width)
 **Purpose**: Quick-glance status and metrics
 
 Components:
@@ -184,7 +138,6 @@ Components:
    - Color-coded by level (info/warn/error)
    - Click to expand full terminal
 
-#### Center Panel (50-55% width)
 **Purpose**: PRIMARY FOCUS - Live LLM reasoning and execution visibility
 
 Components:
@@ -211,20 +164,21 @@ Components:
    - Defaults to collapsed (show first 3 lines)
    - Expand to see full terminal view
 
-#### Right Sidebar (20-25% width)
-**Purpose**: Post-execution artifacts and reports
+
 
 Components:
 1. **Canonical HTML Report** (top priority)
+   - Totally bugged and non-functional.  Needs to be removed.
    - "View Report" button (opens modal or new tab)
    - Report generation status
    - Last updated timestamp
 
 2. **Fallback Report** (if canonical fails)
+   - Totally bugged and non-functional.  Needs to be removed.
    - "View Fallback Report" button
    - Explanation of why fallback is shown
 
-3. **Artefacts** (compact, collapsed by default)
+3. **Artefacts** (compact, collapsed by default)  NO IDEA WHAT THIS EVEN IS OR WHY THE USER CARES???
    - **Collapsed state**: "5 artefacts available - Click to expand"
    - **Expanded state**:
      - Grouped by stage (accordion)
@@ -234,7 +188,7 @@ Components:
    - **Empty state**: "No artefacts yet - pipeline is running"
 
 4. **Preview Pane** (optional, if file selected)
-   - Shows selected artefact content
+   - Shows selected artefact content  WHY???
    - Syntax highlighting for code
    - Rendered HTML for reports
 
@@ -382,64 +336,14 @@ return {
 
 ## Key UX Improvements
 
-### 1. Information Hierarchy
-- **Primary**: Live LLM reasoning (center, 50%+ width)
-- **Secondary**: Status and metrics (left sidebar, quick glance)
-- **Tertiary**: Static artifacts and reports (right sidebar, on-demand)
-
-### 2. Progressive Disclosure
-- **Collapsed by default**: Terminal logs, stream history, artefacts
-- **Expand on demand**: Click to see full details
-- **Smart empty states**: Explain why panels are empty
-
-### 3. Real-Time Feedback
-- **Streaming deltas**: See reasoning as it happens
-- **Animated status badges**: Running streams pulse
-- **Token counters**: Update in real-time
-- **Progress bars**: Visual feedback on pipeline progress
-
-### 4. Cognitive Load Reduction
-- **Remove duplicate info**: No Mini HUD (metrics in sidebar)
-- **Group related data**: All LLM data in center, all metrics in left
-- **Clear labels**: "Model Output", "Reasoning Trace", not generic "Content"
-- **Consistent color coding**: Green=completed, Blue=running, Red=failed
-
-## Implementation Phases
-
-### Phase 1: Data Integration (1-2 hours)
-1. Add `llmStreams` state to `useRecoveryPlan`
-2. Implement `handleLlmStreamMessage` (copy from Terminal)
-3. Add stream buffer management
-4. Expose metrics calculations
-
-### Phase 2: Core Components (2-3 hours)
-1. Create `LiveStreamPanel` (port from Terminal)
-2. Create `PipelineMetrics` sidebar card
-3. Create `StreamHistory` accordion
-4. Test with live WebSocket data
-
-### Phase 3: Layout Refactor (2-3 hours)
-1. Implement new 3-panel grid
-2. Create `CompactArtefactList`
-3. Move preview to modal
-4. Update header to single-line
-
-### Phase 4: Polish & Testing (1-2 hours)
-1. Smooth scrolling and animations
-2. Responsive breakpoints
-3. Empty state messaging
-4. Error handling
-
-**Total estimated time**: 6-10 hours
-
-## Success Metrics
-
 ### User Experience
 - ✅ Users can see live LLM reasoning without scrolling
-- ✅ Token usage is visible at a glance
+- ✅ Users can see EVERYTHING RELEVANT without scrolling
+- ✅ Users can see their plan being assembled in real time!!
+- X Token usage is visible at a glance   NOT IMPORTANT!!!!
 - ✅ Pipeline progress is clear and unambiguous
 - ✅ Artefacts don't dominate the UI when empty
-- ✅ Layout density matches ARC-Explainer reference
+- ✅ Layout density!!!!  No wasted pixels!!!
 
 ### Technical
 - ✅ Reuses Terminal.tsx streaming logic (DRY principle)
