@@ -466,6 +466,12 @@ class IdentifyDocuments:
                 
         return "\n".join(rows)
 
+    def to_markdown(self) -> str:
+        """
+        Return the markdown representation of the document identification.
+        """
+        return self.markdown
+
     def save_markdown(self, output_file_path: str):
         with open(output_file_path, 'w', encoding='utf-8') as out_f:
             out_f.write(self.markdown)

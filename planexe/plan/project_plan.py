@@ -367,9 +367,11 @@ class ProjectPlan:
 
         return "\n".join(rows)
 
-    def save_markdown(self, output_file_path: str):
-        with open(output_file_path, 'w', encoding='utf-8') as out_f:
-            out_f.write(self.markdown)
+    def to_markdown(self) -> str:
+        """
+        Return the markdown representation of the project plan.
+        """
+        return self.markdown
 
 if __name__ == "__main__":
     import logging

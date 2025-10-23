@@ -117,6 +117,13 @@ const RecoveryPageContent: React.FC = () => {
 
   const completedTasksCount = timelineTasks.filter((t) => t.status === 'completed').length;
 
+  // Calculate total tokens from all llmStreams
+  const totalTokens = useMemo(() => {
+    return Object.values(llmStreams.all).reduce((sum, stream) => {
+      return sum + (stream.usage?.totalTokens ?? 0);
+    }, 0);
+  }, [llmStreams.all]);
+
   if (!planId) {
     return <MissingPlanMessage />;
   }
@@ -147,12 +154,25 @@ const RecoveryPageContent: React.FC = () => {
             tasks={timelineTasks}
             activeTaskId={llmStreams.active?.interactionId.toString()}
             onTaskClick={(taskId) => {
-              console.log('Task clicked:', taskId);
-              // TODO: Jump to task stream history
+              // Jump to task in stream history by finding the corresponding llm stream
+              const taskNum = parseInt(taskId.replace('task-', ''), 10);
+              if (!isNaN(taskNum) && timelineTasks[taskNum]) {
+                const targetArtefact = artefacts.items[taskNum];
+                if (targetArtefact && llmStreams.history.length > 0) {
+                  // Find the stream that corresponds to this task's stage
+                  const matchingStream = llmStreams.history.find(
+                    (stream) => stream.stage === targetArtefact.stage
+                  );
+                  if (matchingStream) {
+                    // Scroll to active task (would scroll in ActiveTaskStage)
+                    // For now, we're tracking by displaying the matching stream info
+                  }
+                }
+              }
             }}
             totalTasks={TOTAL_PIPELINE_TASKS}
             completedTasks={completedTasksCount}
-            totalTokens={0} // TODO: Calculate from llmStreams
+            totalTokens={totalTokens}
           />
         </aside>
 

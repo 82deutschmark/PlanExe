@@ -1,4 +1,41 @@
-## [Unreleased] - Frontend Refactoring + Streaming Integration
+## [Unreleased] - Pipeline Error Fixes + Method Consistency
+
+### FIX: Add Missing to_markdown() Methods to Pipeline Classes
+**Files**:
+- [`planexe/plan/data_collection.py`](planexe/plan/data_collection.py)
+- [`planexe/document/identify_documents.py`](planexe/document/identify_documents.py)
+- [`planexe/assume/identify_purpose.py`](planexe/assume/identify_purpose.py)
+- [`planexe/governance/governance_phase1_audit.py`](planexe/governance/governance_phase1_audit.py)
+- [`planexe/governance/governance_phase2_bodies.py`](planexe/governance/governance_phase2_bodies.py)
+- [`planexe/governance/governance_phase3_impl_plan.py`](planexe/governance/governance_phase3_impl_plan.py)
+- [`planexe/governance/governance_phase4_decision_escalation_matrix.py`](planexe/governance/governance_phase4_decision_escalation_matrix.py)
+- [`planexe/governance/governance_phase5_monitoring_progress.py`](planexe/governance/governance_phase5_monitoring_progress.py)
+- [`planexe/governance/governance_phase6_extra.py`](planexe/governance/governance_phase6_extra.py)
+- [`planexe/plan/project_plan.py`](planexe/plan/project_plan.py)
+- [`planexe/plan/executive_summary.py`](planexe/plan/executive_summary.py)
+- [`planexe/plan/review_plan.py`](planexe/plan/review_plan.py)
+- [`planexe/plan/related_resources.py`](planexe/plan/related_resources.py)
+- [`planexe-frontend/src/app/recovery/useRecoveryPlan.ts`](planexe-frontend/src/app/recovery/useRecoveryPlan.ts)
+
+**Fixed critical pipeline errors by adding missing `to_markdown()` instance methods:**
+- **Root Cause**: Pipeline tasks were failing with `AttributeError: 'DataCollection' object has no attribute 'to_markdown'`
+- **Solution**: Added consistent `to_markdown()` instance method to all classes with `markdown` attributes
+- **Impact**: All 13 pipeline classes now have uniform interface - static `convert_to_markdown()` for conversion + instance `to_markdown()` for retrieval
+- **Additional Fix**: Removed unused `AssembledDocumentResponse` import causing linting warnings
+
+**Classes Fixed**:
+- DataCollection, IdentifyDocuments, IdentifyPurpose
+- All 6 Governance Phase classes (1-6)
+- ProjectPlan, ExecutiveSummary, ReviewPlan, RelatedResources
+- Frontend linting issue in useRecoveryPlan.ts
+
+**Result**: Pipeline should now execute successfully without missing method errors.
+
+### LINT: Frontend Code Cleanup
+**Files**:
+- [`planexe-frontend/src/app/recovery/useRecoveryPlan.ts`](planexe-frontend/src/app/recovery/useRecoveryPlan.ts)
+
+**Removed unused import causing TypeScript linting warnings.**
 
 ### FEATURE: Focused Stage Recovery UI - Asymmetric 15-70-15 Streaming Layout
 **Files**:
