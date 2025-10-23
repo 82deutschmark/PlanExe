@@ -1,4 +1,4 @@
-## [0.4.7] - 2025-10-23 - OpenAI API Schema Name Length Fix
+## [0.4.7] - 2025-10-23 - OpenAI API Schema Name Length Fix + Frontend Build Fix
 
 ### FIX: Schema Registry Uses Class Names Instead of Full Module Paths
 **Files**: [`planexe/llm_util/schema_registry.py`](planexe/llm_util/schema_registry.py), [`planexe/llm_util/tests/test_schema_registry.py`](planexe/llm_util/tests/test_schema_registry.py)
@@ -46,6 +46,24 @@ The 64-character limit is a real OpenAI API constraint. Initial approach (trunca
 **Tested With Real Duplicate**: Verified that `planexe.lever.candidate_scenarios.Scenario` and `planexe.lever.scenarios_markdown.Scenario` both generate `text.format.name = "Scenario"` but include different schema content in their requests, confirming OpenAI handles this correctly.
 
 **Conclusion**: The change is production-safe. The `sanitized_name` field is only used for (1) OpenAI request labeling and (2) metadata logging. No lookups, persistence, or uniqueness constraints depend on it.
+
+### FIX: WebSocketRawMessage Missing Timestamp Property
+**File**: [`planexe-frontend/src/lib/api/fastapi-client.ts`](planexe-frontend/src/lib/api/fastapi-client.ts)
+
+#### Problem
+Frontend build was failing with TypeScript compilation error:
+```
+Property 'timestamp' does not exist on type 'WebSocketMessage'.
+Property 'timestamp' does not exist on type 'WebSocketRawMessage'.
+```
+
+The type guard `isWebSocketMessage()` in `useRecoveryPlan.ts` was checking for a `timestamp` property, but `WebSocketRawMessage` was the only message type without it.
+
+#### Solution
+- **Added** `timestamp: string` property to `WebSocketRawMessage` interface (line 391)
+- **Updated** raw message creation in WebSocket `onmessage` handler to include `timestamp: new Date().toISOString()` (line 453)
+
+All WebSocket message types now have consistent `timestamp` property for type safety.
 
 ## [0.4.6] - 2025-10-22 - Recovery Page UX Improvements
 
