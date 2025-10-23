@@ -383,6 +383,13 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
       lastUpdated: Date.now(),
       promptPreview: null,
       rawPayload: null,
+      // Initialize optional fields explicitly to ensure consistency with reducer state
+      // and to avoid potential issues when streams are created via fallback initializers
+      // in ensureStreamState (when delta/final arrive before start event).
+      finalText: undefined,
+      finalReasoning: undefined,
+      usage: undefined,
+      error: undefined,
       events: [],
       ...overrides,
     }),
