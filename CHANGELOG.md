@@ -1,4 +1,13 @@
-## [Unreleased] - Frontend Lint Fixes
+## [Unreleased] - Frontend Lint Fixes + Streaming Architecture Analysis
+
+### DOCS: Streaming Architecture Analysis
+**File**: [`docs/2025-10-23-streaming-architecture-analysis.md`](docs/2025-10-23-streaming-architecture-analysis.md)
+
+- Analyzed streaming implementations across frontend codebase.
+- **Finding**: Recovery page CORRECTLY reuses `WebSocketClient` from `fastapi-client.ts`.
+- **Issue**: Terminal.tsx and LuigiPipelineView.tsx duplicate ~240 lines of WebSocket management code.
+- **Recommendation**: Refactor Terminal and LuigiPipelineView to use centralized `WebSocketClient` like recovery page does.
+- Documented EventSource (SSE) patterns for Conversations and Analysis APIs (both excellent).
 
 ### FIX: Resolve TypeScript and ESLint compilation errors
 **Files**:
