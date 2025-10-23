@@ -36,6 +36,58 @@ def _deep_copy_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
 def _enforce_openai_schema_requirements(schema: Dict[str, Any]) -> Dict[str, Any]:
     """Augment a JSON schema to satisfy OpenAI Responses strict schema requirements."""
 
+    def _inline_local_refs(processed_schema: Dict[str, Any]) -> Dict[str, Any]:
+        """Replace local $defs references with inline definitions for OpenAI compatibility."""
+
+        local_defs = processed_schema.get("$defs")
+        if not isinstance(local_defs, dict) or not local_defs:
+            return processed_schema
+
+        cache: Dict[str, Any] = {}
+
+        def _resolve_local_ref(ref: str) -> Optional[Dict[str, Any]]:
+            if not isinstance(ref, str):
+                return None
+            prefix = "#/$defs/"
+            if not ref.startswith(prefix):
+                return None
+            definition_key = ref[len(prefix) :]
+            target = local_defs.get(definition_key)
+            if target is None:
+                return None
+            return target
+
+        def _expand(node: Any) -> Any:
+            if isinstance(node, dict):
+                ref_value = node.get("$ref")
+                if ref_value:
+                    if ref_value in cache:
+                        return cache[ref_value]
+                    resolved = _resolve_local_ref(ref_value)
+                    if resolved is None:
+                        return {"$ref": ref_value}
+                    cache[ref_value] = {}  # placeholder to break potential recursive loops
+                    expanded = _expand(resolved)
+                    cache[ref_value] = expanded
+                    return expanded
+
+                expanded_dict: Dict[str, Any] = {}
+                for key, value in node.items():
+                    if key == "$defs":
+                        continue
+                    expanded_dict[key] = _expand(value)
+                return expanded_dict
+
+            if isinstance(node, list):
+                return [_expand(item) for item in node]
+
+            return node
+
+        expanded_schema = _expand(processed_schema)
+        if isinstance(expanded_schema, dict):
+            expanded_schema.pop("$defs", None)
+        return expanded_schema
+
     def _visit(node: Any) -> Any:
         if isinstance(node, dict):
             updated: Dict[str, Any] = {}
@@ -54,7 +106,9 @@ def _enforce_openai_schema_requirements(schema: Dict[str, Any]) -> Dict[str, Any
                     existing_required = updated.get("required")
                     required_list: List[str]
                     if isinstance(existing_required, list):
-                        seen: Dict[str, None] = {name: None for name in existing_required if isinstance(name, str)}
+                        seen: Dict[str, None] = {
+                            name: None for name in existing_required if isinstance(name, str)
+                        }
                         for prop_name in properties.keys():
                             if prop_name not in seen:
                                 seen[prop_name] = None
@@ -69,7 +123,10 @@ def _enforce_openai_schema_requirements(schema: Dict[str, Any]) -> Dict[str, Any
 
         return node
 
-    return _visit(schema)
+    enforced = _visit(schema)
+    if isinstance(enforced, dict):
+        return _inline_local_refs(enforced)
+    return enforced
 
 
 def _ensure_message_dict(message: Any) -> Dict[str, Any]:
