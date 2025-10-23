@@ -10,7 +10,7 @@ import json
 import logging
 import os
 from contextlib import suppress
-from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Type
+from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Set, Type
 
 import openai
 from llama_index.core.llms.llm import LLM
@@ -36,15 +36,47 @@ def _deep_copy_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
 def _enforce_openai_schema_requirements(schema: Dict[str, Any]) -> Dict[str, Any]:
     """Augment a JSON schema to satisfy OpenAI Responses strict schema requirements."""
 
+    schema_copy = _deep_copy_schema(schema)
+    defs: Dict[str, Any] = schema_copy.get("$defs", {}) if isinstance(schema_copy, dict) else {}
+    resolved_cache: Dict[str, Any] = {}
+    resolving: Set[str] = set()
+
+    def _resolve_ref(ref: Any) -> Any:
+        if not isinstance(ref, str) or not ref.startswith("#/$defs/"):
+            return {"$ref": ref}
+
+        key = ref.split("/", 2)[-1]
+        if key in resolved_cache:
+            return _deep_copy_schema(resolved_cache[key])
+
+        if key in resolving:
+            return {"$ref": ref}
+
+        target = defs.get(key)
+        if not isinstance(target, (dict, list)):
+            return {"$ref": ref}
+
+        resolving.add(key)
+        resolved = _visit(target)
+        resolving.remove(key)
+        resolved_cache[key] = resolved
+        return _deep_copy_schema(resolved)
+
     def _visit(node: Any) -> Any:
         if isinstance(node, dict):
+            if set(node.keys()) == {"$ref"}:
+                return _resolve_ref(node["$ref"])
+
             updated: Dict[str, Any] = {}
             for key, value in node.items():
+                if key == "$defs":
+                    continue
+                if key == "$ref" and len(node) == 1:
+                    continue
                 updated[key] = _visit(value)
 
-            if "$ref" in updated:
-                # OpenAI refuses schemas where $ref siblings exist (e.g. description/title).
-                return {"$ref": updated["$ref"]}
+            if "$ref" in node and len(node) == 1:
+                return updated
 
             schema_type = updated.get("type")
             if schema_type == "object" and "additionalProperties" not in updated:
@@ -69,7 +101,7 @@ def _enforce_openai_schema_requirements(schema: Dict[str, Any]) -> Dict[str, Any
 
         return node
 
-    return _visit(schema)
+    return _visit(schema_copy)
 
 
 def _ensure_message_dict(message: Any) -> Dict[str, Any]:
