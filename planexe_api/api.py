@@ -1220,6 +1220,92 @@ async def get_fallback_report(plan_id: str, db: DatabaseService = Depends(get_da
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to assemble fallback report: {exc}")
+
+
+@app.get("/api/plans/{plan_id}/assembled-document")
+async def get_assembled_plan_document(plan_id: str, db: DatabaseService = Depends(get_database)):
+    """
+    Assemble the plan document from completed task outputs.
+    Returns structured sections with content in markdown format for the live plan document viewer.
+    """
+    try:
+        plan = db.get_plan(plan_id)
+        if not plan:
+            raise HTTPException(status_code=404, detail="Plan not found")
+
+        plan_contents = db.get_plan_content(plan_id)
+        if not plan_contents:
+            return {
+                "plan_id": plan_id,
+                "sections": [],
+                "markdown": "",
+                "word_count": 0,
+                "section_count": 0,
+                "last_updated": None,
+            }
+
+        sections = []
+        markdown_parts = []
+
+        # Sort by created_at to maintain chronological order
+        sorted_contents = sorted(plan_contents, key=lambda c: c.created_at)
+
+        for content in sorted_contents:
+            # Extract text content from content_json
+            text_content = None
+            if content.content_json:
+                # Try to get markdown, text, or any string content
+                if isinstance(content.content_json, dict):
+                    text_content = (
+                        content.content_json.get("markdown")
+                        or content.content_json.get("text")
+                        or content.content_json.get("content")
+                    )
+                elif isinstance(content.content_json, str):
+                    text_content = content.content_json
+
+            # Fallback to raw content if available
+            if not text_content and content.content:
+                try:
+                    text_content = content.content if isinstance(content.content, str) else content.content.decode('utf-8')
+                except:
+                    text_content = None
+
+            section = {
+                "id": str(content.id),
+                "task_name": content.task_name or "Unknown Task",
+                "stage": content.stage or "unknown",
+                "content": text_content or "",
+                "created_at": content.created_at.isoformat() if content.created_at else datetime.utcnow().isoformat(),
+                "is_final": content.is_final or False,
+            }
+            sections.append(section)
+
+            # Build markdown document
+            if text_content:
+                markdown_parts.append(f"## {section['task_name']}\n\n{text_content}\n\n")
+
+        full_markdown = "\n".join(markdown_parts)
+        word_count = len(full_markdown.split()) if full_markdown else 0
+
+        last_updated = None
+        if sorted_contents:
+            last_updated = sorted_contents[-1].created_at.isoformat()
+
+        return {
+            "plan_id": plan_id,
+            "sections": sections,
+            "markdown": full_markdown,
+            "word_count": word_count,
+            "section_count": len(sections),
+            "last_updated": last_updated,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to assemble plan document: {exc}")
+
+
 # File download endpoints
 @app.get("/api/plans/{plan_id}/report")
 async def download_plan_report(plan_id: str, db: DatabaseService = Depends(get_database)):
