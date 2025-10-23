@@ -35,8 +35,14 @@ class SchemaRegistryEntry:
 
 
 def sanitize_schema_label(raw_name: Optional[str], fallback: str) -> str:
-    """Return a Responses-compatible schema label that satisfies OpenAI constraints."""
+    """Return a Responses-compatible schema label that satisfies OpenAI constraints.
 
+    OpenAI Responses API requires text.format.name to:
+    - Be <= 64 characters
+    - Contain only a-z, A-Z, 0-9, underscores, and hyphens
+
+    This function replaces invalid characters (e.g., dots) with underscores.
+    """
     if not raw_name:
         raw_name = fallback
     sanitized = _INVALID_NAME_CHARS.sub("_", raw_name).strip("_")
@@ -68,7 +74,9 @@ def register_schema(model: Type[TModel]) -> SchemaRegistryEntry:
     except (TypeError, OSError):
         file_path = None
 
-    sanitized_name = sanitize_schema_label(key, model.__name__)
+    # Use just the class name for OpenAI API (doesn't need full module path)
+    # qualified_name is kept for registry lookups, but sanitized_name is what gets sent to OpenAI
+    sanitized_name = sanitize_schema_label(model.__name__, model.__name__)
 
     entry = SchemaRegistryEntry(
         model=model,

@@ -1866,4 +1866,31 @@ For existing PlanExe installations:
 
 
 
+## [0.4.7] - 2025-10-23 - Recovery Page Decomposition + Live Streaming HUD
+
+### Frontend: Recovery Workspace Refactor (decompose, preserve streaming)
+Files: `planexe-frontend/src/app/recovery/page.tsx`, `planexe-frontend/src/app/recovery/useRecoveryPlan.ts`, `planexe-frontend/src/app/recovery/components/RecoveryHeader.tsx`, `planexe-frontend/src/app/recovery/components/StageTimeline.tsx`, `planexe-frontend/src/app/recovery/components/ReportPanel.tsx`, `planexe-frontend/src/app/recovery/components/ArtefactList.tsx`, `planexe-frontend/src/app/recovery/components/ArtefactPreview.tsx`
+
+Changes
+- Extracted a centralized `useRecoveryPlan(planId)` hook to own all FastAPI calls (plan, artefacts, report), WebSocket progress updates with heartbeat awareness, polling fallback, preview loading, and derived `stageSummary`.
+- Introduced presentational components:
+  - `RecoveryHeader`: status badge, connection indicator (WS vs polling), last artefact time, refresh + relaunch controls.
+  - `StageTimeline`: per-stage counts with live connection cues and lightweight skeletons.
+  - `RecoveryReportPanel`: canonical vs fallback report tabs with refresh, timestamp.
+  - `RecoveryArtefactPanel`: thin wrapper over `FileManager` to keep page wiring minimal.
+  - `ArtefactPreview`: isolated error-bounded inline preview for text/HTML with secure iframe.
+- New page (`page.tsx`) focuses on router/query glue and composes the above pieces; removes intertwined effects that previously caused cascading UI errors.
+- Normalized loading strings to ASCII ("...") to avoid mojibake in some environments.
+
+Why
+- The previous page mixed routing, data orchestration, and rendering for multiple widgets in ~730 lines, leading to brittle interdependencies and cascading errors.
+- Users want rich, continuous feedback; this preserves streaming visuals (status updates, live logs, stage counters) while making the UI maintainable and testable.
+
+Impact
+- Clear separation of concerns, easier incremental changes, and safer bug fixes.
+- Live HUD shows connection mode and last event time; StageTimeline updates incrementally; ReportPanel keeps canonical/fallback paths explicit.
+- Preview errors are localized and do not disrupt other panels.
+
+Notes
+- Lint step (`npm run lint`) currently fails due to the eslint binary export used in `scripts/run-lint.mjs`. Tooling update/pin may be needed; no code fixes required.
 
