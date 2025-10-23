@@ -1,4 +1,15 @@
-/**
+
+## [0.4.4] - 2025-10-22 - Pipeline Unblock: EnrichLeversTask
+
+### FIX: Repair EnrichPotentialLevers module and align JSON keys
+- Rewrote planexe/lever/enrich_potential_levers.py to remove corrupted content that caused EnrichLeversTask to fail and block >50 dependent tasks.
+- Added required file header and restored a clean structured-LLM batching flow using Pydantic models.
+- Standardised serialization to emit characterized_levers (not enriched_levers) to match downstream readers in the pipeline.
+- Verified importability and compatibility with un_plan_pipeline.py consumers; EnrichLeversTask now reads and writes consistent keys.
+
+### Ops/Dev Notes
+- Root cause: prior file corruption led to malformed code segments and inconsistent JSON keys.
+- Recommended validation: run with FAST_BUT_SKIP_DETAILS=1 to confirm EnrichLeversTask completes and dependent tasks proceed./**
  * Author: Claude Code using Sonnet 4.5
  * Date: 2025-10-20
  * PURPOSE: Project changelog tracking release notes, testing, and context for PlanExe iterations.
@@ -1778,6 +1789,7 @@ For existing PlanExe installations:
 ---
 
 *This changelog represents a complete REST API and Node.js integration for PlanExe, transforming it from a Python-only tool into a modern, scalable web application with persistent storage and real-time capabilities.*
+
 
 
 
