@@ -17,6 +17,7 @@ import {
   PlanResponse,
   WebSocketMessage,
   WebSocketLLMStreamMessage,
+  AssembledDocumentResponse,
 } from '@/lib/api/fastapi-client';
 import { Activity, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { PlanFile } from '@/lib/types/pipeline';

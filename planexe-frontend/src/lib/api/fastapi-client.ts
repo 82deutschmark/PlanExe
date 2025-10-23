@@ -140,6 +140,24 @@ export interface FallbackReportResponse {
   assembled_html: string;
 }
 
+export interface AssembledDocumentSection {
+  id: string;
+  task_name: string;
+  stage: string;
+  content: string;
+  created_at: string;
+  is_final: boolean;
+}
+
+export interface AssembledDocumentResponse {
+  plan_id: string;
+  sections: AssembledDocumentSection[];
+  markdown: string;
+  word_count: number;
+  section_count: number;
+  last_updated: string | null;
+}
+
 export interface HealthResponse {
   status: string;
   version: string;
@@ -604,6 +622,11 @@ export class FastAPIClient {
   async getFallbackReport(plan_id: string): Promise<FallbackReportResponse> {
     const response = await fetch(`${this.baseURL}/api/plans/${plan_id}/fallback-report`);
     return this.handleResponse<FallbackReportResponse>(response);
+  }
+
+  async getAssembledDocument(plan_id: string): Promise<AssembledDocumentResponse> {
+    const response = await fetch(`${this.baseURL}/api/plans/${plan_id}/assembled-document`);
+    return this.handleResponse<AssembledDocumentResponse>(response);
   }
 
   // Download specific file
