@@ -131,6 +131,10 @@ class DeduplicateLevers:
             metadata = dict(llm.metadata)
             return {"chat_response": chat_response, "metadata": metadata}
 
+        # Consistent timing/logging
+        import time
+        from math import ceil
+        start_time = time.perf_counter()
         try:
             result = llm_executor.run(execute_function)
             analysis_result: DeduplicationAnalysis = result["chat_response"].raw
@@ -140,6 +144,12 @@ class DeduplicateLevers:
         except Exception as e:
             logger.error("Deduplication failed.", exc_info=True)
             raise ValueError("Deduplication failed.") from e
+        end_time = time.perf_counter()
+        duration = int(ceil(end_time - start_time))
+        try:
+            response_bytes = len(json.dumps(analysis_result.model_dump()).encode("utf-8"))
+        except Exception:
+            response_bytes = 0
 
         # The LLM is supposed to return the same number of levers as the input.
         # However sometimes LLMs skips some levers. So I cannot assume that all the levers in the input are returned.
@@ -147,6 +157,7 @@ class DeduplicateLevers:
 
         # Perform the deduplication.
         output_levers = []
+        missing_decisions = 0
         for lever in input_levers:
             # Find the decision for this lever
             decision = None
@@ -156,7 +167,10 @@ class DeduplicateLevers:
                     break
             if not decision:
                 # Missing decision for this lever. Keep it.
-                deduplication_justification = "Missing deduplication justification. Keeping this lever."
+                missing_decisions += 1
+                deduplication_justification = (
+                    "Not returned by model. Keeping this lever to avoid data loss."
+                )
                 output_lever = OutputLever(
                     **lever.model_dump(),
                     deduplication_justification=deduplication_justification
@@ -179,6 +193,17 @@ class DeduplicateLevers:
                 deduplication_justification=deduplication_justification
             )
             output_levers.append(output_lever)
+
+        # Deterministic ordering of output by name then id
+        output_levers.sort(key=lambda lv: (lv.name.lower(), lv.lever_id))
+
+        logger.info(
+            "Deduplication completed. duration_sec=%s kept=%s missing_decisions_kept=%s response_bytes=%s",
+            duration,
+            len(output_levers),
+            missing_decisions,
+            response_bytes,
+        )
 
         return cls(
             user_prompt=user_prompt,
