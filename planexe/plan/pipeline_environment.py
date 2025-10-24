@@ -49,3 +49,18 @@ class PipelineEnvironment:
             raise ValueError(f"run_id_dir must be a directory, got: {self.run_id_dir}")
             
         return path
+
+    def get_reasoning_effort(self) -> str:
+        """Return the configured reasoning effort for Responses API calls.
+        Values: low|medium|high|intense (string pass-through). Defaults to 'medium'.
+        Order of precedence: explicit config (if present) -> env var -> default.
+        """
+        # Delete any placeholder; add actual resolution below
+        # Prefer self.config if available and contains reasoning_effort
+        try:
+            cfg_effort = getattr(self, "config", {}).get("reasoning_effort") if hasattr(self, "config") else None
+        except Exception:
+            cfg_effort = None
+        if cfg_effort:
+            return str(cfg_effort)
+        return os.getenv("REASONING_EFFORT", "medium")
