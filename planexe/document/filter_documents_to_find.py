@@ -346,9 +346,12 @@ class FilterDocumentsToFind:
         with open(file_path, 'w') as f:
             f.write(json.dumps(self.to_dict(), indent=2))
 
+    def to_filtered_documents_json(self) -> str:
+        return json.dumps(self.filtered_documents_raw_json, indent=2)
+
     def save_filtered_documents(self, file_path: str) -> None:
         with open(file_path, 'w') as f:
-            f.write(json.dumps(self.filtered_documents_raw_json, indent=2))
+            f.write(self.to_filtered_documents_json())
 
     @staticmethod
     def extract_integer_ids_to_keep(result: DocumentImpactAssessmentResult) -> set[int]:
