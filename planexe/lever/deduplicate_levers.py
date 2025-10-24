@@ -15,6 +15,7 @@ from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
 from pydantic import BaseModel, Field, ValidationError
 from planexe.llm_util.llm_executor import LLMExecutor, PipelineStopRequested
+from planexe.plan.pipeline_environment import PipelineEnvironment
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +107,10 @@ class DeduplicateLevers:
 
         logger.info(f"Starting deduplication for {len(input_levers)} levers.")
 
+        # Add: load reasoning_effort from environment to pass into LLM
+        env = PipelineEnvironment.from_env()
+        reasoning_effort = env.get_reasoning_effort()
+
         levers_json = json.dumps([lever.model_dump() for lever in input_levers], indent=2)        
         user_prompt = (
             f"**Project Context:**\n{project_context}\n\n"
@@ -121,7 +126,8 @@ class DeduplicateLevers:
 
         def execute_function(llm: LLM) -> dict:
             sllm = llm.as_structured_llm(DeduplicationAnalysis)
-            chat_response = sllm.chat(chat_message_list)
+            # Pass reasoning_effort through to structured LLM wrapper
+            chat_response = sllm.chat(chat_message_list, reasoning_effort=reasoning_effort)
             metadata = dict(llm.metadata)
             return {"chat_response": chat_response, "metadata": metadata}
 
