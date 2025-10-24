@@ -56,7 +56,6 @@ class Plan(Base):
     prompt = Column(Text, nullable=False)
     llm_model = Column(String(255), nullable=True)
     speed_vs_detail = Column(String(50), nullable=False, default="ALL_DETAILS_BUT_SLOW")
-    reasoning_effort = Column(String(50), nullable=False, default="medium")  # reasoning effort level: minimal, medium, high
     openrouter_api_key_hash = Column(String(255), nullable=True)  # Hashed, never store plaintext
 
     # Status and progress

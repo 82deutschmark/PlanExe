@@ -36,7 +36,10 @@ class CreatePlanRequest(BaseModel):
     prompt: str = Field(..., description="The planning prompt/idea", min_length=1, max_length=10000)
     llm_model: Optional[str] = Field(None, description="LLM model ID to use")
     speed_vs_detail: SpeedVsDetail = Field(SpeedVsDetail.ALL_DETAILS_BUT_SLOW, description="Speed vs detail preference")
-    reasoning_effort: Optional[str] = Field("medium", description="Reasoning effort level: minimal, medium, high")
+    reasoning_effort: Optional[str] = Field(
+        "medium",
+        description="Reasoning effort level forwarded to the pipeline (minimal, medium, high)",
+    )
     enriched_intake: Optional[Dict[str, Any]] = Field(
         None,
         description="Optional enriched intake data from conversation (EnrichedPlanIntake schema). If provided, pre-populates pipeline with structured variables."
@@ -45,13 +48,14 @@ class CreatePlanRequest(BaseModel):
     @field_validator("reasoning_effort")
     @classmethod
     def validate_reasoning_effort(cls, value: Optional[str]) -> str:
-        """Validate reasoning effort is one of the allowed values"""
+        """Validate reasoning effort values while defaulting to medium."""
         if value is None:
-            return "medium"  # default value
+            return "medium"
         valid_values = ["minimal", "medium", "high"]
         if value not in valid_values:
             raise ValueError(f"reasoning_effort must be one of {valid_values}, got '{value}'")
         return value
+
 
 
 class PlanResponse(BaseModel):
@@ -62,7 +66,6 @@ class PlanResponse(BaseModel):
     prompt: str = Field(..., description="The original planning prompt")
     llm_model: Optional[str] = Field(None, description="LLM model used for this plan")
     speed_vs_detail: SpeedVsDetail = Field(..., description="Speed vs detail preference used for this plan")
-    reasoning_effort: str = Field(..., description="Reasoning effort level used for this plan")
     progress_percentage: int = Field(0, description="Completion percentage (0-100)")
     progress_message: str = Field("", description="Current progress description")
     error_message: Optional[str] = Field(None, description="Error message if failed")
