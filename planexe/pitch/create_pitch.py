@@ -133,8 +133,8 @@ if __name__ == "__main__":
         return the_json
 
     plan_json = load_json('lunar_base-project_plan.json')
-    wbs_level1_json = load_json('lunar_base-wbs_level1.json')
-    wbs_level2_json = load_json('lunar_base-wbs_level2.json')
+    wbs_level1_json = load_json(FilenameEnum.WBS_LEVEL1.value)
+    wbs_level2_json = load_json(FilenameEnum.WBS_LEVEL2.value)
 
     model_name = "llama3.1:latest"
     # model_name = "qwen2.5-coder:latest"
