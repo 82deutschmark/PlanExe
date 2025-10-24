@@ -56,6 +56,8 @@ export const usePlanningStore = create<PlanningState>((set, get) => ({
 
   // Create new plan
   createPlan: async (request) => {
+    // Prevent double-submits while a plan is being created
+    if (get().isCreating) return;
     set({ isCreating: true, error: null });
 
     try {
@@ -105,19 +107,9 @@ export const usePlanningStore = create<PlanningState>((set, get) => ({
     if (!activePlan) return;
 
     try {
-      const response = await fetch(`/api/plans/${activePlan.planId}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' }
-      });
+      // Use FastAPI client instead of relative /api route
+      await apiClient.cancelPlan(activePlan.planId);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to stop plan');
-      }
-
-      await response.json();
-
-      // API returns message directly
       set((state) => ({
         activePlan: state.activePlan ? {
           ...state.activePlan,
@@ -243,53 +235,40 @@ export const usePlanningStore = create<PlanningState>((set, get) => ({
   // Fetch current progress
   fetchProgress: async (planId) => {
     try {
-      const response = await fetch(`/api/plans/${planId}`);
-      
-      if (!response.ok) {
-        // Don't throw error for progress fetch failures - just log
-        console.error('Progress fetch failed:', response.statusText);
-        return;
-      }
+      // Use FastAPI client rather than relative /api route
+      const data: PlanResponse = await apiClient.getPlan(planId);
 
-      const data: PlanResponse = await response.json();
-
-      // API returns PlanResponse directly - create simplified progress state
       const progress: PipelineProgressState = {
         status: data.status as PipelineStatus,
-        phases: [], // Will be populated by SSE updates
+        phases: [],
         overallPercentage: data.progress_percentage,
-        completedTasks: Math.floor(data.progress_percentage / 2), // Approximate
-        totalTasks: 61, // Luigi pipeline has 61 tasks
+        completedTasks: Math.floor(data.progress_percentage / 2),
+        totalTasks: 61,
         error: data.error_message || null,
-        duration: 0, // Will be calculated from startTime
+        duration: 0,
       };
 
       set((state) => ({
         activePlan: state.activePlan ? {
           ...state.activePlan,
-          progress: progress,
+          progress,
           status: data.status as PipelineStatus,
           lastUpdated: new Date()
         } : null
       }));
 
-      // Update session history with status
       const sessionStore = useSessionStore.getState();
       sessionStore.updatePlanInHistory(planId, {
         status: data.status as PipelineStatus,
-        fileCount: 0, // Will be updated when files are available
-        ...(data.status === 'completed' && {
-          completedAt: new Date()
-        })
+        fileCount: 0,
+        ...(data.status === 'completed' && { completedAt: new Date() })
       });
 
-      // If completed, stop monitoring
       if (['completed', 'failed', 'cancelled'].includes(data.status)) {
         get().stopProgressMonitoring();
       }
     } catch (error) {
       console.error('Progress fetch error:', error);
-      // Don't update error state for progress fetch failures
     }
   },
 
