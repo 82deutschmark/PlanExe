@@ -5,10 +5,11 @@
 # SRP and DRY check: Pass - Single responsibility of prompt templates.
 #                    Used only by conversation_service.py intake flow.
 
+import os
 from openai import OpenAI
 
-# Initialize client
-client = OpenAI()
+# Initialize client with API key from environment
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Fetch the prompt from OpenAI's Prompt Library
 # This retrieves the prompt content at module import time
