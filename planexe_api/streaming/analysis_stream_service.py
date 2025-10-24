@@ -14,7 +14,7 @@ from openai import APIError
 from planexe_api.config import RESPONSES_STREAMING_CONTROLS
 from planexe_api.database import DatabaseService, SessionLocal
 from planexe_api.models import AnalysisStreamRequest
-from planexe_api.services.conversation_service import ResponseIDStore
+from planexe_api.services.response_id_service import ResponseIDStore
 from planexe_api.streaming.session_store import (
     AnalysisStreamSessionStore,
     CachedAnalysisSession,
