@@ -197,6 +197,15 @@ class PlanTask(luigi.Task):
         """
         Don't override this method. Instead either override the run_inner() method, or override the run_with_llm() method.
         """
+        # Clear any stale stop flag so a prior aborted run doesn't block this one
+        try:
+            from planexe.plan.filenames import ExtraFilenameEnum
+            stop_flag_path = self.run_id_dir / ExtraFilenameEnum.PIPELINE_STOP_REQUESTED_FLAG.value
+            if stop_flag_path.exists():
+                stop_flag_path.unlink()
+        except Exception:
+            # Never block pipeline start due to cleanup
+            pass
         # DIAGNOSTIC: Log when ANY task run() is called
         logger.error(f"[PIPELINE] {self.__class__.__name__}.run() CALLED - Luigi worker IS running!")
         print(f"[PIPELINE] {self.__class__.__name__}.run() CALLED - Luigi worker IS running!")
