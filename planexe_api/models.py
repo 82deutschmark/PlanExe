@@ -36,6 +36,7 @@ class CreatePlanRequest(BaseModel):
     prompt: str = Field(..., description="The planning prompt/idea", min_length=1, max_length=10000)
     llm_model: Optional[str] = Field(None, description="LLM model ID to use")
     speed_vs_detail: SpeedVsDetail = Field(SpeedVsDetail.ALL_DETAILS_BUT_SLOW, description="Speed vs detail preference")
+    reasoning_effort: Optional[str] = Field("medium", description="Reasoning effort level: minimal, medium, high")
     enriched_intake: Optional[Dict[str, Any]] = Field(
         None,
         description="Optional enriched intake data from conversation (EnrichedPlanIntake schema). If provided, pre-populates pipeline with structured variables."
