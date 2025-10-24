@@ -1,3 +1,11 @@
+# Author: Cascade (OpenAI GPT-4.1)
+# Date: 2025-10-24T02:22:00Z
+# PURPOSE: Provide a standalone ResponseIDStore that retrieves the latest response IDs from
+#          llm_interactions so conversation and analysis services can chain Responses API calls
+#          without creating circular imports.
+# SRP and DRY check: Pass — isolates response ID persistence logic already shared across
+#          services, avoiding duplication and dependency cycles.
+
 """Service for managing response ID storage and retrieval."""
 
 from typing import Optional
@@ -26,7 +34,11 @@ class ResponseIDStore:
                 return None
 
             # Find the most recent completed interaction with a response_id
-            for interaction in sorted(interactions, key=lambda x: x.created_at, reverse=True):
+            for interaction in sorted(
+                interactions,
+                key=lambda x: getattr(x, "completed_at", None) or getattr(x, "started_at", None),
+                reverse=True,
+            ):
                 if (interaction.status == "completed" and
                     interaction.response_metadata and
                     interaction.response_metadata.get("response_id")):
