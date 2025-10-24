@@ -14,6 +14,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 from llama_index.core.llms.llm import LLM
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
+from planexe.plan.filenames import FilenameEnum
 
 class WBSSubtask(BaseModel):
     """
@@ -187,4 +188,3 @@ if __name__ == "__main__":
 
     print("\n\nExtracted tasks:")
     print(json.dumps(result.tasks, indent=2))
-
