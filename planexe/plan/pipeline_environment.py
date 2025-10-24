@@ -9,6 +9,7 @@ class PipelineEnvironmentEnum(Enum):
     RUN_ID_DIR = "RUN_ID_DIR"
     LLM_MODEL = "LLM_MODEL"
     SPEED_VS_DETAIL = "SPEED_VS_DETAIL"
+    REASONING_EFFORT = "REASONING_EFFORT"
 
 @dataclass
 class PipelineEnvironment:
@@ -16,6 +17,7 @@ class PipelineEnvironment:
     run_id_dir: Optional[str] = None
     llm_model: Optional[str] = None
     speed_vs_detail: Optional[str] = None
+    reasoning_effort: Optional[str] = None
 
     @classmethod
     def from_env(cls) -> "PipelineEnvironment":
@@ -23,7 +25,8 @@ class PipelineEnvironment:
         return cls(
             run_id_dir=os.environ.get(PipelineEnvironmentEnum.RUN_ID_DIR.value),
             llm_model=os.environ.get(PipelineEnvironmentEnum.LLM_MODEL.value),
-            speed_vs_detail=os.environ.get(PipelineEnvironmentEnum.SPEED_VS_DETAIL.value)
+            speed_vs_detail=os.environ.get(PipelineEnvironmentEnum.SPEED_VS_DETAIL.value),
+            reasoning_effort=os.environ.get(PipelineEnvironmentEnum.REASONING_EFFORT.value)
         )
     
     def get_run_id_dir(self) -> Path:
