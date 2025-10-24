@@ -150,7 +150,7 @@ if __name__ == "__main__":
         return the_json
 
     plan_json = load_json('002-project_plan.json')
-    wbs_level2_json = load_json('006-wbs_level2.json')
+    wbs_level2_json = load_json(FilenameEnum.WBS_LEVEL2.value)
 
     task_ids = [
         "c6a249af-b8d3-4d4c-b3ef-8a5caa8793d4",
