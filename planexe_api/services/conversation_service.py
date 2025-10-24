@@ -381,6 +381,11 @@ class ConversationService:
     ) -> Dict[str, Any]:
         final_payload: Dict[str, Any] = {}
         try:
+            # Log the request being sent to OpenAI Responses API
+            logger.info(f"Sending Responses API request with keys: {list(request_args.keys())}")
+            if "input" in request_args:
+                logger.debug(f"Input segments structure: {json.dumps([{k: v for k, v in seg.items() if k in ['role', 'content']} for seg in request_args.get('input', [])], default=str)}")
+
             # Modern SDKs expose conversation-aware streaming directly on client.responses
             responses_client = getattr(llm._client, "responses", None)  # pylint: disable=protected-access
             if responses_client is None:
