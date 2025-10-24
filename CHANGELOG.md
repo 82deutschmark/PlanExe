@@ -2,25 +2,38 @@
 
 ### INVESTIGATING: Conversation Modal Responses API Message Type Error
 
-**Status**: Root cause still being diagnosed.
+**Status**: Root cause still being diagnosed. Comprehensive diagnostic logging added.
 
 **Observed Issue**: When using the conversation modal to finalize and launch, receiving OpenAI API error:
 ```
-Error code: 400 - {'error': {'message': "Invalid value: 'text'. Supported values are: 'input_text', ..."}}
+Error code: 400 - {'error': {'message': "Invalid value: 'text'. Supported values are: 'input_text', 'input_image', 'output_text', ..."}}
 ```
 
-This indicates messages are being sent with type "text" instead of "input_text", which violates Responses API requirements.
+Error occurs in `useResponsesConversation.ts` line 279 when streaming conversation turn, indicating messages are being sent to OpenAI with type "text" instead of "input_text".
 
-**Investigation Steps Taken**:
-- ✅ Verified `normalize_input_messages()` correctly converts "text" to "input_text" (tested locally)
-- ✅ Verified both code paths (`conversation_service.py` and `simple_openai_llm.py`) call normalization
-- ✅ Added diagnostic logging and validation to catch any unnormalized messages
-- ⏳ Next: Run conversation modal and examine server logs to identify where type "text" is coming from
+**Investigation Findings**:
+- ✅ Code inspection: `normalize_input_messages()` correctly converts "text" → "input_text" (lines 169-186 in simple_openai_llm.py)
+- ✅ Verified both code paths call normalization:
+  - `conversation_service._build_request_args()` line 479
+  - `simple_openai_llm._prepare_input()` line 320
+- ✅ Added validation that would raise ValueError if unnormalized "text" found
+- ⏳ The validation hasn't been triggered, suggesting normalization IS working but error coming from elsewhere
 
 **Diagnostic Tools Added**:
-- [`planexe_api/services/conversation_service.py`](planexe_api/services/conversation_service.py) - Added logging and validation in `_build_request_args()` to catch unnormalized "text" types before sending to OpenAI
+- [`planexe_api/services/conversation_service.py`](planexe_api/services/conversation_service.py):
+  - Lines 484-496: Validation loop that raises ValueError if any unnormalized "text" types found
+  - Lines 385-387: Logging before OpenAI API call to show request structure
 
-**User Action Required**: Run the conversation modal and share the server logs or error message.
+**Next Steps to Diagnose**:
+1. Run conversation modal with API server in DEBUG log level
+2. Check logs for:
+   - "BUG: Found unnormalized 'text' type" error (would indicate normalization failed)
+   - "Sending Responses API request" log (would show actual request structure)
+   - OpenAI 400 error details
+3. If validation passes (no ValueError), then error is either:
+   - Coming from a different code path
+   - Occurring after normalization (some serialization issue)
+   - Or is a different API error entirely
 
 ### FIX: Correct reasoning_effort handling - request-time parameter, not stored
 
