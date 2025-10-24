@@ -158,6 +158,8 @@ class DataCollection:
         sllm = llm.as_structured_llm(DocumentDetails)
         start_time = time.perf_counter()
         try:
+            # Add start log for consistency
+            logger.info("[DataCollection] LLM chat starting. prompt_len=%s model=%s", len(user_prompt), getattr(llm, "model_name", llm.class_name()))
             chat_response = sllm.chat(chat_message_list)
         except Exception as e:
             logger.debug(f"LLM chat interaction failed: {e}")
@@ -167,7 +169,8 @@ class DataCollection:
         end_time = time.perf_counter()
         duration = int(ceil(end_time - start_time))
         response_byte_count = len(chat_response.message.content.encode('utf-8'))
-        logger.info(f"LLM chat interaction completed in {duration} seconds. Response byte count: {response_byte_count}")
+        # Normalize end log fields
+        logger.info("[DataCollection] LLM chat completed. duration_sec=%s response_bytes=%s", duration, response_byte_count)
 
         json_response = chat_response.raw.model_dump()
 
@@ -221,25 +224,35 @@ class DataCollection:
         """
         rows = []
 
-        for item_index, data_collection_item in enumerate(document_details.data_collection_list, start=1):
+        # Ensure deterministic ordering by item_index
+        items = sorted(document_details.data_collection_list, key=lambda dc: dc.item_index)
+
+        for item_index, data_collection_item in enumerate(items, start=1):
             if item_index > 1:
                 rows.append("\n")
             rows.append(f"## {item_index}. {data_collection_item.title}\n")
             rows.append(data_collection_item.rationale)
 
-            data_to_collect = DataCollection._format_bullet_list(data_collection_item.data_to_collect)
+            # Sort inner lists deterministically
+            data_to_collect_list = sorted(list(data_collection_item.data_to_collect))
+            data_to_collect = DataCollection._format_bullet_list(data_to_collect_list)
             rows.append(f"\n### Data to Collect\n\n{data_to_collect}")
 
-            simulation_steps = DataCollection._format_bullet_list(data_collection_item.simulation_steps)
+            simulation_steps_list = sorted(list(data_collection_item.simulation_steps))
+            simulation_steps = DataCollection._format_bullet_list(simulation_steps_list)
             rows.append(f"\n### Simulation Steps\n\n{simulation_steps}")
 
-            expert_validation_steps = DataCollection._format_bullet_list(data_collection_item.expert_validation_steps)
+            expert_validation_steps_list = sorted(list(data_collection_item.expert_validation_steps))
+            expert_validation_steps = DataCollection._format_bullet_list(expert_validation_steps_list)
             rows.append(f"\n### Expert Validation Steps\n\n{expert_validation_steps}")
 
-            responsible_parties = DataCollection._format_bullet_list(data_collection_item.responsible_parties)
+            responsible_parties_list = sorted(list(data_collection_item.responsible_parties))
+            responsible_parties = DataCollection._format_bullet_list(responsible_parties_list)
             rows.append(f"\n### Responsible Parties\n\n{responsible_parties}")
 
-            assumption_list = [f"**{item.sensitivity_score.human_readable()}:** {item.assumption}" for item in data_collection_item.assumptions]
+            # Ensure assumptions are ordered by their item_index
+            ordered_assumptions = sorted(list(data_collection_item.assumptions), key=lambda a: a.item_index)
+            assumption_list = [f"**{item.sensitivity_score.human_readable()}:** {item.assumption}" for item in ordered_assumptions]
             assumptions = DataCollection._format_bullet_list(assumption_list)
             rows.append(f"\n### Assumptions\n\n{assumptions}")
 
