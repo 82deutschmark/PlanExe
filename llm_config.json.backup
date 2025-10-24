@@ -15,7 +15,7 @@
         }
     },
     "gpt-4o-mini": {
-        "comment": "Latest fast OpenAI model. 128K context. Cost-effective for production.",
+        "comment": "Old fast OpenAI model. 128K context. Cost-effective for production.",
         "priority": 2,
         "class": "OpenAI",
         "arguments": {
@@ -30,7 +30,7 @@
         }
     },
     "gpt-4o": {
-        "comment": "Latest OpenAI flagship model. 128K context. Best quality.",
+        "comment": "Old OpenAI flagship model. 128K context. Best quality.",
         "priority": 2,
         "class": "OpenAI",
         "arguments": {
