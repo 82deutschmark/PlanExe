@@ -882,12 +882,22 @@ class StructuredSimpleOpenAILLM:
             )
         raise ValueError(f"Structured response for {self.output_cls.__name__} was empty")
 
-    def chat(self, messages: Sequence[Any], **_: Any) -> StructuredLLMResponse:
+    def chat(self, messages: Sequence[Any], **kwargs: Any) -> StructuredLLMResponse:
         formatted_messages = self._format_messages(messages)
         schema_entry = get_schema_entry(self.output_cls)
         text_chunks: List[str] = []
 
-        for delta in self.base_llm.stream_chat(formatted_messages, schema_entry=schema_entry):
+        # Extract response chaining parameters from kwargs
+        previous_response_id = kwargs.get("previous_response_id")
+        reasoning_effort = kwargs.get("reasoning_effort", "medium")
+
+        for delta in self.base_llm.stream_chat(
+            formatted_messages,
+            schema_entry=schema_entry,
+            previous_response_id=previous_response_id,
+            reasoning_effort=reasoning_effort,
+            **{k: v for k, v in kwargs.items() if k not in ["previous_response_id", "reasoning_effort"]}
+        ):
             if delta:
                 text_chunks.append(delta)
 
