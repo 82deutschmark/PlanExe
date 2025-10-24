@@ -481,9 +481,14 @@ class ConversationService:
         request: ConversationTurnRequest,
         schema_descriptor: Optional[SimpleNamespace],
     ) -> Dict[str, Any]:
+        print(f"\n\n========== BUILDING REQUEST ARGS FOR CONVERSATION {conversation_id} ==========")
+        print(f"User message: {request.user_message[:100]}")
+
         input_segments = SimpleOpenAILLM.normalize_input_messages(
             [{"role": "user", "content": request.user_message}]
         )
+
+        print(f"Normalized input_segments: {json.dumps(input_segments, default=str)}")
 
         # Validate that normalization happened correctly
         for segment in input_segments:
