@@ -66,6 +66,8 @@ export function useConversationStreaming() {
   const handlersRef = useRef<ConversationStreamHandlers>({});
   const rafRef = useRef<number | null>(null);
   const pendingBuffersRef = useRef<{ text?: string; reasoning?: string }>({});
+  // Guard against overlapping startStream calls
+  const startEpochRef = useRef(0);
 
   const closeStream = useCallback((reset = false) => {
     if (eventSourceRef.current) {
@@ -78,6 +80,8 @@ export function useConversationStreaming() {
       pendingBuffersRef.current = {};
     }
     handlersRef.current = {};
+    // Invalidate any in-flight starts
+    startEpochRef.current += 1;
     setState((prev) => {
       if (reset) {
         return { ...INITIAL_STATE };
@@ -116,19 +120,36 @@ export function useConversationStreaming() {
       handlers?: ConversationStreamHandlers,
     ): Promise<ConversationRequestSession> => {
       closeStream(true);
+      const myEpoch = startEpochRef.current + 1;
+      startEpochRef.current = myEpoch;
       setState(() => ({ ...INITIAL_STATE, status: 'connecting' }));
       handlersRef.current = handlers ?? {};
 
       const session = await fastApiClient.createConversationRequest(conversationId, payload);
+      // Abort if a newer start superseded this one
+      if (startEpochRef.current !== myEpoch) {
+        return session;
+      }
       setState((prev) => ({
         ...prev,
         session,
       }));
 
       const source = fastApiClient.startConversationStream(session.conversation_id, session.token, session.model_key);
+      if (startEpochRef.current !== myEpoch) {
+        // Another stream started; close this one immediately
+        source.close();
+        return session;
+      }
       eventSourceRef.current = source;
 
       const handleEvent = (event: MessageEvent) => {
+        // Ignore events from superseded streams
+        if (startEpochRef.current !== myEpoch) {
+          try { source.close(); } catch {}
+          eventSourceRef.current = null;
+          return;
+        }
         const parsed: ConversationStreamServerEvent = {
           event: event.type as ConversationStreamServerEvent['event'],
           data: JSON.parse(event.data),
