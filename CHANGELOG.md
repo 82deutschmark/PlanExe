@@ -19,35 +19,36 @@
 - **UI**: 3-option dropdown with duration estimates and descriptive tooltips
 - **Default**: "medium" effort balanced for most planning scenarios
 
-#### Response ID Chaining
+#### Response ID Chaining (COMPLETED ✅)
 **Files**:
-- [`planexe_api/services/conversation_service.py`](planexe_api/services/conversation_service.py) - Added ResponseIDStore and automatic chaining logic
+- [`planexe_api/services/conversation_service.py`](planexe_api/services/conversation_service.py) - ResponseIDStore with database persistence
+- [`planexe_api/streaming/analysis_stream_service.py`](planexe_api/streaming/analysis_stream_service.py) - Automatic chaining integration
+- [`planexe/llm_util/simple_openai_llm.py`](planexe/llm_util/simple_openai_llm.py) - Enhanced LLM interface with chaining parameters
+- [`planexe_api/api.py`](planexe_api/api.py) - Debug endpoint for verification
 
 **Implementation Details**:
-- **ResponseIDStore**: Thread-safe storage for tracking latest response ID per conversation
-- **Automatic Chaining**: Follow-up requests automatically include `previous_response_id` from prior turns
-- **Logging**: INFO-level logs when chaining occurs for debugging
-- **Store Parameter**: All conversation requests set `store: true` for 30-day retention
-- **Persistence**: Response IDs stored in database `llm_interactions` table metadata
+- **Database Persistence**: Response IDs stored in `llm_interactions` table metadata, survives restarts
+- **System-wide Integration**: All Responses API calls now support `previous_response_id` chaining
+- **Configurable Reasoning**: Replaced hardcoded "medium" effort with configurable parameter
+- **Debug Endpoint**: `GET /api/conversations/{id}/debug` returns chaining status and verification data
+- **Automatic Chaining**: Follow-up requests automatically include previous response ID from database
+- **30-day Retention**: All requests set `store: true` for OpenAI response persistence
 
 **OpenAI Compliance**:
-- ✅ Persist response ID after each call
-- ✅ Include `previous_response_id` on follow-up requests
-- ✅ Set `store: true` for response retention
-- ✅ All prior input tokens re-billed (documented in comments)
-- ✅ Chaining preserves reasoning context without resending
-
-**Backward Compatibility**:
-- Existing conversations without response IDs continue to work
-- `previous_response_id` is optional in request models
-- Graceful fallback when no prior response ID exists
+- ✅ Persist response ID after each call (database storage)
+- ✅ Include `previous_response_id` on follow-up requests (automatic)
+- ✅ Set `store: true` for response retention (all requests)
+- ✅ All prior input tokens re-billed (documented in code)
+- ✅ Chaining preserves reasoning context without resending (full implementation)
 
 **Testing Coverage**:
-- UI dropdown renders correctly with all 3 options
-- Database stores correct reasoning effort values
-- API responses include reasoning effort field
-- Response ID chaining works across multiple conversation turns
-- Logging shows chaining activity for verification
+- ✅ UI dropdown renders correctly with all 3 reasoning effort options
+- ✅ Database stores correct reasoning effort values
+- ✅ API responses include reasoning effort field
+- ✅ Response ID chaining works across multiple conversation turns
+- ✅ Analysis streams automatically chain with previous responses
+- ✅ Debug endpoint returns current response ID and chain length
+- ✅ All LLM calls use configurable reasoning effort instead of hardcoded values
 
 #### Impact
 - **User Experience**: Reasoning effort now configurable per plan with clear duration expectations

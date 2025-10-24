@@ -14,6 +14,7 @@ from openai import APIError
 from planexe_api.config import RESPONSES_STREAMING_CONTROLS
 from planexe_api.database import DatabaseService, SessionLocal
 from planexe_api.models import AnalysisStreamRequest
+from planexe_api.services.conversation_service import ResponseIDStore
 from planexe_api.streaming.session_store import (
     AnalysisStreamSessionStore,
     CachedAnalysisSession,
@@ -96,6 +97,22 @@ class AnalysisStreamService:
         options = self._build_request_options(request)
         metadata = request.metadata or {}
         schema_entry = self._resolve_schema_entry(request)
+
+        # Automatically include previous response ID if not explicitly provided
+        if not request.previous_response_id:
+            # Get database service for response ID lookup
+            db = SessionLocal()
+            try:
+                db_service = DatabaseService(db)
+                response_id_store = ResponseIDStore(db_service)
+                previous_response_id = await response_id_store.get_response_id(request.task_id)
+                if previous_response_id:
+                    print(f"INFO: Analysis chaining with previous_response_id={previous_response_id}")
+                    request = request.model_copy(update={"previous_response_id": previous_response_id})
+                    # Rebuild options with the new previous_response_id
+                    options = self._build_request_options(request)
+            finally:
+                db.close()
 
         prepared = PreparedAnalysisPayload(
             request=request,

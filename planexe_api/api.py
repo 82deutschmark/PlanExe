@@ -1509,6 +1509,48 @@ async def list_plan_artefacts(plan_id: str, db: DatabaseService = Depends(get_da
         raise HTTPException(status_code=500, detail=f"Failed to fetch plan artefacts: {exc}")
 
 
+@app.get("/api/conversations/{conversation_id}/debug")
+async def debug_conversation_chaining(conversation_id: str, db: DatabaseService = Depends(get_database)):
+    """Debug endpoint for conversation response chaining verification."""
+    try:
+        # Get all interactions for this conversation
+        interactions = db.get_plan_interactions(conversation_id)
+        if not interactions:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+
+        # Find completed interactions with response IDs
+        response_ids = []
+        last_updated_at = None
+
+        for interaction in sorted(interactions, key=lambda x: x.created_at, reverse=True):
+            if (interaction.status == "completed" and
+                interaction.response_metadata and
+                interaction.response_metadata.get("response_id")):
+                response_ids.append(interaction.response_metadata["response_id"])
+                if last_updated_at is None:
+                    last_updated_at = interaction.created_at
+
+        if not response_ids:
+            return {
+                "conversation_id": conversation_id,
+                "last_response_id": None,
+                "chain_length": 0,
+                "last_updated_at": None,
+                "total_interactions": len(interactions),
+            }
+
+        return {
+            "conversation_id": conversation_id,
+            "last_response_id": response_ids[0],
+            "chain_length": len(response_ids),
+            "last_updated_at": last_updated_at.isoformat() if last_updated_at else None,
+            "total_interactions": len(interactions),
+            "all_response_ids": response_ids,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to debug conversation chaining: {str(e)}")
 
 
 if __name__ == "__main__":

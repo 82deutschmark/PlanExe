@@ -362,11 +362,13 @@ class SimpleOpenAILLM(LLM):
         *,
         schema_entry: Optional[Any] = None,
         stream: bool = False,
+        previous_response_id: Optional[str] = None,
+        reasoning_effort: str = "medium",
     ) -> Dict[str, Any]:
         request: Dict[str, Any] = {
             "model": self.model,
             "input": self._prepare_input(messages),
-            "reasoning": {"effort": "medium", "summary": "detailed"},
+            "reasoning": {"effort": reasoning_effort, "summary": "detailed"},
             "text": {"verbosity": "high"},
         }
 
@@ -376,6 +378,9 @@ class SimpleOpenAILLM(LLM):
 
         if stream:
             request["stream"] = True
+
+        if previous_response_id:
+            request["previous_response_id"] = previous_response_id
 
         return request
 
@@ -560,6 +565,8 @@ class SimpleOpenAILLM(LLM):
         messages: Sequence[Any],
         *,
         schema_entry: Optional[Any] = None,
+        previous_response_id: Optional[str] = None,
+        reasoning_effort: str = "medium",
     ) -> Dict[str, Any]:
         self._last_response_payload = None
         self._last_extracted_output = None
@@ -567,7 +574,7 @@ class SimpleOpenAILLM(LLM):
             raise RuntimeError("Responses client unavailable; cannot perform invoke.")
 
         response = self._responses_client.create(
-            **self._request_args(messages, schema_entry=schema_entry, stream=False)
+            **self._request_args(messages, schema_entry=schema_entry, stream=False, previous_response_id=previous_response_id, reasoning_effort=reasoning_effort)
         )
         payload = self._payload_to_dict(response)
         self._last_response_payload = payload
@@ -610,11 +617,13 @@ class SimpleOpenAILLM(LLM):
         messages: Sequence[Any],
         *,
         schema_entry: Optional[Any] = None,
+        previous_response_id: Optional[str] = None,
+        reasoning_effort: str = "medium",
         **_: Any,
     ) -> Generator[str, None, None]:
         self._last_response_payload = None
         self._last_extracted_output = None
-        request_args = self._request_args(messages, schema_entry=schema_entry, stream=True)
+        request_args = self._request_args(messages, schema_entry=schema_entry, stream=True, previous_response_id=previous_response_id, reasoning_effort=reasoning_effort)
         responses_client = self._responses_client
         if responses_client is None:
             raise RuntimeError("Responses client unavailable; cannot stream.")
@@ -626,7 +635,7 @@ class SimpleOpenAILLM(LLM):
         except Exception as e:
             # Fallback to non-streaming if streaming fails
             logger.warning(f"Streaming failed, falling back to non-streaming: {e}")
-            result = self._invoke_responses(messages, schema_entry=schema_entry)
+            result = self._invoke_responses(messages, schema_entry=schema_entry, previous_response_id=previous_response_id, reasoning_effort=reasoning_effort)
             text = result.get("text")
             if text:
                 yield text
@@ -740,7 +749,7 @@ class SimpleOpenAILLM(LLM):
                 pass
             else:
                 # No text collected, try fallback
-                result = self._invoke_responses(messages, schema_entry=schema_entry)
+                result = self._invoke_responses(messages, schema_entry=schema_entry, previous_response_id=previous_response_id, reasoning_effort=reasoning_effort)
                 text = result.get("text")
                 if text:
                     yield text
