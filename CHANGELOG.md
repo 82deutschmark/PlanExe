@@ -1,5 +1,27 @@
 ## [0.6.5] - 2025-10-24
 
+### INVESTIGATING: Conversation Modal Responses API Message Type Error
+
+**Status**: Root cause still being diagnosed.
+
+**Observed Issue**: When using the conversation modal to finalize and launch, receiving OpenAI API error:
+```
+Error code: 400 - {'error': {'message': "Invalid value: 'text'. Supported values are: 'input_text', ..."}}
+```
+
+This indicates messages are being sent with type "text" instead of "input_text", which violates Responses API requirements.
+
+**Investigation Steps Taken**:
+- ✅ Verified `normalize_input_messages()` correctly converts "text" to "input_text" (tested locally)
+- ✅ Verified both code paths (`conversation_service.py` and `simple_openai_llm.py`) call normalization
+- ✅ Added diagnostic logging and validation to catch any unnormalized messages
+- ⏳ Next: Run conversation modal and examine server logs to identify where type "text" is coming from
+
+**Diagnostic Tools Added**:
+- [`planexe_api/services/conversation_service.py`](planexe_api/services/conversation_service.py) - Added logging and validation in `_build_request_args()` to catch unnormalized "text" types before sending to OpenAI
+
+**User Action Required**: Run the conversation modal and share the server logs or error message.
+
 ### FIX: Correct reasoning_effort handling - request-time parameter, not stored
 
 **Problem**: Previous commits mistakenly created a migration to add `reasoning_effort` as a permanent Plan database column, then later removed it from the schema, leaving orphaned code that tried to store and retrieve it from the database. This caused 500 errors when clicking "Finalise and Launch" because the code tried to access `plan.reasoning_effort` which no longer existed in the schema.
