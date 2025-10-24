@@ -87,9 +87,17 @@ class _LazyPrompt:
         self._load()
         return self._content
 
-    def __bool__(self):
+    def __repr__(self):
+        return f"LazyPrompt(content='{self._content}')"
+
+    # Make it behave like a string in all contexts
+    def __getattr__(self, name):
         self._load()
-        return bool(self._content)
+        # If the content has the attribute, return it
+        if hasattr(self._content, name):
+            return getattr(self._content, name)
+        # Otherwise, raise AttributeError
+        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
 
 # Create lazy prompt instance
 INTAKE_CONVERSATION_SYSTEM_PROMPT = _LazyPrompt()
