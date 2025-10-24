@@ -29,6 +29,24 @@ def save_markdown(self, output_file_path: str):
 
 **Impact**: Pipeline can now complete IdentifyPurposeTask and all 11 dependent governance/plan tasks that call `save_markdown()`. The immediate failure of `IdentifyPurposeTask` is now resolved, and all downstream tasks will proceed successfully.
 
+### FIX: Add Missing `to_filtered_documents_json()` Methods
+
+**Problem**: FilterDocumentsToFind and FilterDocumentsToCreate classes were missing the `to_filtered_documents_json()` instance method that the pipeline calls to convert filtered document lists to JSON strings. This caused `FilterDocumentsToFindTask` and `FilterDocumentsToCreateTask` to fail.
+
+**Solution**: Added `to_filtered_documents_json()` instance method to both classes:
+- [`planexe/document/filter_documents_to_find.py`](planexe/document/filter_documents_to_find.py)
+- [`planexe/document/filter_documents_to_create.py`](planexe/document/filter_documents_to_create.py)
+
+Each method returns a JSON string representation of the filtered documents:
+```python
+def to_filtered_documents_json(self) -> str:
+    return json.dumps(self.filtered_documents_raw_json, indent=2)
+```
+
+Also refactored `save_filtered_documents()` to call the new method instead of duplicating JSON serialization logic (DRY principle).
+
+**Impact**: Pipeline can now persist filtered document data to the database, unblocking FilterDocumentsToFind and FilterDocumentsToCreate tasks and all downstream document-related tasks.
+
 ## [0.6.3] - 2025-10-23
 
 ### REVERT: Restore working recovery UI layout (2-column grid)
