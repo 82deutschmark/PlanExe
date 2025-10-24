@@ -529,6 +529,7 @@ async def create_plan(request: CreatePlanRequest):
             "prompt": request.prompt,
             "llm_model": resolved_llm_model,
             "speed_vs_detail": request.speed_vs_detail.value,
+            "reasoning_effort": request.reasoning_effort,
             "status": PlanStatus.pending.value,
             "progress_percentage": 0,
             "progress_message": "Plan queued for processing...",
@@ -547,6 +548,7 @@ async def create_plan(request: CreatePlanRequest):
             prompt=request.prompt,
             llm_model=resolved_llm_model,
             speed_vs_detail=request.speed_vs_detail,
+            reasoning_effort=request.reasoning_effort,
             enriched_intake=request.enriched_intake,
         )
 
@@ -571,6 +573,9 @@ async def create_plan(request: CreatePlanRequest):
             status=PlanStatus(plan.status),
             created_at=plan.created_at,
             prompt=plan.prompt,
+            llm_model=plan.llm_model,
+            speed_vs_detail=SpeedVsDetail(plan.speed_vs_detail),
+            reasoning_effort=plan.reasoning_effort,
             progress_percentage=plan.progress_percentage,
             progress_message=plan.progress_message,
             error_message=plan.error_message,
@@ -652,10 +657,14 @@ async def get_plan(plan_id: str, db: DatabaseService = Depends(get_database)):
             status=PlanStatus(plan.status),
             created_at=plan.created_at,
             prompt=plan.prompt,
+            llm_model=plan.llm_model,
+            speed_vs_detail=SpeedVsDetail(plan.speed_vs_detail),
+            reasoning_effort=plan.reasoning_effort,
             progress_percentage=plan.progress_percentage,
             progress_message=plan.progress_message,
             error_message=plan.error_message,
-            output_dir=plan.output_dir
+            output_dir=plan.output_dir,
+            enriched_intake=None  # Not returned in get_plan for simplicity
         )
     except HTTPException:
         raise

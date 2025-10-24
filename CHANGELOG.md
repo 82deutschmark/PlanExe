@@ -1,3 +1,60 @@
+## [0.6.5] - 2025-10-24
+
+### FEATURE: Reasoning Effort Centralization & Response ID Chaining
+
+**Complete implementation of centralized reasoning effort configuration and OpenAI response ID chaining for conversation continuity.**
+
+#### Reasoning Effort Centralization
+**Files**:
+- [`planexe_api/database.py`](planexe_api/database.py) - Added `reasoning_effort` column to Plan model
+- [`planexe_api/models.py`](planexe_api/models.py) - Added validation and response fields for reasoning effort
+- [`planexe_api/api.py`](planexe_api/api.py) - Updated plan creation and retrieval endpoints
+- [`planexe-frontend/src/lib/types/forms.ts`](planexe-frontend/src/lib/types/forms.ts) - Added reasoning effort schema validation
+- [`planexe-frontend/src/lib/api/fastapi-client.ts`](planexe-frontend/src/lib/api/fastapi-client.ts) - Updated request/response interfaces
+- [`planexe-frontend/src/components/planning/PlanForm.tsx`](planexe-frontend/src/components/planning/PlanForm.tsx) - Added reasoning effort selection UI
+
+**Implementation Details**:
+- **Database**: `reasoning_effort` column with default "medium" and enum validation (minimal, medium, high)
+- **API**: Full request/response validation with proper enum constraints
+- **UI**: 3-option dropdown with duration estimates and descriptive tooltips
+- **Default**: "medium" effort balanced for most planning scenarios
+
+#### Response ID Chaining
+**Files**:
+- [`planexe_api/services/conversation_service.py`](planexe_api/services/conversation_service.py) - Added ResponseIDStore and automatic chaining logic
+
+**Implementation Details**:
+- **ResponseIDStore**: Thread-safe storage for tracking latest response ID per conversation
+- **Automatic Chaining**: Follow-up requests automatically include `previous_response_id` from prior turns
+- **Logging**: INFO-level logs when chaining occurs for debugging
+- **Store Parameter**: All conversation requests set `store: true` for 30-day retention
+- **Persistence**: Response IDs stored in database `llm_interactions` table metadata
+
+**OpenAI Compliance**:
+- ✅ Persist response ID after each call
+- ✅ Include `previous_response_id` on follow-up requests
+- ✅ Set `store: true` for response retention
+- ✅ All prior input tokens re-billed (documented in comments)
+- ✅ Chaining preserves reasoning context without resending
+
+**Backward Compatibility**:
+- Existing conversations without response IDs continue to work
+- `previous_response_id` is optional in request models
+- Graceful fallback when no prior response ID exists
+
+**Testing Coverage**:
+- UI dropdown renders correctly with all 3 options
+- Database stores correct reasoning effort values
+- API responses include reasoning effort field
+- Response ID chaining works across multiple conversation turns
+- Logging shows chaining activity for verification
+
+#### Impact
+- **User Experience**: Reasoning effort now configurable per plan with clear duration expectations
+- **Conversation Quality**: Multi-turn conversations maintain context via OpenAI response chaining
+- **API Consistency**: All endpoints return reasoning effort in responses
+- **Debugging**: Enhanced logging for response chaining verification
+
 ## [0.6.4] - 2025-10-24
 
 ### FIX: Complete v0.5.0 Regression - Add Missing `save_markdown()` Methods

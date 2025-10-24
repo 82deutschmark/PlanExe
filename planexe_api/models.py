@@ -42,6 +42,17 @@ class CreatePlanRequest(BaseModel):
         description="Optional enriched intake data from conversation (EnrichedPlanIntake schema). If provided, pre-populates pipeline with structured variables."
     )
 
+    @field_validator("reasoning_effort")
+    @classmethod
+    def validate_reasoning_effort(cls, value: Optional[str]) -> str:
+        """Validate reasoning effort is one of the allowed values"""
+        if value is None:
+            return "medium"  # default value
+        valid_values = ["minimal", "medium", "high"]
+        if value not in valid_values:
+            raise ValueError(f"reasoning_effort must be one of {valid_values}, got '{value}'")
+        return value
+
 
 class PlanResponse(BaseModel):
     """Response when creating or retrieving a plan"""
@@ -50,6 +61,8 @@ class PlanResponse(BaseModel):
     created_at: datetime = Field(..., description="When the plan was created")
     prompt: str = Field(..., description="The original planning prompt")
     llm_model: Optional[str] = Field(None, description="LLM model used for this plan")
+    speed_vs_detail: SpeedVsDetail = Field(..., description="Speed vs detail preference used for this plan")
+    reasoning_effort: str = Field(..., description="Reasoning effort level used for this plan")
     progress_percentage: int = Field(0, description="Completion percentage (0-100)")
     progress_message: str = Field("", description="Current progress description")
     error_message: Optional[str] = Field(None, description="Error message if failed")

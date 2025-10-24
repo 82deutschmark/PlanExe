@@ -29,6 +29,9 @@ export const PlanFormSchema = z.object({
   speed_vs_detail: z
     .enum(['fast_but_skip_details', 'balanced_speed_and_detail', 'all_details_but_slow']),
 
+  reasoning_effort: z
+    .enum(['minimal', 'medium', 'high']),
+
   title: z
     .string()
     .max(100, 'Title must be less than 100 characters')

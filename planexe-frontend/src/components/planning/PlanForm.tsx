@@ -51,6 +51,7 @@ export const PlanForm: React.FC<PlanFormProps> = ({
       prompt: '',
       llm_model: '',
       speed_vs_detail: 'all_details_but_slow',
+      reasoning_effort: 'medium',
       title: '',
       tags: []
     }
@@ -69,6 +70,7 @@ export const PlanForm: React.FC<PlanFormProps> = ({
       prompt: data.prompt,
       llm_model: data.llm_model,
       speed_vs_detail: data.speed_vs_detail,
+      reasoning_effort: data.reasoning_effort,
     };
 
     await onSubmit(request);

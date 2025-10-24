@@ -18,12 +18,14 @@ export interface CreatePlanRequest {
   prompt: string;
   llm_model?: string;
   speed_vs_detail: 'fast_but_skip_details' | 'balanced_speed_and_detail' | 'all_details_but_slow';
+  reasoning_effort?: 'minimal' | 'medium' | 'high';
   enriched_intake?: EnrichedPlanIntake;
 }
 
 export interface RelaunchPlanOptions {
   llmModel?: string | null;
   speedVsDetail?: CreatePlanRequest['speed_vs_detail'];
+  reasoningEffort?: CreatePlanRequest['reasoning_effort'];
 }
 
 export interface PlanResponse {
@@ -32,6 +34,8 @@ export interface PlanResponse {
   created_at: string;
   prompt: string;
   llm_model?: string | null;
+  speed_vs_detail: 'fast_but_skip_details' | 'balanced_speed_and_detail' | 'all_details_but_slow';
+  reasoning_effort: 'minimal' | 'medium' | 'high';
   progress_percentage: number;
   progress_message: string;
   error_message?: string;
@@ -593,6 +597,7 @@ export class FastAPIClient {
     const request: CreatePlanRequest = {
       prompt: previousPlan.prompt,
       speed_vs_detail: options.speedVsDetail ?? 'balanced_speed_and_detail',
+      reasoning_effort: options.reasoningEffort ?? previousPlan.reasoning_effort ?? 'medium',
     };
 
     if (options.llmModel) {
