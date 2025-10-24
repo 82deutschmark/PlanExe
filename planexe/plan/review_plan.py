@@ -55,6 +55,7 @@ Do not duplicate issues already identified in previous questions of this review.
 class ReviewPlanRunResult:
     chat_response: ChatResponse
     metadata: dict
+    previous_response_id: str | None = None
 
 @dataclass
 class ReviewPlan:
@@ -121,6 +122,8 @@ class ReviewPlan:
         durations = []
         response_byte_counts = []
 
+        previous_response_id: str | None = None
+
         for index, title_question in enumerate(title_question_list, start=1):
             title, question = title_question
             logger.debug(f"Question {index} of {len(title_question_list)}: {question}")
@@ -131,12 +134,20 @@ class ReviewPlan:
 
             def execute_function(llm: LLM) -> ReviewPlanRunResult:
                 sllm = llm.as_structured_llm(DocumentDetails)
-                chat_response = sllm.chat(chat_message_list)
+                # Pass previous_response_id for chaining; reasoning_effort remains from config
+                chat_response = sllm.chat(chat_message_list, previous_response_id=previous_response_id)
                 metadata = dict(llm.metadata)
                 metadata["llm_classname"] = llm.class_name()
+                # Read the last response id for chaining the next iteration
+                last_id = None
+                try:
+                    last_id = sllm.get_last_response_id()
+                except Exception:
+                    last_id = None
                 return ReviewPlanRunResult(
                     chat_response=chat_response,
-                    metadata=metadata
+                    metadata=metadata,
+                    previous_response_id=last_id,
                 )
 
             start_time = time.perf_counter()
@@ -169,6 +180,9 @@ class ReviewPlan:
             })
 
             metadata_list.append(review_plan_run_result.metadata)
+
+            # Update previous_response_id for chaining to the next question
+            previous_response_id = review_plan_run_result.previous_response_id
 
             chat_message_list.append(ChatMessage(
                 role=MessageRole.ASSISTANT,
