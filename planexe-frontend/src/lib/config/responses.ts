@@ -8,14 +8,14 @@
  */
 
 export const RESPONSES_STREAMING_DEFAULTS = {
-  reasoningEffort: 'high' as const,
+  reasoningEffort: 'medium' as const,
   reasoningSummary: 'detailed' as const,
   textVerbosity: 'high' as const,
   maxOutputTokens: undefined as number | undefined,
 };
 
 export const RESPONSES_CONVERSATION_DEFAULTS = {
-  reasoningEffort: 'high' as const,
+  reasoningEffort: 'medium' as const,
   reasoningSummary: 'detailed' as const,
   textVerbosity: 'high' as const,
 };
