@@ -229,6 +229,8 @@ class PipelineExecutionService:
         environment[PipelineEnvironmentEnum.SPEED_VS_DETAIL.value] = speed_vs_detail_mapping.get(
             request.speed_vs_detail.value, "all_details_but_slow"  # Default to detailed mode
         )
+        # Set reasoning effort from request (fallback to medium if not specified)
+        environment[PipelineEnvironmentEnum.REASONING_EFFORT.value] = getattr(request, 'reasoning_effort', 'medium')
         # Only set LLM_MODEL if it's not None (subprocess environment requires all values to be strings)
         if request.llm_model:
             environment[PipelineEnvironmentEnum.LLM_MODEL.value] = request.llm_model
