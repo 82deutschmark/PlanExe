@@ -1,3 +1,11 @@
+## [0.7.3] - 2025-10-24
+
+### FIX: Logging consistency, deterministic outputs, and frontend race guard
+- DataCollection: deterministic ordering (item_index and sorted inner lists) and consistent start/end logging with duration and response byte counts.
+- DeduplicateLevers: retain non-returned levers with explicit "Not returned by model" justification; add start/end logging with duration and byte counts; deterministic output ordering by name/id.
+- Frontend conversation streaming: prevent race/double-connect via start-epoch guard that invalidates in-flight starts and ignores stale events.
+- Frontend planning store: use FastAPI client baseURL (no Next.js /api proxy) for stop/progress to prevent route mismatch and race conditions.
+
 ## [0.7.2] - 2025-10-24
 
 ### FIX/FEAT: Complete deterministic chaining rollout and stability hardening
