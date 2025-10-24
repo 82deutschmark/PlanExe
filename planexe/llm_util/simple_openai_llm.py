@@ -865,6 +865,16 @@ class SimpleOpenAILLM(LLM):
             return rid if isinstance(rid, str) else None
         return None
 
+    def _record_last_response_id_from_stream_final(self, final_response: object) -> None:
+        """Best-effort: record the final response id from a stream final response object.
+        Allows get_last_response_id() to work with streaming flows."""
+        try:
+            final_id = getattr(final_response, "id", None)
+            if isinstance(final_id, str) and final_id:
+                setattr(self, "_last_response_payload", {"id": final_id})
+        except Exception:
+            pass
+
 
 class StructuredLLMResponse:
     """LlamaIndex compatible wrapper for structured responses."""
@@ -984,3 +994,9 @@ class StructuredSimpleOpenAILLM:
             return self.base_llm.get_last_response_id()
         except Exception:
             return None
+
+    def _record_last_response_id_from_stream_final(self, final_response: object) -> None:
+        try:
+            self.base_llm._record_last_response_id_from_stream_final(final_response)  # pylint: disable=protected-access
+        except Exception:
+            pass
