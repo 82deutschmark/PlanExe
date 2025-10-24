@@ -1,39 +1,49 @@
 ## [0.6.5] - 2025-10-24
 
-### INVESTIGATING: Conversation Modal Responses API Message Type Error
+### INVESTIGATING: Conversation Modal Responses API Message Type Error - Response Chaining Bug
 
-**Status**: Root cause still being diagnosed. Comprehensive diagnostic logging added.
+**Status**: Identified likely root cause related to response chaining implementation (commit b15e936). Comprehensive diagnostic logging added to isolate exact failure point.
 
 **Observed Issue**: When using the conversation modal to finalize and launch, receiving OpenAI API error:
 ```
-Error code: 400 - {'error': {'message': "Invalid value: 'text'. Supported values are: 'input_text', 'input_image', 'output_text', ..."}}
+Error code: 400 - {'error': {'message': "Invalid value: 'text'. Supported values are: 'input_text', 'input_image', 'output_text', 'refusal', 'input_file', 'computer_screenshot', and 'summary_text'.", 'type': 'invalid_request_error', 'param': 'input[0].content[0].type', 'code': 'invalid_value'}}
 ```
 
-Error occurs in `useResponsesConversation.ts` line 279 when streaming conversation turn, indicating messages are being sent to OpenAI with type "text" instead of "input_text".
+**Critical Discovery**: The `ui2` branch (commit 3f0d8bd) works flawlessly. The `staging` branch broke after commit `b15e936` ("feat: complete reasoning effort and response chaining implementation" - Oct 23, 2025).
 
-**Investigation Findings**:
-- ✅ Code inspection: `normalize_input_messages()` correctly converts "text" → "input_text" (lines 169-186 in simple_openai_llm.py)
-- ✅ Verified both code paths call normalization:
-  - `conversation_service._build_request_args()` line 479
-  - `simple_openai_llm._prepare_input()` line 320
-- ✅ Added validation that would raise ValueError if unnormalized "text" found
-- ⏳ The validation hasn't been triggered, suggesting normalization IS working but error coming from elsewhere
+**Analysis**:
+- ✅ Code inspection: `normalize_input_messages()` correctly converts "text" → "input_text" (lines 191-211 in simple_openai_llm.py)
+- ✅ Verified normalization is called in both branches identically
+- ❓ **Hypothesis**: The response chaining logic (automatically injecting `previous_response_id`) may be triggering a different code path or serialization behavior that bypasses or corrupts message normalization
+- ❓ Common failure pattern identified: When `previous_response_id` is present, some normalization layers incorrectly map `{text: "..."}` to `{type: "text"}` instead of `{type: "input_text"}`
+
+**Response Chaining Rules** (from research):
+- User inputs MUST be `type: "input_text"` (or `input_image`, `input_audio`, etc.)
+- Assistant outputs are `type: "output_text"`
+- NEVER send `type: "text"` in inputs
+- Do NOT repost prior assistant outputs as inputs
+- `reasoning_effort` must be at request level, NOT inside content items
+- Each turn should only include NEW user message, linked via `previous_response_id`
 
 **Diagnostic Tools Added**:
 - [`planexe_api/services/conversation_service.py`](planexe_api/services/conversation_service.py):
-  - Lines 484-496: Validation loop that raises ValueError if any unnormalized "text" types found
+  - Lines 484-509: Print statements showing user message, previous_response_id, and normalized segments
+  - Lines 495-507: Validation loop that raises ValueError if any unnormalized "text" types found
   - Lines 385-387: Logging before OpenAI API call to show request structure
 
+**Suspected Code Paths**:
+1. Automatic previous_response_id injection (lines 100-111 in conversation_service.py)
+2. Message normalization when chaining is active
+3. Possible serialization issue when `previous_response_id` is present
+
 **Next Steps to Diagnose**:
-1. Run conversation modal with API server in DEBUG log level
-2. Check logs for:
-   - "BUG: Found unnormalized 'text' type" error (would indicate normalization failed)
-   - "Sending Responses API request" log (would show actual request structure)
-   - OpenAI 400 error details
-3. If validation passes (no ValueError), then error is either:
-   - Coming from a different code path
-   - Occurring after normalization (some serialization issue)
-   - Or is a different API error entirely
+1. Run conversation modal and capture console output showing:
+   - Normalized input_segments structure
+   - Whether previous_response_id is being injected
+   - Exact payload before OpenAI API call
+2. Compare logs between first turn (no previous_response_id) vs. second turn (with previous_response_id)
+3. Check if OpenAI SDK behaves differently when `previous_response_id` is included
+4. See new doc: `docs/2025-10-24-conversation-response-chaining-investigation.md`
 
 ### FIX: Correct reasoning_effort handling - request-time parameter, not stored
 
