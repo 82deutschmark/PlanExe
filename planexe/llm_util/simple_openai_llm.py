@@ -857,6 +857,14 @@ class SimpleOpenAILLM(LLM):
     def as_structured_llm(self, output_cls: Type[BaseModel]):
         return StructuredSimpleOpenAILLM(self, output_cls)
 
+    def get_last_response_id(self) -> Optional[str]:
+        """Return the id of the last Responses API payload if available (for chaining)."""
+        payload = getattr(self, "_last_response_payload", None)
+        if isinstance(payload, dict):
+            rid = payload.get("id")
+            return rid if isinstance(rid, str) else None
+        return None
+
 
 class StructuredLLMResponse:
     """LlamaIndex compatible wrapper for structured responses."""
@@ -969,3 +977,10 @@ class StructuredSimpleOpenAILLM:
     def complete(self, prompt: str, **kwargs: Any) -> StructuredLLMResponse:
         messages = [{"role": "user", "content": prompt}]
         return self.chat(messages, **kwargs)
+
+    def get_last_response_id(self) -> Optional[str]:
+        """Expose the underlying LLM's last response id (for chaining across calls)."""
+        try:
+            return self.base_llm.get_last_response_id()
+        except Exception:
+            return None
