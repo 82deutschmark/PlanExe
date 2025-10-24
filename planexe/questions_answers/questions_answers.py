@@ -145,14 +145,11 @@ class QuestionsAnswers:
         chat_message_list2.append(chat_message_assistant2)
         chat_message_list2.append(chat_message_user2)
 
-        # Extract previous_response_id for chaining when available
+        # Delete manual private-attr introspection and use accessor for chaining
+        # Extract previous_response_id for chaining using first-class accessor
         previous_response_id = None
         try:
-            # StructuredSimpleOpenAILLM exposes base_llm; SimpleOpenAILLM stores last payload with the OpenAI id
-            base_llm = getattr(sllm, 'base_llm', None)
-            last_payload = getattr(base_llm, '_last_response_payload', None)
-            if isinstance(last_payload, dict):
-                previous_response_id = last_payload.get('id')
+            previous_response_id = sllm.get_last_response_id()
         except Exception:
             previous_response_id = None
 
@@ -286,3 +283,5 @@ if __name__ == "__main__":
     print(json.dumps(json_response, indent=2))
 
     print(f"\n\nMarkdown:\n{physical_locations.markdown}")
+
+
