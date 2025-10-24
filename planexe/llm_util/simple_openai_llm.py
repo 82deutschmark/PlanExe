@@ -366,7 +366,7 @@ class SimpleOpenAILLM(LLM):
         request: Dict[str, Any] = {
             "model": self.model,
             "input": self._prepare_input(messages),
-            "reasoning": {"effort": "high", "summary": "detailed"},
+            "reasoning": {"effort": "medium", "summary": "detailed"},
             "text": {"verbosity": "high"},
         }
 
