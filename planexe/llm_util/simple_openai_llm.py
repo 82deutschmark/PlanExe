@@ -211,6 +211,28 @@ def _normalize_content(content: Any, *, role: str = "user") -> List[Dict[str, An
     return [{"type": text_type, "text": str(content)}]
 
 
+def _coerce_content_types_for_responses(input_segments):
+    """Coerce any legacy content type 'text' to Responses-compatible types.
+    user/system => input_text; assistant => output_text.
+    Best-effort, in-place."""
+    try:
+        if not isinstance(input_segments, list):
+            return
+        for seg in input_segments:
+            if not isinstance(seg, dict):
+                continue
+            role = str(seg.get("role", "user")).lower()
+            target = "output_text" if role == "assistant" else "input_text"
+            parts = seg.get("content")
+            if isinstance(parts, list):
+                for part in parts:
+                    if isinstance(part, dict) and part.get("type") == "text":
+                        part["type"] = target
+    except Exception:
+        # Defensive: never block due to sanitation errors
+        pass
+
+
 class SimpleOpenAILLM(LLM):
     """Responses API-powered OpenAI adapter used throughout the Luigi pipeline."""
 
@@ -381,6 +403,20 @@ class SimpleOpenAILLM(LLM):
 
         if previous_response_id:
             request["previous_response_id"] = previous_response_id
+
+        try:
+            _inp = request.get("input") if isinstance(request, dict) else None
+            if isinstance(_inp, list):
+                _coerce_content_types_for_responses(_inp)
+
+            # Ensure reasoning section exists with a default effort if not provided
+            if isinstance(request, dict):
+                reasoning = request.setdefault("reasoning", {})
+                # Default from env (e.g., REASONING_EFFORT=low|medium|high|intense)
+                default_effort = os.getenv("REASONING_EFFORT", "medium")
+                reasoning.setdefault("effort", default_effort)
+        except Exception:
+            pass
 
         return request
 
@@ -933,4 +969,3 @@ class StructuredSimpleOpenAILLM:
     def complete(self, prompt: str, **kwargs: Any) -> StructuredLLMResponse:
         messages = [{"role": "user", "content": prompt}]
         return self.chat(messages, **kwargs)
-
