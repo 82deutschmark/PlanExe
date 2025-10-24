@@ -326,6 +326,14 @@ class AnalysisStreamService:
             timestamp = datetime.now(timezone.utc).isoformat
             try:
                 with llm._client.responses.stream(**request_args) as stream:  # pylint: disable=protected-access
+                    # After consuming the stream, record the final response id for chaining
+                    try:
+                        final = stream.get_final_response()
+                        # Store on the LLM so get_last_response_id() works
+                        llm._record_last_response_id_from_stream_final(final)  # pylint: disable=protected-access
+                    except Exception:
+                        pass
+
                     for event in stream:
                         event_type = getattr(event, "type", None)
                         if event_type is None and isinstance(event, dict):
