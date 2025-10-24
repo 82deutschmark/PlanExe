@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pydantic import BaseModel, Field
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
+from planexe.plan.pipeline_environment import PipelineEnvironment
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +102,10 @@ class QuestionsAnswers:
 
         system_prompt = QUESTION_ANSWER_SYSTEM_PROMPT.strip()
 
+        # Add: load reasoning_effort from env once
+        env = PipelineEnvironment.from_env()
+        reasoning_effort = env.get_reasoning_effort()
+
         chat_message_list1 = [
             ChatMessage(
                 role=MessageRole.SYSTEM,
@@ -115,7 +120,8 @@ class QuestionsAnswers:
         sllm = llm.as_structured_llm(DocumentDetails)
         start_time = time.perf_counter()
         try:
-            chat_response1 = sllm.chat(chat_message_list1)
+            # Pass reasoning_effort explicitly
+            chat_response1 = sllm.chat(chat_message_list1, reasoning_effort=reasoning_effort)
         except Exception as e:
             logger.debug(f"LLM chat interaction failed: {e}")
             logger.error("LLM chat interaction failed.", exc_info=True)
@@ -139,10 +145,26 @@ class QuestionsAnswers:
         chat_message_list2.append(chat_message_assistant2)
         chat_message_list2.append(chat_message_user2)
 
+        # Extract previous_response_id for chaining when available
+        previous_response_id = None
+        try:
+            # StructuredSimpleOpenAILLM exposes base_llm; SimpleOpenAILLM stores last payload with the OpenAI id
+            base_llm = getattr(sllm, 'base_llm', None)
+            last_payload = getattr(base_llm, '_last_response_payload', None)
+            if isinstance(last_payload, dict):
+                previous_response_id = last_payload.get('id')
+        except Exception:
+            previous_response_id = None
+
         logger.debug("Starting LLM chat interaction 2.")
         start_time = time.perf_counter()
         try:
-            chat_response2 = sllm.chat(chat_message_list2)
+            # Pass reasoning_effort and chain previous_response_id when we have it
+            chat_response2 = sllm.chat(
+                chat_message_list2,
+                previous_response_id=previous_response_id,
+                reasoning_effort=reasoning_effort,
+            )
         except Exception as e:
             logger.debug(f"LLM chat interaction 2 failed: {e}")
             logger.error("LLM chat interaction 2 failed.", exc_info=True)
