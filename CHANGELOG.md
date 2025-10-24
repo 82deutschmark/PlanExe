@@ -1,3 +1,11 @@
+## [0.6.6] - 2025-10-24
+
+### FIX: Responses API input content sanitizer for conversation modal and analysis streaming
+- Bug: OpenAI 400 invalid_value due to input[0].content[0].type = 'text' instead of 'input_text' (response-chaining path bypassed normalizer).
+- Fix: Defensive coercion of any 'text' content items to input_text/output_text based on segment role immediately before request dispatch.
+- Impact: Conversation modal finalize/launch no longer fails with 400; WARNING logs surface any future coercions.
+- Files: planexe_api/services/conversation_service.py, planexe_api/streaming/analysis_stream_service.py
+
 ## [0.6.5] - 2025-10-24
 
 ### INVESTIGATING: Conversation Modal Responses API Message Type Error - Response Chaining Bug

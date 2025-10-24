@@ -291,6 +291,21 @@ class AnalysisStreamService:
             stream=True,
         )
 
+        # Defensive fix: coerce any stray 'text' content types to Responses-compatible types
+        try:
+            inp = request_args.get("input", [])
+            if isinstance(inp, list):
+                for seg in inp:
+                    if isinstance(seg, dict) and isinstance(seg.get("content"), list):
+                        role = str(seg.get("role", "user")).lower()
+                        target = "output_text" if role == "assistant" else "input_text"
+                        for part in seg["content"]:
+                            if isinstance(part, dict) and part.get("type") == "text":
+                                part["type"] = target
+        except Exception as sanitize_exc:  # pragma: no cover - defensive
+            # Do not block execution; best-effort sanitation
+            print("Warning: Failed to sanitize request_args input types:", sanitize_exc)
+
         self._merge_request_options(request_args, prepared.request_options)
         request_args["reasoning"]["effort"] = prepared.request.reasoning_effort
         request_args["reasoning"]["summary"] = prepared.request.reasoning_summary

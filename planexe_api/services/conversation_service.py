@@ -491,20 +491,21 @@ class ConversationService:
 
         print(f"Normalized input_segments: {json.dumps(input_segments, default=str, indent=2)}")
 
-        # Validate that normalization happened correctly
+        # Validate normalization and defensively coerce any stray 'text' types
         for segment in input_segments:
             if "content" in segment and isinstance(segment["content"], list):
+                role = str(segment.get("role", "user")).lower()
+                target_type = "output_text" if role == "assistant" else "input_text"
                 for content_item in segment["content"]:
-                    content_type = content_item.get("type")
-                    if content_type == "text":
-                        logger.error(
-                            f"BUG: Found unnormalized 'text' type in message after normalize_input_messages! "
-                            f"Content: {content_item}. This should have been converted to 'input_text' or 'output_text'."
-                        )
-                        raise ValueError(
-                            f"Message content type must be 'input_text' or other Responses API types, not 'text'. "
-                            f"Got: {content_item}"
-                        )
+                    if isinstance(content_item, dict):
+                        content_type = content_item.get("type")
+                        if content_type == "text":
+                            logger.warning(
+                                "COERCE: Found 'text' in input content; converting to '%s'. item=%s",
+                                target_type,
+                                content_item,
+                            )
+                            content_item["type"] = target_type
 
         logger.debug(f"Normalized input_segments for conversation {conversation_id}: {input_segments}")
 
