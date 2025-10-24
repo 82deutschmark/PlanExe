@@ -1,3 +1,21 @@
+## [0.7.0] - 2025-10-24
+
+### FEAT: Deterministic Response ID chaining across pipeline tasks
+- Added first-class accessor methods to support safe chaining:
+  - planexe/llm_util/simple_openai_llm.py: SimpleOpenAILLM.get_last_response_id()
+  - planexe/llm_util/simple_openai_llm.py: StructuredSimpleOpenAILLM.get_last_response_id()
+- Wired previous_response_id across multi-step tasks so follow-up calls reliably chain to the last response:
+  - planexe/questions_answers/questions_answers.py (second call chains to first)
+  - planexe/plan/review_plan.py (each question iteration chains to previous)
+  - planexe/lever/identify_potential_levers.py (each "more" iteration chains forward)
+  - planexe/expert/expert_finder.py (second batch chains to first)
+  - planexe/diagnostics/premortem.py (each iteration chains to prior response)
+- Reasoning effort remains config-driven; no task-level overrides were added.
+
+Notes:
+- No schema or DB changes.
+- Backwards compatible; single-shot tasks are unaffected.
+
 ## [0.6.6] - 2025-10-24
 
 ### FIX: Responses API input content sanitizer for conversation modal and analysis streaming
@@ -649,18 +667,7 @@ un_plan_pipeline.py consumers; EnrichLeversTask now reads and writes consistent 
 
 ### Ops/Dev Notes
 - Root cause: prior file corruption led to malformed code segments and inconsistent JSON keys.
-- Recommended validation: run with FAST_BUT_SKIP_DETAILS=1 to confirm EnrichLeversTask completes and dependent tasks proceed./**
- * Author: Claude Code using Sonnet 4.5
- * Date: 2025-10-20
- * PURPOSE: Project changelog tracking release notes, testing, and context for PlanExe iterations.
- * SRP and DRY check: Pass - maintains a single source of truth for historical updates.
- */
-
-## [Unreleased]
-
-### FIX: Serialise Lever Identification Chat Content Safely
-- Normalised assistant messages in `planexe/lever/identify_potential_levers.py` so complex content types from the Responses API
-  are converted to JSON-friendly structures before reuse, preventing `TypeError` crashes during lever detection.
+- Recommended validation: run with FAST_BUT_SKIP_DETAILS=1 to confirm EnrichLeversTask completes and dependent tasks proceed.
 
 ## [0.4.3] - 2025-10-22 - Frontend Model Defaults
 
@@ -777,7 +784,7 @@ Implemented comprehensive intake schema capturing 10 key planning variables (bud
 - Corrected analysis streaming payloads to send `input_text` content segments, matching the Responses API spec and eliminating OpenAI validation errors.
 - Replaced the deprecated `client.conversations.responses.stream` usage with `client.responses.stream` so conversation threads keep working on the latest OpenAI SDKs.
 - Sanitized structured output schema names so Responses API `text.format.name` values always satisfy the `[A-Za-z0-9_-]` requirement and stop 400 errors during Luigi runs.
-- Centralized schema coercion for Responses API requests so both Luigi tasks and streaming analyses write `text.format.json_schema` payloads that match OpenAI’s latest contract (no more `response_format` parameter, automatic required-property enforcement, and extra debug logging when sanitization occurs).
+- Centralized schema coercion for Responses API requests so both Luigi tasks and streaming analyses write `text.format.json_schema` payloads that match OpenAI's latest contract (no more `response_format` parameter, automatic required-property enforcement, and extra debug logging when sanitization occurs).
 
 ### Frontend
 - Updated the analysis stream client to stop sending a hard-coded token limit so it inherits the backend defaults unless a caller specifies one explicitly.
@@ -895,12 +902,6 @@ Implemented comprehensive intake schema capturing 10 key planning variables (bud
 
 ### 🧪 Testing
 - ✅ `pytest test_minimal_create.py`
-/**
- * Author: ChatGPT (gpt-5-codex)
- * Date: 2025-10-15
- * PURPOSE: Project changelog tracking release notes, testing, and context for PlanExe iterations.
- * SRP and DRY check: Pass - maintains a single source of truth for historical updates.
- */
 
 ## [0.3.23] - 2025-10-30 - Align intake conversation model defaults
 
@@ -908,9 +909,7 @@ Implemented comprehensive intake schema capturing 10 key planning variables (bud
 - Updated the intake conversation fallback model to `gpt-5-mini-2025-08-07` so the modal matches backend defaults.
 - Synced PlanForm fallback messaging and developer docs to point at the same GPT-5 Mini configuration.
 
-
 ## [0.3.22] - 2025-10-19 - MAJOR: Eliminate Unused llama-index Meta-Package & Resolve Deployment Conflict
-
 
 ### ✅ Highlights
 - **BREAKING: Removed the entire llama-index meta-package and 11 related dependencies**, keeping ONLY `llama-index-core` (base classes)
@@ -1345,8 +1344,6 @@ This represents a significant architectural cleanup: **PlanExe was designed for 
 
 - Added an API-first recovery path that assembles HTML reports from stored `plan_content` records when Luigi's `ReportTask` fails.
 
-
-
 ### Features
 
 - New endpoint `GET /api/plans/{plan_id}/fallback-report` uses database contents to build a complete HTML artifact, list missing sections, and compute completion percentage.
@@ -1354,13 +1351,11 @@ This represents a significant architectural cleanup: **PlanExe was designed for 
 - Frontend Files tab now surfaces a "Recovered Report Assembly" panel with refresh, HTML download, and missing-section JSON export options.
 - Plans queue now sorts entries by creation time (newest first) to surface recent runs quickly.
 
-
-
 ### Validation
 
 - Invoked `_assemble_fallback_report` against historical plan `PlanExe_adf66b59-3c51-4e26-9a98-90fdbfce2658`, producing fallback HTML (~18KB) with accurate completion metrics despite the original Luigi failure.
 
-
+---
 
 ## [0.3.1] - 2025-10-02 - Pipeline LLM Stabilization
 
@@ -1374,27 +1369,28 @@ This represents a significant architectural cleanup: **PlanExe was designed for 
 - Normalised Option-3 persistence to rely on each domain object's native serializers rather than ad-hoc strings; Luigi now writes directly to DB and filesystem without attr errors.
 
 ### Investigation Notes
-- Failures surfaced sequentially as soon as earlier blockers were removed (missing helpers -> validation errors -> missing imports); order matters when triaging.
+- Failures surfaced sequentially as soon as earlier blockers were removed (missing helpers → validation errors → missing imports); order matters when triaging.
 - When running via FastAPI (Railway) the same subprocess path executes, so these fixes apply there too as long as API keys are present.
 
 ### Documentation
 - Documented plan assembly fallback strategy in `docs/02OctCodexPlan.md`, outlining how to use `plan_content` records when report prerequisites are missing.
 
+---
 
-## [0.3.0] - 2025-10-01 - LUIGI DATABASE INTEGRATION REFACTOR COMPLETE ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦
+## [0.3.0] - 2025-10-01 - LUIGI DATABASE INTEGRATION REFACTOR COMPLETE
 
-### ÃƒÂ°Ã…Â¸Ã…Â½Ã¢â‚¬Â° **MAJOR MILESTONE: 100% Database-First Architecture**
+### ✅ **MAJOR MILESTONE: 100% Database-First Architecture**
 
 **BREAKTHROUGH**: All 61 Luigi tasks now write content to database DURING execution, not after completion. This enables real-time progress tracking, proper error handling, and eliminates file-based race conditions.
 
-#### ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…Â  **Refactor Statistics**
+#### 📊 **Refactor Statistics**
 - **Total Tasks Refactored**: 60 of 61 tasks (98.4%)
 - **Tasks Exempted**: 2 (StartTime, Setup - pre-created before pipeline)
 - **Lines Changed**: 2,553 lines modified in `run_plan_pipeline.py`
 - **Time Investment**: ~8 hours across single focused session
 - **Pattern Consistency**: 100% - all tasks follow identical database-first pattern
 
-#### ÃƒÂ°Ã…Â¸Ã‚ÂÃ¢â‚¬â€ÃƒÂ¯Ã‚Â¸Ã‚Â **Architecture Transformation**
+#### 📚 **Architecture Transformation**
 
 **Before (File-Only)**:
 ```python
@@ -1421,52 +1417,52 @@ def run_inner(self):
     result.save_markdown(self.output().path)
 ```
 
-#### ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ **Tasks Refactored by Stage**
+#### 📂 **Tasks Refactored by Stage**
 
 **Stage 2: Analysis & Diagnostics** (5 tasks)
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Task 3: RedlineGateTask
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Task 4: PremiseAttackTask
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Task 5: IdentifyPurposeTask
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Task 6: PlanTypeTask
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Task 7: PremortemTask
+- ✅ Task 3: RedlineGateTask
+- ✅ Task 4: PremiseAttackTask
+- ✅ Task 5: IdentifyPurposeTask
+- ✅ Task 6: PlanTypeTask
+- ✅ Task 7: PremortemTask
 
 **Stage 3: Strategic Decisions** (8 tasks)
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Tasks 8-15: Levers, Scenarios, Strategic Decisions
+- ✅ Tasks 8-15: Levers, Scenarios, Strategic Decisions
 
 **Stage 4: Context & Location** (3 tasks)
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Tasks 16-18: Physical Locations, Currency, Risks
+- ✅ Tasks 16-18: Physical Locations, Currency, Risks
 
 **Stage 5: Assumptions** (4 tasks)
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Tasks 19-22: Make, Distill, Review, Consolidate
+- ✅ Tasks 19-22: Make, Distill, Review, Consolidate
 
 **Stage 6: Planning & Assessment** (2 tasks)
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Tasks 23-24: PreProjectAssessment, ProjectPlan
+- ✅ Tasks 23-24: PreProjectAssessment, ProjectPlan
 
 **Stage 7: Governance** (7 tasks)
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Tasks 25-31: Governance Phases 1-6, Consolidate
+- ✅ Tasks 25-31: Governance Phases 1-6, Consolidate
 
 **Stage 8: Resources & Documentation** (9 tasks)
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Tasks 32-40: Resources, Documents, Q&A, Data Collection
+- ✅ Tasks 32-40: Resources, Documents, Q&A, Data Collection
 
 **Stage 9: Team Building** (6 tasks)
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Tasks 41-46: FindTeam, Enrich (Contract/Background/Environment), TeamMarkdown, ReviewTeam
+- ✅ Tasks 41-46: FindTeam, Enrich (Contract/Background/Environment), TeamMarkdown, ReviewTeam
 
 **Stage 10: Expert Review & SWOT** (2 tasks)
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Tasks 47-48: SWOTAnalysis, ExpertReview
+- ✅ Tasks 47-48: SWOTAnalysis, ExpertReview
 
 **Stage 11: WBS (Work Breakdown Structure)** (5 tasks)
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Tasks 49-53: WBS Levels 1-3, Dependencies, Durations
+- ✅ Tasks 49-53: WBS Levels 1-3, Dependencies, Durations
 
 **Stage 12: Schedule & Gantt** (4 tasks)
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Tasks 54-57: Schedule, Gantt (DHTMLX, CSV, Mermaid)
+- ✅ Tasks 54-57: Schedule, Gantt (DHTMLX, CSV, Mermaid)
 
 **Stage 13: Pitch & Summary** (3 tasks)
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Tasks 58-60: CreatePitch, ConvertPitchToMarkdown, ExecutiveSummary
+- ✅ Tasks 58-60: CreatePitch, ConvertPitchToMarkdown, ExecutiveSummary
 
 **Stage 14: Final Report** (2 tasks)
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Tasks 61-62: ReviewPlan, ReportGenerator
+- ✅ Tasks 61-62: ReviewPlan, ReportGenerator
 
-#### ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â§ **Technical Implementation Details**
+#### 🔧 **Technical Implementation Details**
 
 **Database Service Integration**:
 - Every task now calls `get_database_service()` to obtain database connection
@@ -1487,7 +1483,7 @@ def run_inner(self):
 - Database writes happen BEFORE filesystem writes
 - Both storage layers maintained for reliability
 
-#### ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‹â€  **Benefits Achieved**
+#### ✅ **Benefits Achieved**
 
 **Real-Time Progress**:
 - Frontend can query database for task completion status
@@ -1509,36 +1505,36 @@ def run_inner(self):
 - No need to read files from Luigi run directories
 - Faster API responses with indexed database queries
 
-#### ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â **Files Modified**
+#### 📂 **Files Modified**
 - `planexe/plan/run_plan_pipeline.py` - 2,553 lines changed (1,267 insertions, 1,286 deletions)
 - `docs/1OctLuigiRefactor.md` - Complete refactor checklist and documentation
 - `docs/1OctDBFix.md` - Implementation pattern and examples
 
-#### ÃƒÂ°Ã…Â¸Ã…Â½Ã‚Â¯ **Commit History**
-- 12 commits tracking progress from 52% ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ 100%
+#### 📜 **Commit History**
+- 12 commits tracking progress from 52% → 100%
 - Each commit represents 5-10 tasks refactored
 - Progressive validation ensuring no regressions
 - Final commit: "Tasks 55-62: Complete Luigi database integration refactor - 100% DONE"
 
-#### ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â **Critical Warnings Followed**
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ **NO changes to Luigi dependency chains** (`requires()` methods untouched)
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ **NO modifications to file output paths** (Luigi needs them)
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ **NO removal of filesystem writes** (Luigi dependency tracking preserved)
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ **NO changes to task class names** (Luigi registry intact)
+#### ⚠️ **Critical Warnings Followed**
+- ✅ **NO changes to Luigi dependency chains** (`requires()` methods untouched)
+- ✅ **NO modifications to file output paths** (Luigi needs them)
+- ✅ **NO removal of filesystem writes** (Luigi dependency tracking preserved)
+- ✅ **NO changes to task class names** (Luigi registry intact)
 
-#### ÃƒÂ°Ã…Â¸Ã…Â¡Ã¢â€šÂ¬ **Production Readiness**
+#### 📈 **Production Readiness**
 - **Database Schema**: `plan_content` table with indexes on plan_id and task_name
 - **Error Handling**: Graceful degradation if database unavailable
 - **Backward Compatibility**: Filesystem writes ensure Luigi still works
 - **Testing Strategy**: Each task validated individually, then integration tested
 
-#### ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…Â¡ **Documentation Created**
+#### 📚 **Documentation Created**
 - `docs/1OctLuigiRefactor.md` - 717-line comprehensive refactor checklist
 - `docs/1OctDBFix.md` - Implementation patterns and examples
 - Detailed task-by-task breakdown with complexity ratings
 - Agent file references for each task
 
-#### ÃƒÂ°Ã…Â¸Ã…Â½Ã¢â‚¬Å“ **Lessons Learned**
+#### 📝 **Lessons Learned**
 
 **What Worked**:
 - Systematic stage-by-stage approach prevented errors
@@ -1558,7 +1554,7 @@ def run_inner(self):
 - Track LLM interactions separately from content
 - Maintain filesystem writes for Luigi dependency validation
 
-#### ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â® **Future Enhancements**
+#### 🚀 **Future Enhancements**
 
 **Immediate Next Steps**:
 1. Test full pipeline end-to-end with database integration
@@ -1588,24 +1584,24 @@ def run_inner(self):
 
 ## [0.2.4] - 2025-09-29 - CRITICAL BUG FIX: Luigi Pipeline Activation
 
-### ÃƒÂ°Ã…Â¸Ã‚ÂÃ¢â‚¬Âº **CRITICAL FIX #1: Luigi Pipeline Never Started**
+### ✅ **CRITICAL FIX #1: Luigi Pipeline Never Started**
 - **Root Cause**: Module path typo in `pipeline_execution_service.py` line 46
 - **Bug**: `MODULE_PATH_PIPELINE = "planexe.run_plan_pipeline"` (incorrect, missing `.plan`)
 - **Fix**: Changed to `MODULE_PATH_PIPELINE = "planexe.plan.run_plan_pipeline"` (correct)
 - **Impact**: Luigi subprocess was failing immediately with "module not found" error
 - **Result**: FastAPI could never spawn Luigi pipeline, no plan generation was possible
 
-### ÃƒÂ°Ã…Â¸Ã‚ÂÃ¢â‚¬Âº **CRITICAL FIX #2: SPEED_VS_DETAIL Environment Variable Mismatch**
+### ✅ **CRITICAL FIX #2: SPEED_VS_DETAIL Environment Variable Mismatch**
 - **Root Cause**: Incorrect enum value mapping in `pipeline_execution_service.py` lines 142-150
 - **Bug**: Mapping used `"balanced"` and `"detailed"` which don't exist in Luigi's SpeedVsDetailEnum
 - **Fix**: Corrected mapping to use Luigi's actual enum values (Source of Truth):
-  - `"all_details_but_slow"` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `"all_details_but_slow"` ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦
-  - `"balanced_speed_and_detail"` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `"all_details_but_slow"` ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ (per API models.py comment)
-  - `"fast_but_skip_details"` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `"fast_but_skip_details"` ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦
+  - `"all_details_but_slow"` → `"all_details_but_slow"`
+  - `"balanced_speed_and_detail"` → `"all_details_but_slow"`
+  - `"fast_but_skip_details"` → `"fast_but_skip_details"`
 - **Impact**: Luigi was logging error "Invalid value for SPEED_VS_DETAIL: balanced"
 - **Result**: Environment variable now passes valid Luigi enum values
 
-### ÃƒÂ°Ã…Â¸Ã…Â½Ã‚Â¯ **Why This Was So Hard to Find**
+### 🚨 **Why This Was So Hard to Find**
 - WebSocket architecture was working perfectly (v0.2.0-0.2.2 improvements were correct)
 - Frontend UI was robust and displaying status correctly
 - Database integration was solid
@@ -1613,12 +1609,12 @@ def run_inner(self):
 - No stdout/stderr reached WebSocket because process never started
 - Python module system silently failed to find `planexe.run_plan_pipeline` (should be `planexe.plan.run_plan_pipeline`)
 
-### ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ **Verification**
+### ✅ **Verification**
 - Module path now matches actual file location: `planexe/plan/run_plan_pipeline.py`
 - Python can successfully import: `python -m planexe.plan.run_plan_pipeline`
 - Luigi subprocess will now spawn correctly when FastAPI calls it
 
-### ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…Â¡ **Lessons Learned**
+### 📝 **Lessons Learned**
 - Original database integration plan (29092025-LuigiDatabaseConnectionFix.md) was solving the wrong problem
 - Luigi wasn't "isolated from database" - Luigi wasn't running at all
 - Always verify subprocess can actually start before debugging complex architectural issues
@@ -1628,20 +1624,20 @@ def run_inner(self):
 
 ## [0.2.3] - 2025-09-28 - RAILWAY SINGLE-SERVICE CONSOLIDATION
 
-### dYZ_ **Unified Deployment**
+### ✅ **Unified Deployment**
 - **Docker pipeline**: `docker/Dockerfile.railway.api` now builds the Next.js frontend and copies the static export into `/app/ui_static`, eliminating the separate UI image.
 - **Single Railway service**: FastAPI serves both the UI and API; remove legacy `planexe-frontend` services from Railway projects.
 - **Environment simplification**: `NEXT_PUBLIC_API_URL` is now optional; the client defaults to relative paths when running in Railway.
 - **Static mount**: Mounted the UI after registering API routes so `/api/*` responses bypass the static handler.
 
-### dY"s **Documentation Refresh**
+### 📚 **Documentation Refresh**
 - **RAILWAY-SETUP-GUIDE.md**: Updated to describe the single-service workflow end-to-end.
 - **CLAUDE.md / AGENTS.md**: Clarified that the Next.js dev server only runs locally and production is served from FastAPI.
 - **WINDOWS-TO-RAILWAY-MIGRATION.md & RAILWAY-DEPLOYMENT-PLAN.md**: Removed references to `Dockerfile.railway.ui` and dual-service deployment.
 - **railway-env-template.txt**: Dropped obsolete frontend environment variables.
 - **railway-deploy.sh**: Validates only the API Dockerfile and reflects the unified deployment steps.
 
-### dY?3 **Operational Notes**
+### 📝 **Operational Notes**
 - Re-run `npm run build` locally to confirm the static export completes before pushing to Railway.
 - When migrating existing environments, delete any stale UI service in Railway to avoid confusion.
 - Future changes should treat Railway as the single source of truth; local Windows issues remain out-of-scope.
@@ -1649,27 +1645,27 @@ def run_inner(self):
 ---
 ## [0.2.2] - 2025-09-27 - RAILWAY UI TRANSFORMATION COMPLETE
 
-### ÃƒÂ°Ã…Â¸Ã…Â½Ã‚Â¯ **LLM MODELS DROPDOWN - RESOLVED WITH ROBUST UI**
+### ✅ **LLM MODELS DROPDOWN - RESOLVED WITH ROBUST UI**
 - **Enhanced error handling**: Loading states, error messages, fallback options added to PlanForm
 - **Railway-specific debugging**: API connection status visible to users in real-time
 - **Auto-retry mechanism**: Built-in Railway startup detection and reconnection logic
 - **Fallback model options**: Manual model entry when Railway API temporarily unavailable
 - **User-friendly error panels**: Railway debug information with retry buttons
 
-### ÃƒÂ°Ã…Â¸Ã…Â¡Ã¢â€šÂ¬ **RAILWAY-FIRST DEBUGGING ARCHITECTURE**
+### ✅ **RAILWAY-FIRST DEBUGGING ARCHITECTURE**
 - **Diagnostic endpoints**: `/api/models/debug` provides Railway deployment diagnostics
 - **Ping verification**: `/ping` endpoint confirms latest code deployment on Railway
 - **Enhanced error reporting**: All Railway API failures show specific context and solutions
 - **Interactive UI debugging**: Users can troubleshoot without browser console access
 - **Real-time status feedback**: Loading, error, success states visible throughout UI
 
-### ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â§ **TECHNICAL IMPROVEMENTS**
+### ✅ **TECHNICAL IMPROVEMENTS**
 - **FastAPIClient**: Correctly configured for Railway single-service deployment (relative URLs)
 - **Config store**: Enhanced Railway error handling with auto-retry and detailed logging
 - **PlanForm component**: Comprehensive state management for model loading scenarios
 - **Error boundaries**: Graceful degradation when Railway services temporarily unavailable
 
-### ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…Â¡ **WORKFLOW TRANSFORMATION**
+### ✅ **WORKFLOW TRANSFORMATION**
 - **Railway-only development**: No local testing required - all development via Railway staging
 - **UI as debugging tool**: Rich visual feedback eliminates need for console debugging
 - **Push-deploy-test cycle**: Optimized workflow for Railway-first development approach
@@ -1678,26 +1674,26 @@ def run_inner(self):
 
 ## [0.2.1] - 2025-09-27
 
-### ÃƒÂ°Ã…Â¸Ã…Â½Ã‚Â¯ **DEVELOPMENT WORKFLOW PARADIGM SHIFT: RAILWAY-FIRST DEBUGGING**
+### ✅ **DEVELOPMENT WORKFLOW PARADIGM SHIFT: RAILWAY-FIRST DEBUGGING**
 
 **CRITICAL INSIGHT**: The development workflow has been refocused from local debugging to **Railway-first deployment** with the UI as the primary debugging tool.
 
-#### ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ¢â‚¬Å¾ **Circular Debugging Problem Identified**
+#### 📝 **Circular Debugging Problem Identified**
 - **Issue**: We've been going in circles with Session vs DatabaseService dependency injection
 - **Root Cause**: Trying to debug locally on Windows when only Railway production matters
 - **Solution**: Make the UI itself robust enough for real-time debugging on Railway
 
-#### ÃƒÂ°Ã…Â¸Ã…Â¡Ã‚Â¨ **New Development Philosophy**
+#### ✅ **New Development Philosophy**
 - **Railway-Only Deployment**: No local testing/development - only Railway matters
 - **UI as Debug Tool**: Use shadcn/ui components to show real-time plan execution without browser console logs
 - **Production Debugging**: All debugging happens in Railway production environment, not locally
 
-#### ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…Â¡ **Documentation Updates Completed**
+#### ✅ **Documentation Updates Completed**
 - **CLAUDE.md**: Updated with Railway-first workflow and port 8080 clarification
 - **CODEBASE-INDEX.md**: Added critical warning about port 8080 vs 8000 confusion
 - **New Documentation**: Created comprehensive guide explaining circular debugging patterns
 
-#### ÃƒÂ°Ã…Â¸Ã…Â½Ã‚Â¯ **Next Phase Priorities**
+#### ✅ **Next Phase Priorities**
 1. **Robust UI Components**: Enhanced real-time progress display using shadcn/ui
 2. **Railway-Based Debugging**: UI shows exactly what's happening without console dependency
 3. **Clear Error States**: Visual indicators for all plan execution states
@@ -1707,49 +1703,49 @@ def run_inner(self):
 
 ## [0.2.0] - 2025-09-27
 
-### ÃƒÂ°Ã…Â¸Ã…Â½Ã¢â‚¬Â° **MAJOR MILESTONE: ENTERPRISE-GRADE WEBSOCKET ARCHITECTURE**
+### ✅ **MAJOR MILESTONE: ENTERPRISE-GRADE WEBSOCKET ARCHITECTURE**
 
 **REVOLUTIONARY IMPROVEMENT**: Complete replacement of broken Server-Sent Events (SSE) with robust, thread-safe WebSocket architecture for real-time progress streaming.
 
-#### ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â§ **PHASE 1A: Backend Thread-Safe Foundation**
-- **ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ WebSocketManager**: Complete replacement for broken global dictionaries with proper RLock synchronization
+#### 📚 **PHASE 1A: Backend Thread-Safe Foundation**
+- ✅ **WebSocketManager**: Complete replacement for broken global dictionaries with proper RLock synchronization
   - Thread-safe connection lifecycle management
   - Automatic heartbeat monitoring and dead connection cleanup
   - Proper resource management preventing memory leaks
-- **ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ ProcessRegistry**: Thread-safe subprocess management eliminating race conditions
-- **ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ WebSocket Endpoint**: `/ws/plans/{plan_id}/progress` properly configured in FastAPI
-- **ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Pipeline Integration**: Updated PipelineExecutionService to use WebSocket broadcasting instead of broken queue system
-- **ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Resource Cleanup**: Enhanced plan deletion with process termination and connection cleanup
+- ✅ **ProcessRegistry**: Thread-safe subprocess management eliminating race conditions
+- ✅ **WebSocket Endpoint**: `/ws/plans/{plan_id}/progress` properly configured in FastAPI
+- ✅ **Pipeline Integration**: Updated PipelineExecutionService to use WebSocket broadcasting instead of broken queue system
+- ✅ **Resource Cleanup**: Enhanced plan deletion with process termination and connection cleanup
 
-#### ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â§ **PHASE 1B: Frontend Robust Connection Management**
-- **ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Terminal Component Migration**: Complete SSE-to-WebSocket replacement with automatic reconnection
-- **ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Exponential Backoff**: Smart reconnection with 5 attempts (1s ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ 30s max delay)
-- **ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Polling Fallback**: REST API polling when WebSocket completely fails
-- **ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ User Controls**: Manual reconnect button and comprehensive status indicators
-- **ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Visual Feedback**: Connection mode display (WebSocket/Polling/Disconnected)
-- **ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Enhanced UI**: Retry attempt badges and connection state management
+#### 📚 **PHASE 1B: Frontend Robust Connection Management**
+- ✅ **Terminal Component Migration**: Complete SSE-to-WebSocket replacement with automatic reconnection
+- ✅ **Exponential Backoff**: Smart reconnection with 5 attempts (1s → 30s max delay)
+- ✅ **Polling Fallback**: REST API polling when WebSocket completely fails
+- ✅ **User Controls**: Manual reconnect button and comprehensive status indicators
+- ✅ **Visual Feedback**: Connection mode display (WebSocket/Polling/Disconnected)
+- ✅ **Enhanced UI**: Retry attempt badges and connection state management
 
-#### ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â§ **PHASE 1C: Architecture Validation**
-- **ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Service Integration**: Both backend (port 8080) and frontend validated working
-- **ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ WebSocket Availability**: Endpoint exists and properly configured
-- **ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Database Dependency**: Fixed get_database() function to return DatabaseService
-- **ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Thread Safety**: Complete elimination of global dictionary race conditions
+#### 📚 **PHASE 1C: Architecture Validation**
+- ✅ **Service Integration**: Both backend (port 8080) and frontend validated working
+- ✅ **WebSocket Availability**: Endpoint exists and properly configured
+- ✅ **Database Dependency**: Fixed get_database() function to return DatabaseService
+- ✅ **Thread Safety**: Complete elimination of global dictionary race conditions
 
-#### ÃƒÂ°Ã…Â¸Ã…Â¡Ã‚Â« **CRITICAL ISSUES ELIMINATED**
-1. **Global Dictionary Race Conditions**: `progress_streams`, `running_processes` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Thread-safe classes
-2. **Memory Leaks**: Abandoned connections ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Automatic cleanup and heartbeat monitoring
-3. **Thread Safety Violations**: Unsafe queue operations ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Comprehensive RLock synchronization
-4. **Resource Leaks**: Timeout handling issues ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Proper async lifecycle management
-5. **Poor Error Handling**: Silent failures ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Graceful degradation with multiple fallback layers
+#### ✅ **CRITICAL ISSUES ELIMINATED**
+1. **Global Dictionary Race Conditions**: `progress_streams`, `running_processes` → Thread-safe classes
+2. **Memory Leaks**: Abandoned connections → Automatic cleanup and heartbeat monitoring
+3. **Thread Safety Violations**: Unsafe queue operations → Comprehensive RLock synchronization
+4. **Resource Leaks**: Timeout handling issues → Proper async lifecycle management
+5. **Poor Error Handling**: Silent failures → Graceful degradation with multiple fallback layers
 
-#### ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂºÃ‚Â¡ÃƒÂ¯Ã‚Â¸Ã‚Â **Enterprise-Grade Reliability Features**
-- **Multi-Layer Fallback**: WebSocket ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Auto-reconnection ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ REST Polling
+#### ✅ **Enterprise-Grade Reliability Features**
+- **Multi-Layer Fallback**: WebSocket → Auto-reconnection → REST Polling
 - **Connection State Management**: Real-time visual status indicators
 - **Resource Cleanup**: Proper cleanup on component unmount and plan completion
 - **User Control**: Manual reconnect capability and clear error messaging
 - **Thread Safety**: Complete elimination of race conditions and data corruption
 
-#### ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â **Files Modified/Created (13 total)**
+#### ✅ **Files Modified/Created (13 total)**
 1. `planexe_api/websocket_manager.py` - **NEW**: Thread-safe WebSocket connection manager
 2. `planexe_api/api.py` - WebSocket endpoint, startup/shutdown handlers, deprecated SSE endpoint
 3. `planexe_api/services/pipeline_execution_service.py` - WebSocket broadcasting, thread-safe ProcessRegistry
@@ -1761,36 +1757,36 @@ def run_inner(self):
 9. `docs/Thread-Safety-Analysis.md` - **NEW**: Thread safety documentation
 10. `docs/Phase2-UI-Component-Specifications.md` - **NEW**: UI component specifications
 
-#### ÃƒÂ°Ã…Â¸Ã…Â½Ã‚Â¯ **Production Ready Results**
-- **ÃƒÂ°Ã…Â¸Ã‚ÂÃ¢â‚¬Â  100% Reliable Real-Time Streaming**: Multiple fallback layers ensure users always receive updates
-- **ÃƒÂ°Ã…Â¸Ã‚ÂÃ¢â‚¬Â  Thread-Safe Architecture**: Complete elimination of race conditions and data corruption
-- **ÃƒÂ°Ã…Â¸Ã‚ÂÃ¢â‚¬Â  Enterprise-Grade Error Handling**: Graceful degradation under all network conditions
-- **ÃƒÂ°Ã…Â¸Ã‚ÂÃ¢â‚¬Â  Resource Management**: Proper cleanup prevents memory and connection leaks
-- **ÃƒÂ°Ã…Â¸Ã‚ÂÃ¢â‚¬Â  User Experience**: Clear status indicators and manual controls for connection management
+#### ✅ **Production Ready Results**
+- ✅ **100% Reliable Real-Time Streaming**: Multiple fallback layers ensure users always receive updates
+- ✅ **Thread-Safe Architecture**: Complete elimination of race conditions and data corruption
+- ✅ **Enterprise-Grade Error Handling**: Graceful degradation under all network conditions
+- ✅ **Resource Management**: Proper cleanup prevents memory and connection leaks
+- ✅ **User Experience**: Clear status indicators and manual controls for connection management
 
-**The PlanExe real-time streaming system is now enterprise-grade and production-ready!** ÃƒÂ°Ã…Â¸Ã…Â¡Ã¢â€šÂ¬
+**The PlanExe real-time streaming system is now enterprise-grade and production-ready!**
 
 ---
 
 ## [0.1.12] - 2025-09-26
 
-### ÃƒÂ°Ã…Â¸Ã…Â¡Ã‚Â¨ **CRITICAL FIX: Railway Frontend API Connection**
+### ✅ **CRITICAL FIX: Railway Frontend API Connection**
 
 **PROBLEM RESOLVED**: Models dropdown and all API calls were failing in Railway production due to hardcoded `localhost:8080` URLs.
 
-#### ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ **Railway-Only URL Configuration**
+#### ✅ **Railway-Only URL Configuration**
 - **Converted hardcoded URLs to relative URLs** in all frontend components for Railway single-service deployment
-- **Fixed Models Loading**: `'http://localhost:8080/api/models'` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `'/api/models'` in config store
+- **Fixed Models Loading**: `'http://localhost:8080/api/models'` → `'/api/models'` in config store
 - **Fixed Planning Operations**: All 3 hardcoded URLs in planning store converted to relative paths
 - **Fixed Component API Calls**: Updated PipelineDetails, PlansQueue, ProgressMonitor, Terminal components
 - **Fixed SSE Streaming**: EventSource now uses relative URLs for real-time progress
 
-#### ÃƒÂ°Ã…Â¸Ã‚ÂÃ¢â‚¬â€ÃƒÂ¯Ã‚Â¸Ã‚Â **Architecture Simplification**
+#### ✅ **Architecture Simplification**
 - **FastAPI Client Simplified**: Removed complex development/production detection logic
 - **Railway-First Approach**: Since only Railway is used (no Windows local development), optimized for single-service deployment
 - **Next.js Config Updated**: Removed localhost references for clean static export
 
-#### ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â **Files Modified (8 total)**
+#### ✅ **Files Modified (8 total)**
 1. `src/lib/stores/config.ts` - Models loading endpoint
 2. `src/lib/stores/planning.ts` - 3 API endpoints for plan operations
 3. `src/components/PipelineDetails.tsx` - Details endpoint
@@ -1800,11 +1796,11 @@ def run_inner(self):
 7. `src/lib/api/fastapi-client.ts` - Base URL configuration
 8. `next.config.ts` - Environment variable defaults
 
-#### ÃƒÂ°Ã…Â¸Ã…Â½Ã‚Â¯ **Expected Results**
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Models dropdown will now load in Railway production
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Plan creation, monitoring, and management will function correctly
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Real-time progress streaming will connect properly
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ All API endpoints accessible via relative URLs
+#### ✅ **Expected Results**
+- ✅ Models dropdown will now load in Railway production
+- ✅ Plan creation, monitoring, and management will function correctly
+- ✅ Real-time progress streaming will connect properly
+- ✅ All API endpoints accessible via relative URLs
 
 ## [0.1.11] - 2025-09-26
 
@@ -1812,39 +1808,40 @@ def run_inner(self):
 - Align Next 15 static export workflow by mapping `build:static` to the Turbopack production build and documenting the CLI change.
 - Cleared remaining `any` casts in form, store, and type definitions so lint/type checks pass during the build step.
 - Updated Railway docs to reflect the new build flow and highlight that `npm run build` now generates the `out/` directory.
+
 ## [0.1.10] - 2025-01-27
 
-### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã‚Â¡ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ **MAJOR: Railway Deployment Configuration**
+### ✅ **MAJOR: Railway Deployment Configuration**
 
 **SOLUTION FOR WINDOWS ISSUES**: Complete Railway deployment setup to resolve Windows subprocess, environment variable, and Luigi pipeline execution problems.
 
-#### ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **New Railway Deployment System**
+#### ✅ **New Railway Deployment System**
 - **Railway-Optimized Dockerfiles**: Created `docker/Dockerfile.railway.api` and `docker/Dockerfile.railway.ui` specifically for Railway's PORT variable and environment handling (the UI Dockerfile is now obsolete after 0.2.3)
 - **Railway Configuration**: Added `railway.toml` for proper service configuration
 - **Next.js Production Config**: Updated `next.config.ts` with standalone output for containerized deployment
 - **Environment Template**: Created `railway-env-template.txt` with all required environment variables
 - **Deployment Helper**: Added `railway-deploy.sh` script for deployment validation
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒâ€¦Ã‚Â¡ **Comprehensive Documentation**
+#### ✅ **Comprehensive Documentation**
 - **Railway Setup Guide**: `docs/RAILWAY-SETUP-GUIDE.md` - Complete step-by-step deployment instructions
 - **Deployment Plan**: `docs/RAILWAY-DEPLOYMENT-PLAN.md` - Strategic deployment approach
 - **Troubleshooting**: Detailed error resolution for common deployment issues
 - **Environment Variables**: Complete guide for setting up API keys and configuration
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â§ **Technical Improvements**
+#### ✅ **Technical Improvements**
 - **Docker Optimization**: Multi-stage builds with proper user permissions
 - **Health Checks**: Added health check support for Railway PORT variable
 - **Production Ready**: Standalone Next.js build, proper environment handling
 - **Security**: Non-root user execution, proper file permissions
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã‚Â½Ãƒâ€šÃ‚Â¯ **Solves Windows Development Issues**
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **Luigi Subprocess Issues**: Linux containers handle process spawning correctly
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **Environment Variable Inheritance**: Proper Unix environment variable handling
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **Path Handling**: Unix paths work correctly with Luigi pipeline
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **Dependency Management**: Consistent Linux environment eliminates Windows conflicts
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **Scalability**: Cloud-based execution removes local resource constraints
+#### ✅ **Solves Windows Development Issues**
+- ✅ **Luigi Subprocess Issues**: Linux containers handle process spawning correctly
+- ✅ **Environment Variable Inheritance**: Proper Unix environment variable handling
+- ✅ **Path Handling**: Unix paths work correctly with Luigi pipeline
+- ✅ **Dependency Management**: Consistent Linux environment eliminates Windows conflicts
+- ✅ **Scalability**: Cloud-based execution removes local resource constraints
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ **Deployment Workflow**
+#### ✅ **Deployment Workflow**
 1. **Prepare**: Run `./railway-deploy.sh` to validate deployment readiness
 2. **Database**: Create PostgreSQL service on Railway
 3. **Backend**: Deploy FastAPI + Luigi using `docker/Dockerfile.railway.api`
@@ -1852,50 +1849,50 @@ def run_inner(self):
 5. **Configure**: Set environment variables from `railway-env-template.txt`
 6. **Test**: Verify end-to-end plan generation on Linux containers
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾ **Development Workflow Change**
+#### ✅ **Development Workflow Change**
 - **Before**: Fight Windows subprocess issues locally
 - **After**: Develop on Windows, test/deploy on Railway Linux containers
 - **Benefits**: Reliable Luigi execution, proper environment inheritance, scalable cloud deployment
 
 **Current Status**:
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **Railway Deployment Ready**: All configuration files and documentation complete
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **Windows Issues Bypassed**: Deploy to Linux containers instead of local Windows execution
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **Production Environment**: Proper containerization with health checks and security
-- ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾ **Next Step**: Follow `docs/RAILWAY-SETUP-GUIDE.md` for actual deployment
+- ✅ **Railway Deployment Ready**: All configuration files and documentation complete
+- ✅ **Windows Issues Bypassed**: Deploy to Linux containers instead of local Windows execution
+- ✅ **Production Environment**: Proper containerization with health checks and security
+- ✅ **Next Step**: Follow `docs/RAILWAY-SETUP-GUIDE.md` for actual deployment
 
 ## [0.1.8] - 2025-09-23
 
-### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂºÃƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â **Architectural Fix: Retry Logic and Race Condition**
+### ✅ **Architectural Fix: Retry Logic and Race Condition**
 
 This release implements a robust, definitive fix for the failing retry functionality and the persistent `EventSource failed` error. Instead of patching symptoms, this work addresses the underlying architectural flaws.
 
-#### ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **Core Problems Solved**
+#### ✅ **Core Problems Solved**
 - **Reliable Retries**: The retry feature has been re-architected. It no longer tries to revive a failed plan. Instead, it creates a **brand new, clean plan** using the exact same settings as the failed one. This is a more reliable and predictable approach.
 - **Race Condition Eliminated**: The `EventSource failed` error has been fixed by eliminating the race condition between the frontend and backend. The frontend now patiently polls a new status endpoint and only connects to the log stream when the backend confirms it is ready.
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â§ **Implementation Details**
+#### ✅ **Implementation Details**
 - **Backend Refactoring**: The core plan creation logic was extracted into a reusable helper function. The `create` and `retry` endpoints now both use this same, bulletproof function, adhering to the DRY (Don't Repeat Yourself) principle.
 - **New Status Endpoint**: A lightweight `/api/plans/{plan_id}/stream-status` endpoint was added to allow the frontend to safely check if a log stream is available before attempting to connect.
 - **Frontend Polling**: The `Terminal` component now uses a smart polling mechanism to wait for the backend to be ready, guaranteeing a successful connection every time.
 
 ## [0.1.9] - 2025-09-23
 
-### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â§ **Development Environment Fix**
+### ✅ **Development Environment Fix**
 
 Fixed the core development workflow that was broken on Windows systems.
 
-#### ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **Problem Solved**
+#### ✅ **Problem Solved**
 - **NPM Scripts Failing**: The `npm run go` command was failing on Windows due to problematic directory changes and command separators
 - **Backend Not Starting**: The `dev:backend` script couldn't find Python modules when run from the wrong directory
 - **Development Blocked**: Users couldn't start the full development environment
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â§ **Implementation Details**
+#### ✅ **Implementation Details**
 - **Fixed `go` Script**: Modified to properly start the backend from the project root using `cd .. && python -m uvicorn planexe_api.api:app --reload --port 8000`
 - **Directory Management**: Backend now runs from the correct directory where it can find all Python modules
 - **Concurrent Execution**: Frontend runs from `planexe-frontend` directory while backend runs from project root
 - **Windows Compatibility**: Removed problematic `&&` separators and `cd` commands that don't work reliably in npm scripts
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã‚Â½Ãƒâ€šÃ‚Â¯ **User Impact**
+#### ✅ **User Impact**
 - **Single Command**: Users can now run `npm run go` from the `planexe-frontend` directory to start both backend and frontend
 - **Reliable Startup**: Development environment starts consistently across different systems
 - **Proper Separation**: Backend and frontend run in their correct directories with proper module resolution
@@ -1904,29 +1901,29 @@ This fix resolves the fundamental development environment issue that was prevent
 
 ## [0.1.7] - 2025-09-23
 
-### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã‚Â¡ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ **MAJOR UX FIX - Real-Time Terminal Monitoring**
+### ✅ **MAJOR UX FIX - Real-Time Terminal Monitoring**
 
 **BREAKTHROUGH: Users can now see what's actually happening!**
 
-#### ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **Core UX Problems SOLVED**
+#### ✅ **Core UX Problems SOLVED**
 - **REAL Progress Visibility**: Users now see actual Luigi pipeline logs in real-time terminal interface
 - **Error Transparency**: All errors, warnings, and debug info visible to users immediately  
 - **No More False Completion**: Removed broken progress parsing that lied to users about completion status
 - **Full Luigi Visibility**: Stream raw Luigi stdout/stderr directly to frontend terminal
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â **New Terminal Interface**
+#### ✅ **New Terminal Interface**
 - **Live Log Streaming**: Real-time display of Luigi task execution via Server-Sent Events
 - **Terminal Features**: Search/filter logs, copy to clipboard, download full logs
 - **Status Indicators**: Connection status, auto-scroll, line counts
 - **Error Highlighting**: Different colors for info/warn/error log levels
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â§ **Implementation Details**
+#### ✅ **Implementation Details**
 - **Frontend**: New `Terminal.tsx` component with terminal-like UI
 - **Backend**: Modified API to stream raw Luigi output instead of parsing it
 - **Architecture**: Simplified from complex task parsing to direct log streaming
 - **Reliability**: Removed unreliable progress percentage calculations
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã‚Â½Ãƒâ€šÃ‚Â¯ **User Experience Transformation**
+#### ✅ **User Experience Transformation**
 - **Before**: Users saw fake "95% complete" while pipeline was actually at 2%
 - **After**: Users see exact Luigi output: "Task 2 of 109: PrerequisiteTask RUNNING"
 - **Before**: Mysterious failures with no error visibility
@@ -1938,40 +1935,40 @@ This completely addresses the "COMPLETELY UNUSABLE FOR USERS" status from previo
 
 ## [0.1.6] - 2025-09-23
 
-### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢Ãƒâ€šÃ‚Â¥ FAILED - UX Breakdown Debugging Attempt
+### ❌ **FAILED - UX Breakdown Debugging Attempt**
 
 **CRITICAL SYSTEM STATUS: COMPLETELY UNUSABLE FOR USERS**
 
 Attempted to fix the broken user experience where users cannot access their generated plans or get accurate progress information. **This effort failed to address the core issues.**
 
-#### ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ **What Was NOT Fixed (Still Broken)**
+#### ❌ **What Was NOT Fixed (Still Broken)**
 - **Progress Monitoring**: Still shows false "Task 61/61: ReportTask completed" when pipeline is actually at "2 of 109" (1.8% real progress)
 - **File Access**: `/api/plans/{id}/files` still returns Internal Server Error - users cannot browse or download files
 - **Plan Completion**: Unknown if Luigi pipeline ever actually completes all 61 tasks
 - **User Experience**: System remains completely unusable - users cannot access their results
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â§ **Superficial Changes Made (Don't Help Users)**
-- Fixed Unicode encoding issues (ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°Ãƒâ€šÃ‚Â¥ symbols ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ >= words) in premise_attack.py
+#### ❌ **Superficial Changes Made (Don't Help Users)**
+- Fixed Unicode encoding issues (ÃƒÆ'Ã¢â€šÂ¬Ã¢â€žÂ¢Ãƒâ€šÃ‚Â¥ symbols ÃƒÆ'Ã¢â€šÂ¬Ã¢â€žÂ¢ >= words) in premise_attack.py
 - Fixed LlamaIndex compatibility (_client attribute) in simple_openai_llm.py
-- Fixed filename enum mismatch (FINAL_REPORT_HTML ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ REPORT) in api.py
+- Fixed filename enum mismatch (FINAL_REPORT_HTML ÃƒÆ'Ã¢â€šÂ¬Ã¢â€žÂ¢ REPORT) in api.py
 - Added filesystem fallback to file listing API (still crashes)
 - Removed artificial 95% progress cap (progress data still false)
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ **Root Cause Identified But Not Fixed**
+#### ❌ **Root Cause Identified But Not Fixed**
 **Progress monitoring completely broken**: Luigi subprocess output parsing misinterprets log messages, causing false completion signals. Real pipeline progress is ~1-2% but API reports 95% completion immediately.
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾ **Handover Documentation**
+#### ✅ **Handover Documentation**
 Created `docs/24SeptUXBreakdownHandover.md` - honest assessment of failures and what next developer must fix.
 
 **Bottom Line**: Despite technical fixes, users still cannot access their plans, get accurate progress, or download results. System remains fundamentally broken for actual usage.
 
 ## [0.1.5] - 2025-09-22
 
-### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã‚Â½ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â° MAJOR FIX - LLM System Completely Replaced & Working
+### ✅ **MAJOR FIX - LLM System Completely Replaced & Working**
 
 This release completely fixes the broken LLM system by replacing the complex llama-index implementation with a simple, direct OpenAI client approach.
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã‚Â¡ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ **LLM System Overhaul**
+#### ✅ **LLM System Overhaul**
 - **FIXED CORE ISSUE**: Eliminated `ValueError('Invalid LLM class name in config.json: GoogleGenAI')` that was causing all pipeline failures
 - **Simplified Architecture**: Replaced complex llama-index system with direct OpenAI client
 - **4 Working Models**: Added support for 4 high-performance models with proper fallback sequence:
@@ -1982,94 +1979,94 @@ This release completely fixes the broken LLM system by replacing the complex lla
 - **Real API Testing**: All models tested and confirmed working with actual API keys
 - **Luigi Integration**: Pipeline now successfully creates LLMs and executes tasks
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒâ€šÃ‚Â **Files Modified**
+#### ✅ **Files Modified**
 - `llm_config.json` - Completely replaced with simplified 4-model configuration
 - `planexe/llm_util/simple_openai_llm.py` - NEW: Simple OpenAI wrapper with chat completions API
 - `planexe/llm_factory.py` - Dramatically simplified, removed complex llama-index dependencies
 - `docs/22SeptLLMSimplificationPlan.md` - NEW: Complete implementation plan and documentation
 
-#### ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **Confirmed Working**
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **End-to-End Pipeline**: Luigi tasks now execute successfully (PremiseAttackTask completed)
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **Real API Calls**: All 4 models make successful API calls with real data
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **Backward Compatibility**: Existing pipeline code works without modification
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **Error Elimination**: No more LLM class name errors
+#### ✅ **Confirmed Working**
+- ✅ **End-to-End Pipeline**: Luigi tasks now execute successfully (PremiseAttackTask completed)
+- ✅ **Real API Calls**: All 4 models make successful API calls with real data
+- ✅ **Backward Compatibility**: Existing pipeline code works without modification
+- ✅ **Error Elimination**: No more LLM class name errors
 
-#### ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â **Known Issue Identified**
+#### ⚠️ **Known Issue Identified**
 - **Environment Variable Access**: Luigi subprocess doesn't inherit .env variables, causing API key errors in some tasks
 - **Priority**: HIGH - This needs to be fixed next to achieve 100% pipeline success
 - **Impact**: Some Luigi tasks fail due to missing API keys, but LLM system itself is working
 
 **Current Status:**
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **LLM System**: Completely fixed and working
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **API Integration**: All models functional with real API keys
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **Pipeline Progress**: Tasks execute successfully when environment is available
-- ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾ **Next Priority**: Fix environment variable inheritance in Luigi subprocess
+- ✅ **LLM System**: Completely fixed and working
+- ✅ **API Integration**: All models functional with real API keys
+- ✅ **Pipeline Progress**: Tasks execute successfully when environment is available
+- ✅ **Next Priority**: Fix environment variable inheritance in Luigi subprocess
 
 ## [0.1.4] - 2025-09-22
 
-### Fixed - Frontend Form Issues and Backend Logging
+### ✅ **Frontend Form Issues and Backend Logging**
 
 This release addresses several critical issues in the frontend forms and improves backend logging for better debugging.
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€šÃ‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚Âº **Frontend Fixes**
+#### ✅ **Frontend Fixes**
 - **Fixed React Warnings**: Resolved duplicate 'name' attributes in PlanForm.tsx that were causing React warnings
 - **Fixed TypeScript Errors**: Corrected type errors in PlanForm.tsx by using proper LLMModel fields (`label`, `requires_api_key`, `comment`)
 - **Improved Form Behavior**: Removed auto-reset that was hiding the UI after plan completion
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂºÃƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â **Backend Improvements**
+#### ✅ **Backend Improvements**
 - **Enhanced Logging**: Improved backend logging to capture stderr from Luigi pipeline for better error diagnosis
 - **Robust Error Handling**: Added more robust error handling in the plan execution pipeline
 
 **Current Status:**
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **Frontend Forms Work**: Plan creation form functions correctly without React warnings
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **TypeScript Compilation**: No TypeScript errors in the frontend code
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **Backend Logging**: Better visibility into pipeline execution errors
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **Stable UI**: UI remains visible after plan completion for user review
+- ✅ **Frontend Forms Work**: Plan creation form functions correctly without React warnings
+- ✅ **TypeScript Compilation**: No TypeScript errors in the frontend code
+- ✅ **Backend Logging**: Better visibility into pipeline execution errors
+- ✅ **Stable UI**: UI remains visible after plan completion for user review
 
 ## [0.1.3] - 2025-09-21
 
-### NOT REALLY Fixed - Real-Time Progress UI & Stability  (STILL NOT WORKING CORRECTLY)
+### ❌ **NOT REALLY Fixed - Real-Time Progress UI & Stability** (STILL NOT WORKING CORRECTLY)
 
 This release marks a major overhaul of the frontend architecture to provide a stable, real-time progress monitoring experience. All known connection and CORS errors have been resolved.
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã‚Â¡ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ **Frontend Architecture Overhaul**
+#### ✅ **Frontend Architecture Overhaul**
 - **Removed Over-Engineered State Management**: The complex and buggy `planning.ts` Zustand store has been completely removed from the main application page (`page.tsx`).
 - **Simplified State with React Hooks**: Replaced the old store with simple, local `useState` for managing the active plan, loading states, and errors. This significantly reduces complexity and improves stability.
 - **Direct API Client Integration**: The UI now directly uses the new, clean `fastApiClient` for all operations, ensuring consistent and correct communication with the backend.
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€šÃ‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚Âº **Critical Bug Fixes**
+#### ✅ **Critical Bug Fixes**
 - **CORS Errors Resolved**: Fixed all Cross-Origin Resource Sharing (CORS) errors by implementing a robust and specific configuration on the FastAPI backend.
 - **Connection Errors Eliminated**: Corrected all hardcoded URLs and port mismatches across the entire frontend, including in the API client and the `ProgressMonitor` component.
 - **Backend Race Condition Fixed**: Made the backend's real-time streaming endpoint more resilient by adding an intelligent wait loop, preventing server crashes when the frontend connects immediately after plan creation.
 
-#### ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“Ãƒâ€šÃ‚Â¨ **New Features & UI Improvements**
+#### ✅ **New Features & UI Improvements**
 - **Real-Time Task List**: The new `ProgressMonitor` and `TaskList` components are now fully integrated, providing a detailed, real-time view of all 61 pipeline tasks.
 - **Accordion UI**: Added the `accordion` component from `shadcn/ui` to create a clean, user-friendly, and collapsible display for the task list.
 
 **Current Status:**
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **Stable End-to-End Connection**: Frontend and backend communicate reliably on the correct ports (`3000` and `8001`).
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **Real-Time Streaming Works**: The Server-Sent Events (SSE) stream connects successfully and provides real-time updates.
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **Simplified Architecture**: The frontend is now more maintainable, performant, and easier to understand.
+- ✅ **Stable End-to-End Connection**: Frontend and backend communicate reliably on the correct ports (`3000` and `8001`).
+- ✅ **Real-Time Streaming Works**: The Server-Sent Events (SSE) stream connects successfully and provides real-time updates.
+- ✅ **Simplified Architecture**: The frontend is now more maintainable, performant, and easier to understand.
 
 ## [0.1.2] - 2025-09-20
 
-### Fixed - Complete MVP Development Setup
+### ✅ **Fixed - Complete MVP Development Setup**
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã‚Â½Ãƒâ€šÃ‚Â¯ **MVP Fully Operational**
+#### ✅ **MVP Fully Operational**
 - **Fixed all backend endpoint issues** - FastAPI now fully functional on port 8001
 - **Resolved TypeScript type mismatches** between frontend and backend models
 - **Fixed frontend-backend connectivity** - corrected port configuration
 - **Added combo development scripts** - single command to start both servers
 - **Fixed PromptExample schema mismatches** - uuid field consistency
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â§ **Backend Infrastructure Fixes**
+#### ✅ **Backend Infrastructure Fixes**
 - **Fixed FastAPI relative import errors** preventing server startup
 - **Fixed generate_run_id() function calls** with required parameters
 - **Updated llm_config.json** to use only API-based models (removed local models)
 - **Verified model validation** - Luigi pipeline model IDs match FastAPI exactly
 - **End-to-end plan creation tested** and working
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã‚Â¡ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ **Development Experience**
+#### ✅ **Development Experience**
 - **Added npm run go** - starts both FastAPI backend and NextJS frontend
 - **Fixed Windows environment variables** in package.json scripts
 - **Updated to modern Docker Compose syntax** (docker compose vs docker-compose)
@@ -2077,11 +2074,11 @@ This release marks a major overhaul of the frontend architecture to provide a st
 - **Comprehensive testing completed** - models, prompts, and plan creation endpoints
 
 **Current Status:**
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ FastAPI backend: `http://localhost:8001` (fully functional)  NOT TRUE!!  WRONG PORT!!!
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ NextJS frontend: `http://localhost:3000` (connects to backend)
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ End-to-end plan creation: Working with real-time progress
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Model validation: Luigi pipeline integration confirmed
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Development setup: Single command starts both servers
+- ✅ FastAPI backend: `http://localhost:8001` (fully functional)  NOT TRUE!!  WRONG PORT!!!
+- ✅ NextJS frontend: `http://localhost:3000` (connects to backend)
+- ✅ End-to-end plan creation: Working with real-time progress
+- ✅ Model validation: Luigi pipeline integration confirmed
+- ✅ Development setup: Single command starts both servers
 
 **For Next Developer:**
 ```bash
@@ -2093,31 +2090,31 @@ Then visit `http://localhost:3000` and create a plan with any model.
 
 ## [0.1.1] - 2025-09-20
 
-### Fixed - Frontend Development Setup
+### ✅ **Fixed - Frontend Development Setup**
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â§ **Development Environment Configuration**
+#### ✅ **Development Environment Configuration**
 - **Fixed FastAPI startup issues** preventing local development
 - **Switched from PostgreSQL to SQLite** for dependency-free development setup
 - **Resolved import path conflicts** in NextJS frontend components
 - **Corrected startup commands** in developer documentation
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€šÃ‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â **Frontend Architecture Fixes**
+#### ✅ **Frontend Architecture Fixes**
 - **Implemented direct FastAPI client** replacing broken NextJS API proxy routes
 - **Fixed module resolution errors** preventing frontend compilation
 - **Updated component imports** to use new FastAPI client architecture
 - **Verified end-to-end connectivity** between NextJS frontend and FastAPI backend
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒâ€¦Ã‚Â¡ **Developer Experience Improvements**
+#### ✅ **Developer Experience Improvements**
 - **Updated CLAUDE.md** with correct startup procedures
 - **Documented architecture decisions** in FRONTEND-ARCHITECTURE-FIX-PLAN.md
 - **Added troubleshooting guides** for common development issues
 - **Streamlined two-terminal development workflow**
 
 **Current Status:**
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ FastAPI backend running on localhost:8000 with SQLite database
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ NextJS frontend running on localhost:3002 (or 3000) 
-- ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Direct frontend ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â backend communication established
-- ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â§ Ready for FastAPI client testing and Luigi pipeline integration
+- ✅ FastAPI backend running on localhost:8000 with SQLite database
+- ✅ NextJS frontend running on localhost:3002 (or 3000) 
+- ✅ Direct frontend ↔ backend communication established
+- ✅ Ready for FastAPI client testing and Luigi pipeline integration
 
 **Next Steps for Developer:**
 1. Test FastAPI client in browser console (health, models, prompts endpoints)
@@ -2125,12 +2122,11 @@ Then visit `http://localhost:3000` and create a plan with any model.
 3. Validate Server-Sent Events for real-time progress tracking
 4. Test file downloads and report generation
 
-
 ## [0.1.0] - 2025-09-19 
 
-### Added - REST API & Node.js Integration
+### ✅ **Added - REST API & Node.js Integration**
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã‚Â¡ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ **FastAPI REST API Server** (`planexe_api/`)
+#### ✅ **FastAPI REST API Server** (`planexe_api/`)
 - **Complete REST API wrapper** for PlanExe planning functionality
 - **PostgreSQL database integration** with SQLAlchemy ORM (replacing in-memory storage)
 - **Real-time progress streaming** via Server-Sent Events (SSE)
@@ -2152,7 +2148,7 @@ Then visit `http://localhost:3000` and create a plan with any model.
 - `DELETE /api/plans/{id}` - Cancel running plan
 - `GET /api/plans` - List all plans
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â **PostgreSQL Database Schema**
+#### ✅ **PostgreSQL Database Schema**
 - **Plans Table**: Stores plan configuration, status, progress, and metadata
 - **LLM Interactions Table**: **Logs all raw prompts and LLM responses** with metadata
 - **Plan Files Table**: Tracks generated files with checksums and metadata
@@ -2160,7 +2156,7 @@ Then visit `http://localhost:3000` and create a plan with any model.
 - **Proper indexing** for performance optimization
 - **Data persistence** across API server restarts
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒâ€šÃ‚Â¦ **Node.js Client SDK** (`nodejs-client/`)
+#### ✅ **Node.js Client SDK** (`nodejs-client/`)
 - **Complete JavaScript/TypeScript client library** for PlanExe API
 - **Event-driven architecture** with automatic Server-Sent Events handling
 - **Built-in error handling** and retry logic
@@ -2175,7 +2171,7 @@ Then visit `http://localhost:3000` and create a plan with any model.
 - Promise-based async operations
 - Error handling with descriptive messages
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã‚Â½Ãƒâ€šÃ‚Â¨ **React Frontend Application** (`nodejs-ui/`)
+#### ✅ **React Frontend Application** (`nodejs-ui/`)
 - **Modern Material-UI interface** with responsive design
 - **Real-time plan creation** with progress visualization
 - **Plan management dashboard** with search and filtering
@@ -2190,7 +2186,7 @@ Then visit `http://localhost:3000` and create a plan with any model.
 - `Navigation` - Tab-based routing between sections
 - `usePlanExe` - Custom React hook for API integration
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€šÃ‚ÂÃƒâ€šÃ‚Â³ **Docker Configuration** (`docker/`)
+#### ✅ **Docker Configuration** (`docker/`)
 - **Multi-container setup** with PostgreSQL database
 - **Production-ready containerization** with health checks
 - **Volume persistence** for plan data and database
@@ -2202,14 +2198,14 @@ Then visit `http://localhost:3000` and create a plan with any model.
 - `api` - FastAPI server with database connectivity
 - `ui` - React frontend served by Express
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒâ€¦Ã‚Â  **Database Migration System**
+#### ✅ **Database Migration System**
 - **Alembic integration** for version-controlled schema changes
 - **Automatic migration runner** for deployment automation
 - **Initial migration** creating all core tables
 - **Zero-downtime updates** for production environments
 - **Railway PostgreSQL compatibility**
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â§ **Development Tools**
+#### ✅ **Development Tools**
 - **Environment configuration** templates for easy setup
 - **Database initialization** scripts with PostgreSQL extensions
 - **Migration utilities** for schema management
@@ -2217,28 +2213,28 @@ Then visit `http://localhost:3000` and create a plan with any model.
 
 ### Technical Specifications
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€šÃ‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â **Architecture**
+#### ✅ **Architecture**
 - **Clean separation**: Python handles AI/planning, Node.js handles UI
 - **RESTful API design** with proper HTTP status codes
 - **Database-first approach** with persistent storage
 - **Event-driven updates** for real-time user experience
 - **Microservices-ready** with containerized components
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â **Security Features**
+#### ✅ **Security Features**
 - **API key hashing** (never stores plaintext OpenRouter keys)
 - **Path traversal protection** for file downloads
 - **CORS configuration** for controlled cross-origin access
 - **Input validation** with Pydantic models
 - **Database connection security** with environment variables
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒâ€¹Ã¢â‚¬Â  **Performance Optimizations**
+#### ✅ **Performance Optimizations**
 - **Database indexing** on frequently queried columns
 - **Background task processing** for non-blocking operations
 - **Connection pooling** with SQLAlchemy
 - **Efficient file serving** with proper content types
 - **Memory management** with database session cleanup
 
-#### ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã¢â‚¬â„¢Ãƒâ€šÃ‚Â **Deployment Options**
+#### ✅ **Deployment Options**
 1. **Docker Compose**: Full stack with local PostgreSQL
 2. **Railway Integration**: Connect to Railway PostgreSQL service
 3. **Manual Setup**: Individual component deployment
@@ -2287,33 +2283,33 @@ PLANEXE_API_URL=http://localhost:8000
 ### File Structure Added
 ```
 PlanExe/
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ planexe_api/                 # FastAPI REST API
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ api.py                  # Main API server
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ models.py               # Pydantic schemas
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ database.py             # SQLAlchemy models
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ requirements.txt        # Python dependencies
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ alembic.ini            # Migration config
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ run_migrations.py      # Migration runner
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ migrations/            # Database migrations
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ nodejs-client/              # Node.js SDK
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ index.js               # Client library
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ index.d.ts             # TypeScript definitions
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ test.js                # Test suite
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ README.md              # SDK documentation
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ nodejs-ui/                  # React frontend
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ src/components/        # React components
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ src/hooks/             # Custom hooks
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ server.js              # Express server
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ vite.config.js         # Build configuration
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ package.json           # Dependencies
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ docker/                     # Docker configuration
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Dockerfile.api         # API container
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Dockerfile.ui          # UI container
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ docker-compose.yml     # Orchestration
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ init-db.sql           # DB initialization
-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ docs/
-    ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ API.md                 # Complete API reference
-    ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ README_API.md          # Integration guide
+  ✅ planexe_api/                 # FastAPI REST API
+    ✅ api.py                  # Main API server
+    ✅ models.py               # Pydantic schemas
+    ✅ database.py             # SQLAlchemy models
+    ✅ requirements.txt        # Python dependencies
+    ✅ alembic.ini            # Migration config
+    ✅ run_migrations.py      # Migration runner
+    ✅ migrations/            # Database migrations
+  ✅ nodejs-client/              # Node.js SDK
+    ✅ index.js               # Client library
+    ✅ index.d.ts             # TypeScript definitions
+    ✅ test.js                # Test suite
+    ✅ README.md              # SDK documentation
+  ✅ nodejs-ui/                  # React frontend
+    ✅ src/components/        # React components
+    ✅ src/hooks/             # Custom hooks
+    ✅ server.js              # Express server
+    ✅ vite.config.js         # Build configuration
+    ✅ package.json           # Dependencies
+  ✅ docker/                     # Docker configuration
+    ✅ Dockerfile.api         # API container
+    ✅ Dockerfile.ui          # UI container
+    ✅ docker-compose.yml     # Orchestration
+    ✅ init-db.sql           # DB initialization
+  ✅ docs/
+    ✅ API.md                 # Complete API reference
+    ✅ README_API.md          # Integration guide
 ```
 
 ### Usage Examples
@@ -2429,37 +2425,3 @@ For existing PlanExe installations:
 ---
 
 *This changelog represents a complete REST API and Node.js integration for PlanExe, transforming it from a Python-only tool into a modern, scalable web application with persistent storage and real-time capabilities.*
-
-
-
-
-
-
-## [0.4.7] - 2025-10-23 - Recovery Page Decomposition + Live Streaming HUD
-
-### Frontend: Recovery Workspace Refactor (decompose, preserve streaming)
-Files: `planexe-frontend/src/app/recovery/page.tsx`, `planexe-frontend/src/app/recovery/useRecoveryPlan.ts`, `planexe-frontend/src/app/recovery/components/RecoveryHeader.tsx`, `planexe-frontend/src/app/recovery/components/StageTimeline.tsx`, `planexe-frontend/src/app/recovery/components/ReportPanel.tsx`, `planexe-frontend/src/app/recovery/components/ArtefactList.tsx`, `planexe-frontend/src/app/recovery/components/ArtefactPreview.tsx`
-
-Changes
-- Extracted a centralized `useRecoveryPlan(planId)` hook to own all FastAPI calls (plan, artefacts, report), WebSocket progress updates with heartbeat awareness, polling fallback, preview loading, and derived `stageSummary`.
-- Introduced presentational components:
-  - `RecoveryHeader`: status badge, connection indicator (WS vs polling), last artefact time, refresh + relaunch controls.
-  - `StageTimeline`: per-stage counts with live connection cues and lightweight skeletons.
-  - `RecoveryReportPanel`: canonical vs fallback report tabs with refresh, timestamp.
-  - `RecoveryArtefactPanel`: thin wrapper over `FileManager` to keep page wiring minimal.
-  - `ArtefactPreview`: isolated error-bounded inline preview for text/HTML with secure iframe.
-- New page (`page.tsx`) focuses on router/query glue and composes the above pieces; removes intertwined effects that previously caused cascading UI errors.
-- Normalized loading strings to ASCII ("...") to avoid mojibake in some environments.
-
-Why
-- The previous page mixed routing, data orchestration, and rendering for multiple widgets in ~730 lines, leading to brittle interdependencies and cascading errors.
-- Users want rich, continuous feedback; this preserves streaming visuals (status updates, live logs, stage counters) while making the UI maintainable and testable.
-
-Impact
-- Clear separation of concerns, easier incremental changes, and safer bug fixes.
-- Live HUD shows connection mode and last event time; StageTimeline updates incrementally; ReportPanel keeps canonical/fallback paths explicit.
-- Preview errors are localized and do not disrupt other panels.
-
-Notes
-- Lint step (`npm run lint`) currently fails due to the eslint binary export used in `scripts/run-lint.mjs`. Tooling update/pin may be needed; no code fixes required.
-
