@@ -84,7 +84,7 @@ FIELD RULES
 
 CONTEXT & DEDUP
 - Maintain an international perspective unless the user input specifies a jurisdiction; then align to it.
-- If the conversation already contains an assistant message with a JSON {"experts":[...]} from a previous step, treat those as “already selected” and DO NOT repeat any titles or near-duplicate roles. Produce 4 new, non-overlapping roles.
+- If the conversation already contains an assistant message with a JSON {"experts":[...]} from a previous step, treat those as "already selected" and DO NOT repeat any titles or near-duplicate roles. Produce 4 new, non-overlapping roles.
 
 FORMAT GUARDRAILS
 - Output must start with "{" and end with "}".
@@ -130,7 +130,7 @@ FIELD RULES
 
 CONTEXT & DEDUP
 - Maintain an international perspective unless the user input specifies a jurisdiction; then align to it.
-- If the conversation already contains an assistant message with a JSON {"experts":[...]} from a previous step, treat those as “already selected” and DO NOT repeat any titles or near-duplicate roles. Produce 4 new, non-overlapping roles.
+- If the conversation already contains an assistant message with a JSON {"experts":[...]} from a previous step, treat those as "already selected" and DO NOT repeat any titles or near-duplicate roles. Produce 4 new, non-overlapping roles.
 
 FORMAT GUARDRAILS
 - Output must start with "{" and end with "}".
@@ -194,9 +194,15 @@ class ExpertFinder:
             metadata["response_byte_count"] = response_byte_count
             metadata["expert_count"] = len(chat_response.raw.experts)
             
+            # Add: expose last response id for chaining
+            try:
+                last_id = sllm.get_last_response_id()
+            except Exception:
+                last_id = None
             return {
                 "chat_response": chat_response,
                 "metadata": metadata,
+                "previous_response_id": last_id,
             }
 
         try:
@@ -208,6 +214,9 @@ class ExpertFinder:
             raise ValueError("LLM chat interaction 1 failed.") from e
 
         chat_response1 = result1["chat_response"]
+        
+        # Add: capture previous_response_id from first call for chaining
+        previous_response_id = result1.get("previous_response_id")
 
         # Do a follow up question, for obtaining more experts.
         chat_message_assistant2 = ChatMessage(
@@ -226,7 +235,8 @@ class ExpertFinder:
             sllm = llm.as_structured_llm(ExpertDetails)
             logger.debug("Starting LLM chat interaction 2.")
             start_time = time.perf_counter()
-            chat_response = sllm.chat(chat_message_list2)
+            # Pass previous_response_id for chaining
+            chat_response = sllm.chat(chat_message_list2, previous_response_id=previous_response_id)
             end_time = time.perf_counter()
             duration = int(ceil(end_time - start_time))
             response_byte_count = len(chat_response.message.content.encode('utf-8'))
