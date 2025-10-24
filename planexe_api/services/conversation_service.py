@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import uuid
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -11,6 +12,8 @@ from typing import Any, AsyncGenerator, Dict, Optional
 
 from fastapi import HTTPException
 from openai import APIError
+
+logger = logging.getLogger(__name__)
 
 from planexe_api.database import DatabaseService, SessionLocal, LLMInteraction
 from planexe_api.models import ConversationFinalizeResponse, ConversationTurnRequest
@@ -476,6 +479,24 @@ class ConversationService:
         input_segments = SimpleOpenAILLM.normalize_input_messages(
             [{"role": "user", "content": request.user_message}]
         )
+
+        # Validate that normalization happened correctly
+        for segment in input_segments:
+            if "content" in segment and isinstance(segment["content"], list):
+                for content_item in segment["content"]:
+                    content_type = content_item.get("type")
+                    if content_type == "text":
+                        logger.error(
+                            f"BUG: Found unnormalized 'text' type in message after normalize_input_messages! "
+                            f"Content: {content_item}. This should have been converted to 'input_text' or 'output_text'."
+                        )
+                        raise ValueError(
+                            f"Message content type must be 'input_text' or other Responses API types, not 'text'. "
+                            f"Got: {content_item}"
+                        )
+
+        logger.debug(f"Normalized input_segments for conversation {conversation_id}: {input_segments}")
+
         text_payload: Dict[str, Any] = {"verbosity": request.text_verbosity}
         if schema_descriptor:
             text_format = SimpleOpenAILLM.build_text_format_from_schema(
@@ -502,6 +523,8 @@ class ConversationService:
             payload["previous_response_id"] = request.previous_response_id
         if request.metadata:
             payload["metadata"] = request.metadata
+
+        logger.info(f"Built Responses API request for conversation {conversation_id} with model {llm_model}")
         return payload
 
     @staticmethod
