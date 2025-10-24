@@ -1,23 +1,26 @@
 ## [0.6.5] - 2025-10-24
 
-### FEATURE: Reasoning Effort Centralization & Response ID Chaining
+### FIX: Correct reasoning_effort handling - request-time parameter, not stored
 
-**Complete implementation of centralized reasoning effort configuration and OpenAI response ID chaining for conversation continuity.**
+**Problem**: Previous commits mistakenly created a migration to add `reasoning_effort` as a permanent Plan database column, then later removed it from the schema, leaving orphaned code that tried to store and retrieve it from the database. This caused 500 errors when clicking "Finalise and Launch" because the code tried to access `plan.reasoning_effort` which no longer existed in the schema.
 
-#### Reasoning Effort Centralization
-**Files**:
-- [`planexe_api/database.py`](planexe_api/database.py) - Added `reasoning_effort` column to Plan model
-- [`planexe_api/models.py`](planexe_api/models.py) - Added validation and response fields for reasoning effort
-- [`planexe_api/api.py`](planexe_api/api.py) - Updated plan creation and retrieval endpoints
-- [`planexe-frontend/src/lib/types/forms.ts`](planexe-frontend/src/lib/types/forms.ts) - Added reasoning effort schema validation
-- [`planexe-frontend/src/lib/api/fastapi-client.ts`](planexe-frontend/src/lib/api/fastapi-client.ts) - Updated request/response interfaces
-- [`planexe-frontend/src/components/planning/PlanForm.tsx`](planexe-frontend/src/components/planning/PlanForm.tsx) - Added reasoning effort selection UI
+**Root Cause**: `reasoning_effort` is a **request-time LLM configuration parameter** (minimal, medium, high), not an integral property of a plan that should be persisted. It should be:
+- ✅ Accepted in CreatePlanRequest
+- ✅ Passed to the pipeline for LLM calls
+- ❌ NOT stored in the database
+- ❌ NOT returned in API responses
 
-**Implementation Details**:
-- **Database**: `reasoning_effort` column with default "medium" and enum validation (minimal, medium, high)
-- **API**: Full request/response validation with proper enum constraints
-- **UI**: 3-option dropdown with duration estimates and descriptive tooltips
-- **Default**: "medium" effort balanced for most planning scenarios
+**Solution**:
+- Removed the stray migration file that contradicted the ORM schema
+- Removed `reasoning_effort` from plan database storage (`plan_data`)
+- Removed `reasoning_effort` from API responses (`PlanResponse`)
+- Kept `reasoning_effort` being forwarded to the pipeline via `effective_request`
+
+**Files Fixed**:
+- [`planexe_api/migrations/versions/003_add_reasoning_effort_column.py`](planexe_api/migrations/versions/003_add_reasoning_effort_column.py) - DELETED (stray migration)
+- [`planexe_api/api.py`](planexe_api/api.py) - Removed database storage and response serialization
+
+**Result**: Plan creation now succeeds. The conversation modal and pipeline LLM calls still properly use the `reasoning_effort` parameter without any database persistence.
 
 #### Response ID Chaining (COMPLETED ✅)
 **Files**:
