@@ -1,3 +1,19 @@
+## [0.7.2] - 2025-10-24
+
+### FIX/FEAT: Complete deterministic chaining rollout and stability hardening
+- Chaining finalized end-to-end: added first-class accessors (get_last_response_id) and wired previous_response_id across multi-step tasks (QuestionsAnswers, ReviewPlan, IdentifyPotentialLevers, ExpertFinder, Premortem).
+- Streaming: capture final response id after stream completion and record on LLM so chaining works with streamed responses.
+- Responses API guard: defensive coercion of legacy content.type='text' to 'input_text'/'output_text' in conversation/analysis paths; central LLM safety also added.
+- Reasoning effort remains config-driven (no task overrides).
+- Pipeline restart: clear stale stop flag (pipeline_stop_requested.txt) at ExecutePipeline.run start so prior aborts can’t block a new run.
+
+## [0.7.1] - 2025-10-24
+
+### FIX: Streaming chaining IDs and pipeline restart robustness
+- Capture final response id after streaming responses and store it on the LLM so chaining works with streamed calls (get_last_response_id now reliable post-stream).
+- Clear stale pipeline stop flag (pipeline_stop_requested.txt) at ExecutePipeline.run start so a prior aborted run cannot block a new one.
+- Notes: Reasoning effort remains config-driven; deterministic chaining already wired in multi-step tasks.
+
 ## [0.7.0] - 2025-10-24
 
 ### FEAT: Deterministic Response ID chaining across pipeline tasks
