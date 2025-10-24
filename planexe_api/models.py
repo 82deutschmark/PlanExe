@@ -180,8 +180,9 @@ class ReasoningEffort(str, Enum):
     """Reasoning effort levels supported by the Responses API."""
 
     minimal = "minimal"
-    medium = "medium"
-    high = "high"
+    low = "low" 
+    medium = "medium"  # Must be set to "medium" or higher for streaming to work
+    high = "high"  # Must be set to "medium" or higher for streaming to work
 
 
 class AnalysisStreamRequest(BaseModel):
