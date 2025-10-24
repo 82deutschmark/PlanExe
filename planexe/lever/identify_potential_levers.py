@@ -173,6 +173,8 @@ class IdentifyPotentialLevers:
 
         responses: list[DocumentDetails] = []
         metadata_list: list[dict] = []
+        # carry previous_response_id across iterations to chain follow-up prompts
+        previous_response_id: Optional[str] = None
         for user_prompt_index, user_prompt_item in enumerate(user_prompt_list, start=1):
             logger.info(f"Processing user_prompt_index: {user_prompt_index} of {len(user_prompt_list)}")
             chat_message_list.append(
@@ -185,7 +187,7 @@ class IdentifyPotentialLevers:
             def execute_function(llm: LLM) -> dict:
                 sllm = llm.as_structured_llm(DocumentDetails)
                 try:
-                    chat_response = sllm.chat(chat_message_list)
+                    chat_response = sllm.chat(chat_message_list, previous_response_id=previous_response_id)
                 except Exception:
                     raw_payload = None
                     try:
@@ -203,9 +205,16 @@ class IdentifyPotentialLevers:
 
                 metadata = dict(llm.metadata)
                 metadata["llm_classname"] = llm.class_name()
+                # Extract last response id for chaining next iteration
+                last_id = None
+                try:
+                    last_id = sllm.get_last_response_id()
+                except Exception:
+                    last_id = None
                 return {
                     "chat_response": chat_response,
-                    "metadata": metadata
+                    "metadata": metadata,
+                    "previous_response_id": last_id
                 }
 
             try:
@@ -217,7 +226,10 @@ class IdentifyPotentialLevers:
                 logger.debug(f"LLM chat interaction failed: {e}")
                 logger.error("LLM chat interaction failed.", exc_info=True)
                 raise ValueError("LLM chat interaction failed.") from e
-            
+
+            # Update previous_response_id from last call for chaining
+            previous_response_id = result.get("previous_response_id")
+
             chat_response = result["chat_response"]
             assistant_message = getattr(getattr(chat_response, "message", None), "content", None)
             if assistant_message is None:
