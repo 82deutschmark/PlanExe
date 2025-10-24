@@ -1,3 +1,22 @@
+## 2025-10-24 Updates (Staging)
+
+- FIX: Responses API input content sanitizer added to prevent invalid `type: "text"` items from reaching OpenAI.
+  - Effected paths: Conversation modal streaming, Analysis streaming
+  - Files:
+    - planexe_api/services/conversation_service.py (sanitizer in _build_request_args)
+    - planexe_api/streaming/analysis_stream_service.py (sanitizer in _stream_openai before dispatch)
+  - Behavior: Any stray `type: "text"` coerced to `input_text` (user/system) or `output_text` (assistant) with a WARNING log. Prevents OpenAI 400 invalid_value.
+  - Verification: Launch/finalize conversation modal — no 400 responses; logs will show any coercions.
+
+- STATUS (Response Chaining): Partial — Sanitizer in place. Follow-up tasks remain to thread chaining and reasoning-effort consistently through Luigi tasks (see action list below).
+
+- ACTIONS REMAINING (high-level):
+  - Ensure all Luigi tasks calling LLM use StructuredSimpleOpenAILLM with previous_response_id and reasoning_effort (env-driven) wired through.
+  - Standardize logging levels for pipeline operations (INFO for start/end, WARN for fallbacks, ERROR for failures).
+  - Close DB sessions reliably in all tasks (context managers or finally blocks).
+
+---
+
 **Errors Identified in the Luigi Pipeline Code**
 
 1. **DeduplicateLeversTask Violation of Data Transformation Best Practices**  
