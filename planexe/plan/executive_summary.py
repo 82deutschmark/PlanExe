@@ -197,7 +197,11 @@ class ExecutiveSummary:
         Return the markdown representation of the executive summary.
         """
         return self.markdown
-    
+
+    def save_markdown(self, output_file_path: str):
+        with open(output_file_path, 'w', encoding='utf-8') as out_f:
+            out_f.write(self.markdown)
+
 if __name__ == "__main__":
     from planexe.llm_factory import get_llm
 

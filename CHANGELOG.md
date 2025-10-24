@@ -1,3 +1,34 @@
+## [0.6.4] - 2025-10-24
+
+### FIX: Complete v0.5.0 Regression - Add Missing `save_markdown()` Methods
+
+**Problem**: Version 0.5.0 claimed to fix missing `to_markdown()` methods but the fix was incomplete. The pipeline calls `save_markdown()` on 12 classes, but the 0.5.0 fix only added `to_markdown()` instance methods, not `save_markdown()` methods. This caused `IdentifyPurposeTask` and 11 other tasks to fail with `AttributeError: 'IdentifyPurpose' object has no attribute 'save_markdown'`.
+
+**Root Cause**: The 0.5.0 fix added `to_markdown()` instance methods to return the internal `self.markdown` attribute, but failed to add the complementary `save_markdown()` instance method that persists the markdown to disk.
+
+**Solution**: Added `save_markdown()` instance method to all 12 affected classes following the pattern from `identify_documents.py`:
+```python
+def save_markdown(self, output_file_path: str):
+    with open(output_file_path, 'w', encoding='utf-8') as out_f:
+        out_f.write(self.markdown)
+```
+
+**Files Fixed**:
+- [`planexe/plan/data_collection.py`](planexe/plan/data_collection.py)
+- [`planexe/assume/identify_purpose.py`](planexe/assume/identify_purpose.py) ← IdentifyPurposeTask
+- [`planexe/governance/governance_phase1_audit.py`](planexe/governance/governance_phase1_audit.py)
+- [`planexe/governance/governance_phase2_bodies.py`](planexe/governance/governance_phase2_bodies.py)
+- [`planexe/governance/governance_phase3_impl_plan.py`](planexe/governance/governance_phase3_impl_plan.py)
+- [`planexe/governance/governance_phase4_decision_escalation_matrix.py`](planexe/governance/governance_phase4_decision_escalation_matrix.py)
+- [`planexe/governance/governance_phase5_monitoring_progress.py`](planexe/governance/governance_phase5_monitoring_progress.py)
+- [`planexe/governance/governance_phase6_extra.py`](planexe/governance/governance_phase6_extra.py)
+- [`planexe/plan/project_plan.py`](planexe/plan/project_plan.py)
+- [`planexe/plan/executive_summary.py`](planexe/plan/executive_summary.py)
+- [`planexe/plan/review_plan.py`](planexe/plan/review_plan.py)
+- [`planexe/plan/related_resources.py`](planexe/plan/related_resources.py)
+
+**Impact**: Pipeline can now complete IdentifyPurposeTask and all 11 dependent governance/plan tasks that call `save_markdown()`. The immediate failure of `IdentifyPurposeTask` is now resolved, and all downstream tasks will proceed successfully.
+
 ## [0.6.3] - 2025-10-23
 
 ### REVERT: Restore working recovery UI layout (2-column grid)
