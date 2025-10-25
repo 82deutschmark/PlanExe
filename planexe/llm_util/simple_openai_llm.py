@@ -956,10 +956,11 @@ class SimpleOpenAILLM(LLM):
         }
 
     def class_name(self) -> str:
+        """Compatibility shim for legacy code expecting llama_index LLM.class_name()."""
         return self.__class__.__name__
 
     def __str__(self) -> str:
-        return f"SimpleOpenAILLM(model={self.model}, provider={self.provider})"
+        return f"SimpleOpenAILLM(model={self.model!r}, provider={self.provider!r})"
 
     def __repr__(self) -> str:
         return self.__str__()
