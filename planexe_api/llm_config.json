@@ -4,5 +4,11 @@
         "priority": 1,
         "provider": "openai",
         "model": "gpt-5-nano-2025-08-07"
+    },
+    "gpt-5-mini-2025-08-07": {
+        "comment": "Secondary OpenAI GPT-5 Mini model (Responses API, streaming + reasoning)",
+        "priority": 2,
+        "provider": "openai",
+        "model": "gpt-5-mini-2025-08-07"
     }
 }
