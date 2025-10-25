@@ -1,3 +1,7 @@
+# Author: Cascade
+# Date: 2025-10-24T23:20:00Z
+# PURPOSE: Structured schema and execution helpers for estimating WBS task durations via LLM responses, with safeguards around structured parsing.
+# SRP and DRY check: Pass. This module encapsulates duration estimation logic used by EstimateTaskDurationsTask; functionality not duplicated elsewhere.
 """
 https://en.wikipedia.org/wiki/Work_breakdown_structure
 https://en.wikipedia.org/wiki/Program_evaluation_and_review_technique
@@ -40,6 +44,7 @@ class TimeEstimates(BaseModel):
     ensures that the project stays on schedule and within budget.
     """
     task_details: list[TaskTimeEstimateDetail] = Field(
+        default_factory=list,
         description="List with tasks with time estimates."
     )
 
