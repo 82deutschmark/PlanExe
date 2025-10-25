@@ -41,6 +41,7 @@ const HomePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<string>(PRIMARY_FALLBACK_MODEL_ID);
+  const [speedVsDetail, setSpeedVsDetail] = useState<CreatePlanRequest['speed_vs_detail']>('balanced_speed_and_detail');
 
   const availableModels = useMemo(() => {
     const deduped = new Map<string, { id: string; label: string }>();
@@ -269,6 +270,37 @@ const HomePage: React.FC = () => {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div className="mt-3 space-y-2 text-xs text-slate-300">
+                    <span className="text-[11px] uppercase tracking-[0.2em] text-slate-200">
+                      Speed vs Detail
+                    </span>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { value: 'fast_but_skip_details', label: 'Fast' },
+                        { value: 'balanced_speed_and_detail', label: 'Balanced' },
+                        { value: 'all_details_but_slow', label: 'All Details' },
+                      ].map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setSpeedVsDetail(option.value as CreatePlanRequest['speed_vs_detail'])}
+                          className={`rounded-md border px-2 py-1.5 text-[11px] font-medium transition ${
+                            speedVsDetail === (option.value as CreatePlanRequest['speed_vs_detail'])
+                              ? 'border-cyan-400/60 bg-cyan-400/10 text-cyan-100'
+                              : 'border-white/15 bg-white/5 text-slate-200 hover:border-white/25'
+                          }`}
+                          aria-pressed={speedVsDetail === (option.value as CreatePlanRequest['speed_vs_detail'])}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="text-[11px] text-slate-400">
+                      {speedVsDetail === 'fast_but_skip_details' && 'Fast, fewer details (~10-20 min)'}
+                      {speedVsDetail === 'balanced_speed_and_detail' && 'Balanced depth and speed (~20-40 min)'}
+                      {speedVsDetail === 'all_details_but_slow' && 'Comprehensive plan (~45-90 min)'}
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
