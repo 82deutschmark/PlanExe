@@ -1,3 +1,7 @@
+# Author: Cascade
+# Date: 2025-10-24T23:20:00Z
+# PURPOSE: Identify required documents for planning using structured LLM outputs, providing schemas and cleanup helpers with safe defaults.
+# SRP and DRY check: Pass. This module encapsulates document identification logic unique to the pipeline.
 """
 Generates a preliminary checklist of required documents and data sources needed to start detailed planning.
 
@@ -83,15 +87,19 @@ class FindDocumentItem(BaseModel):
 
 class DocumentDetails(BaseModel):
     documents_to_create: list[CreateDocumentItem] = Field(
+        default_factory=list,
         description="Documents essential for project planning and execution that need to be created. Includes both subject-matter reports and standard project management artifacts."
     )
     documents_to_find: list[FindDocumentItem] = Field(
+        default_factory=list,
         description="Existing documents or datasets that must be obtained to inform the planning process."
     )
     documents_to_create_part2: list[CreateDocumentItem] = Field(
+        default_factory=list,
         description="Documents that are to be created, that for some reason were not identified in the first pass. Do not repeat documents already identified in the first pass."
     )
     documents_to_find_part2: list[FindDocumentItem] = Field(
+        default_factory=list,
         description="Documents that are to be found online or in a physical location, that for some reason were not identified in the first pass. Do not repeat documents already identified in the first pass."
     )
 
