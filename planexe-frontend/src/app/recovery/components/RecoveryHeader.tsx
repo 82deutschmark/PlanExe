@@ -22,6 +22,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { PlanResponse } from '@/lib/api/fastapi-client';
+import { parseBackendDate } from '@/lib/utils/date';
 
 import { RecoveryConnectionState, StatusDisplay } from '../useRecoveryPlan';
 
@@ -89,6 +90,7 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
     }
     return `Last artefact ${formatDistanceToNow(lastWriteAt, { addSuffix: true })}`;
   }, [lastWriteAt]);
+  const planCreatedAt = useMemo(() => parseBackendDate(plan?.created_at ?? null), [plan?.created_at]);
 
   return (
     <>
@@ -153,7 +155,9 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
                   {plan.progress_message && (
                     <span className="mt-1 max-w-sm text-xs text-slate-400">{plan.progress_message}</span>
                   )}
-                  <span className="mt-1 text-xs">Created {new Date(plan.created_at).toLocaleString()}</span>
+                  <span className="mt-1 text-xs">
+                    Created {planCreatedAt ? planCreatedAt.toLocaleString() : 'Unknown'}
+                  </span>
                 </>
               ) : planError ? (
                 <span className="text-xs text-red-600">{planError}</span>
