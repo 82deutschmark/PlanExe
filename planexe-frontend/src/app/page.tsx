@@ -127,7 +127,7 @@ const HomePage: React.FC = () => {
     const planData: CreatePlanRequest = {
       prompt,
       llm_model: modelForRequest,
-      speed_vs_detail: 'all_details_but_slow', // Default to comprehensive plan
+      speed_vs_detail: speedVsDetail,
     };
 
     setIsCreating(true);
