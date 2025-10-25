@@ -27,9 +27,8 @@
 1. **Swap every `llm: LLM` signature to `llm: Any` (or a shared protocol) and drop the old import.**
    - High-priority directories: `planexe/plan/`, `planexe/governance/`, `planexe/diagnostics/`, `planexe/lever/`, `planexe/document/`, `planexe/expert/`, `planexe/team/`.
    - After changing the signature, replace any lingering `ChatMessage`/`MessageRole` usage with `SimpleChatMessage` helpers (copy from already-converted files like `planexe/team/enrich_team_members_with_environment_info.py`).
-2. **Remove the `LLM = Any` shim** once the above is done. Compiler errors will point at stragglers we missed.
-3. **Re-run the pipeline** (through FastAPI or `python -m planexe.plan.run_plan_pipeline`) and keep fixing tasks until ReviewTeam and friends stop throwing schema errors.
-4. **Document quick sanity checks** (optional, but helpful): e.g. run `pytest planexe/llm_util/tests/test_llm_executor.py` to confirm executor still works.
+
+3. There may be a lot of them, make a list and focus on fixing all of them. 
 
 ---
 
@@ -37,8 +36,7 @@
 
 1. `rg "from llama_index.core.llms.llm" planexe` – each hit needs its signature updated.
 2. `rg "ChatMessage" planexe` – confirm anything under `planexe/` (not `proof_of_concepts/`) uses the new helpers.
-3. After each round, try a pipeline run; if another task blows up with a JSON schema dump, convert that module next.
-4. Once the run finishes cleanly, ditch the alias in `run_plan_pipeline.py` and commit the sweep.
+3. After each round, make the fix and move to the next.  Make a list of the files and line numbers of what you need to edit if you need to help yourself not get lost.   DO not get lost thinking about testing or other shit, your only tasks are making the code fixes.  
 
 ---
 
@@ -47,6 +45,6 @@
 - CLI/POC scripts can stay broken for now; we only care about the FastAPI -> Luigi path.
 - Don’t touch the DB-first write logic – it already behaves; the crashes happen before it writes anything.
 - `planexe/llm_util/simple_openai_llm.py` still subclasses some llama-index internals on purpose. Leave it alone until the pipeline is stable.
-- Keep commits small so we can bisect if the pipeline still fails.
 
-Main goal: kill every llama-index dependency inside production Luigi tasks so the adapter finally runs end-to-end.
+
+Main goal: kill every llama-index dependency inside production Luigi tasks so the adapter finally runs end-to-end.   
