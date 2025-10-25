@@ -1,4 +1,20 @@
+# Author: Cascade
+# Date: 2025-10-25T18:45:00Z
+# PURPOSE: Luigi pipeline orchestrator for PlanExe full-stack runs, now aligned with SimpleOpenAILLM adapters and centralized LLM configuration.
+# SRP and DRY check: Pass. File solely manages pipeline coordination and reuses shared tasks/executors without duplicating functionality.
 """Luigi pipeline entrypoint for orchestrating plan execution within the PlanExe full-stack app."""
+# Author: GPT-5 Codex (Codex CLI)
+# Date: 2025-10-21T22:27:00Z
+# PURPOSE: Strengthen Luigi pipeline bootstrap diagnostics, including API key validation and improved resume guidance.
+# SRP and DRY check: Pass - File already owns pipeline orchestration; additions extend entrypoint validation without duplicating logic.
+"""
+PROMPT> python -m planexe.plan.run_plan_pipeline
+
+In order to resume an unfinished run.
+Insert the run_id_dir of the thing you want to resume.
+If it's an already finished run, then remove the "999-pipeline_complete.txt" file.
+PROMPT> RUN_ID_DIR=/absolute/path/to/PlanExe_20250216_150332 python -m planexe.plan.run_plan_pipeline
+"""
 from dataclasses import dataclass, field
 from datetime import date, datetime
 import time
