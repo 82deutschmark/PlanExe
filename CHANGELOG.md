@@ -5,7 +5,7 @@
 - Updated `planexe/plan/run_plan_pipeline.py` to stop importing `llama_index.core.llms.llm.LLM`, hand tasks the `SimpleOpenAILLM` adapter directly, and carry a temporary alias so downstream modules keep compiling while we finish the sweep.
 - Captured the remaining migration work and runbook in `docs/pipeline_handoff_notes.md` so the next pass can finish replacing legacy message helpers and signature annotations.
 - Known gap: most pipeline tasks still accept `llm: LLM` and need to migrate to `Any` + `SimpleChatMessage` helpers before the adapter can run end-to-end.
-- Swapped early assumption, governance, expert, and team enrichment modules to accept raw adapters, replace llama_index `ChatMessage` usage with `SimpleChatMessage`, and harden metadata access so SimpleOpenAILLM can flow through Luigi without type errors.
+- Swapped early assumption, governance, expert, team enrichment, and diagnostic premise attack modules to accept raw adapters, replace llama_index `ChatMessage` usage with `SimpleChatMessage`, and harden metadata access so SimpleOpenAILLM can flow through Luigi without type errors.
 
 ## [0.8.5] - 2025-10-25
 

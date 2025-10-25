@@ -28,11 +28,10 @@ import time
 import logging
 from math import ceil
 from dataclasses import dataclass
-from typing import List
+from typing import List, Any
 
 from pydantic import BaseModel, Field
-from llama_index.core.llms import ChatMessage, MessageRole
-from llama_index.core.llms.llm import LLM
+from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 from planexe.llm_util.llm_executor import LLMExecutor, PipelineStopRequested
 
 logger = logging.getLogger(__name__)
@@ -282,15 +281,15 @@ class PremiseAttack:
             logger.debug(f"User Prompt:\n{user_prompt}")
 
             chat_message_list = [
-                ChatMessage(role=MessageRole.SYSTEM, content=system_prompt_content.strip()),
-                ChatMessage(role=MessageRole.USER, content=user_prompt.strip()),
+                SimpleChatMessage(role=SimpleMessageRole.SYSTEM, content=system_prompt_content.strip()),
+                SimpleChatMessage(role=SimpleMessageRole.USER, content=user_prompt.strip()),
             ]
 
-            def execute_function(llm: LLM) -> dict:
+            def execute_function(llm: Any) -> dict:
                 sllm = llm.as_structured_llm(DocumentDetails)
                 chat_response = sllm.chat(chat_message_list)
-                metadata = dict(llm.metadata)
-                metadata["llm_classname"] = llm.class_name()
+                metadata = dict(getattr(llm, "metadata", {}))
+                metadata["llm_classname"] = getattr(llm, "class_name", lambda: type(llm).__name__)()
                 metadata["system_prompt_index"] = system_prompt_index
                 metadata["system_prompt_name"] = system_prompt_name
                 return {
