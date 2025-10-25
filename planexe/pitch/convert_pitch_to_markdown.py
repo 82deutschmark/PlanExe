@@ -89,15 +89,28 @@ class ConvertPitchToMarkdown:
         chat_response = llm.chat(chat_message_list)
         end_time = time.perf_counter()
         duration = int(ceil(end_time - start_time))
-        response_byte_count = len(chat_response.message.content.encode('utf-8'))
-        logger.info(f"LLM chat interaction completed in {duration} seconds. Response byte count: {response_byte_count}")
+        response_content = ""
+
+        if isinstance(chat_response, str):
+            response_content = chat_response
+        elif getattr(chat_response, "message", None) and getattr(chat_response.message, "content", None) is not None:
+            response_content = chat_response.message.content
+        elif getattr(chat_response, "content", None) is not None:
+            response_content = chat_response.content
+        else:
+            response_content = str(chat_response)
+
+        response_byte_count = len(response_content.encode("utf-8"))
+        logger.info(
+            "LLM chat interaction completed in %s seconds. Response byte count: %s",
+            duration,
+            response_byte_count,
+        )
 
         metadata = dict(llm.metadata)
         metadata["llm_classname"] = llm.class_name()
         metadata["duration"] = duration
         metadata["response_byte_count"] = response_byte_count
-
-        response_content = chat_response.message.content
 
         start_delimiter = "[START_MARKDOWN]"
         end_delimiter = "[END_MARKDOWN]"
