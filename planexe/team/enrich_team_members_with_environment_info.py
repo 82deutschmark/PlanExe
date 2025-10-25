@@ -1,3 +1,7 @@
+# Author: Cascade
+# Date: 2025-10-25T18:10:00Z
+# PURPOSE: Enrich team members with environment info via SimpleOpenAILLM structured outputs, replacing legacy message dependencies.
+# SRP and DRY check: Pass. Module remains focused on environment enrichment and reuses shared adapters/formatting utilities.
 """
 Enrich the team members with what kind of equipment and facilities they need for the task.
 
@@ -8,10 +12,13 @@ import time
 import logging
 from math import ceil
 from dataclasses import dataclass
+from typing import Any
+
 from pydantic import BaseModel, Field
-from llama_index.core.llms import ChatMessage, MessageRole
-from llama_index.core.llms.llm import LLM
+
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
+from planexe.llm_factory import get_llm
+from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 
 logger = logging.getLogger(__name__)
 
@@ -63,12 +70,12 @@ class EnrichTeamMembersWithEnvironmentInfo:
         return query
 
     @classmethod
-    def execute(cls, llm: LLM, user_prompt: str, team_member_list: list[dict]) -> 'EnrichTeamMembersWithEnvironmentInfo':
+    def execute(cls, llm: Any, user_prompt: str, team_member_list: list[dict]) -> 'EnrichTeamMembersWithEnvironmentInfo':
         """
         Invoke LLM with each team member.
         """
-        if not isinstance(llm, LLM):
-            raise ValueError("Invalid LLM instance.")
+        if not hasattr(llm, "as_structured_llm"):
+            raise ValueError("Invalid LLM instance: missing as_structured_llm().")
         if not isinstance(user_prompt, str):
             raise ValueError("Invalid user_prompt.")
         if not isinstance(team_member_list, list):
@@ -79,14 +86,8 @@ class EnrichTeamMembersWithEnvironmentInfo:
         system_prompt = ENRICH_TEAM_MEMBERS_ENVIRONMENT_INFO_SYSTEM_PROMPT.strip()
 
         chat_message_list = [
-            ChatMessage(
-                role=MessageRole.SYSTEM,
-                content=system_prompt,
-            ),
-            ChatMessage(
-                role=MessageRole.USER,
-                content=user_prompt,
-            )
+            SimpleChatMessage(role=SimpleMessageRole.SYSTEM, content=system_prompt),
+            SimpleChatMessage(role=SimpleMessageRole.USER, content=user_prompt),
         ]
 
         sllm = llm.as_structured_llm(DocumentDetails)
@@ -107,8 +108,8 @@ class EnrichTeamMembersWithEnvironmentInfo:
 
         team_member_list_enriched = cls.cleanup_enriched_team_members_with_environment_info_and_merge_with_team_members(chat_response.raw, team_member_list)
 
-        metadata = dict(llm.metadata)
-        metadata["llm_classname"] = llm.class_name()
+        metadata = dict(getattr(llm, "metadata", {}))
+        metadata["llm_classname"] = getattr(llm, "class_name", lambda: llm.__class__.__name__)()
         metadata["duration"] = duration
         metadata["response_byte_count"] = response_byte_count
 
@@ -147,9 +148,8 @@ class EnrichTeamMembersWithEnvironmentInfo:
         return result_team_member_list
 
 if __name__ == "__main__":
-    from planexe.llm_factory import get_llm
 
-    llm = get_llm("ollama-llama3.1")
+    llm = get_llm()
     # llm = get_llm("deepseek-chat")
 
     job_description = "Establish a new police station in a high crime area."
