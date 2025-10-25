@@ -135,6 +135,7 @@ const RecoveryPageContent: React.FC = () => {
         onRelaunch={handleRelaunch}
       />
       <main className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4">
+        <PipelineLogsPanel planId={planId} className="h-fit" />
         <div className="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)] xl:grid-cols-[380px_minmax(0,1fr)]">
           <div className="flex flex-col gap-4">
             <StageTimeline
@@ -151,7 +152,6 @@ const RecoveryPageContent: React.FC = () => {
               streams={llmStreams.history}
               activeStreamId={llmStreams.active?.interactionId ?? null}
             />
-            <PipelineLogsPanel planId={planId} className="h-fit" />
             <RecoveryReportPanel
               canonicalHtml={reports.canonicalHtml}
               canonicalError={reports.canonicalError}
@@ -195,6 +195,17 @@ const RecoveryPageContent: React.FC = () => {
             />
           </div>
         </div>
+        {plan.data?.prompt && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Initial Plan Request</CardTitle>
+              <p className="text-xs text-slate-500">Original prompt captured when the plan was created.</p>
+            </CardHeader>
+            <CardContent>
+              <p className="whitespace-pre-wrap text-sm text-slate-600">{plan.data.prompt}</p>
+            </CardContent>
+          </Card>
+        )}
       </main>
     </div>
   );

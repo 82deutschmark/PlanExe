@@ -18,7 +18,6 @@ import { Badge } from '@/components/ui/badge';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -139,11 +138,6 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
                   </Badge>
                 )}
               </CardTitle>
-              {plan?.prompt && (
-                <CardDescription className="max-w-3xl text-sm text-slate-600">
-                  {plan.prompt}
-                </CardDescription>
-              )}
               <div className="flex items-center gap-3 text-xs text-slate-500">
                 <span className={connectionMeta.tone === 'good' ? 'text-emerald-600' : connectionMeta.tone === 'warn' ? 'text-amber-600' : 'text-slate-500'}>
                   <Radio className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />
