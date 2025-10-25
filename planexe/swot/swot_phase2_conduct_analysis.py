@@ -1,3 +1,7 @@
+# Author: Cascade
+# Date: 2025-10-25T18:10:00Z
+# PURPOSE: Conduct SWOT analyses via SimpleOpenAILLM structured outputs, removing legacy llama_index message dependencies.
+# SRP and DRY check: Pass. Module handles phase 2 analysis while reusing shared adapters; no duplicated functionality.
 """
 Conduct SWOT analysis of different types: business, personal, or other.
 
@@ -7,9 +11,11 @@ import json
 import time
 import logging
 from math import ceil
+from typing import Any
+
 from pydantic import BaseModel, Field
-from llama_index.core.llms import ChatMessage, MessageRole
-from llama_index.core.llms.llm import LLM
+
+from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 
 logger = logging.getLogger(__name__)
 
@@ -189,12 +195,12 @@ Remember:
 - Emphasize creativity, innovation, technical feasibility, or educational value wherever possible.
 """
 
-def swot_phase2_conduct_analysis(llm: LLM, user_prompt: str, system_prompt: str) -> dict:
+def swot_phase2_conduct_analysis(llm: Any, user_prompt: str, system_prompt: str) -> dict:
     """
     Invoke LLM to make a SWOT analysis.
     """
-    if not isinstance(llm, LLM):
-        raise ValueError("Invalid LLM instance.")
+    if not hasattr(llm, "as_structured_llm"):
+        raise ValueError("Invalid LLM instance: missing as_structured_llm().")
     if not isinstance(user_prompt, str):
         raise ValueError("Invalid user_prompt.")
     if not isinstance(system_prompt, str):
@@ -204,14 +210,8 @@ def swot_phase2_conduct_analysis(llm: LLM, user_prompt: str, system_prompt: str)
     logger.debug(f"User Prompt:\n{user_prompt}")
 
     chat_message_list = [
-        ChatMessage(
-            role=MessageRole.SYSTEM,
-            content=system_prompt,
-        ),
-        ChatMessage(
-            role=MessageRole.USER,
-            content=user_prompt,
-        )
+        SimpleChatMessage(role=SimpleMessageRole.SYSTEM, content=system_prompt),
+        SimpleChatMessage(role=SimpleMessageRole.USER, content=user_prompt),
     ]
 
     sllm = llm.as_structured_llm(SWOTAnalysis)
@@ -230,8 +230,8 @@ def swot_phase2_conduct_analysis(llm: LLM, user_prompt: str, system_prompt: str)
 
     json_response = chat_response.raw.model_dump()
 
-    metadata = dict(llm.metadata)
-    metadata["llm_classname"] = llm.class_name()
+    metadata = dict(getattr(llm, "metadata", {}))
+    metadata["llm_classname"] = getattr(llm, "class_name", lambda: llm.__class__.__name__)()
     metadata["duration"] = duration
     metadata["response_byte_count"] = response_byte_count
     json_response['metadata'] = metadata
