@@ -100,7 +100,7 @@ import sys
 import os
 # Add parent directory to path to import planexe_api
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-from planexe_api.database import DatabaseService, get_database_service
+from planexe_api.database import DatabaseService, get_database_service, create_tables
 
 logger = logging.getLogger(__name__)
 DEFAULT_LLM_MODEL = "gpt-5-nano-2025-08-07"  # Use a real Responses API model id present in llm_config.json
