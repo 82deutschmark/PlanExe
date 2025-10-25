@@ -1,3 +1,12 @@
+## [0.8.3] - 2025-10-25
+
+### FIX: Restore OpenAI Responses parsing
+
+- Re-added the missing _extract_output helper in SimpleOpenAILLM; Attributes errors there caused every structured LLM call (RedlineGateTask, IdentifyPurposeTask, etc.) to raise “LLM chat interaction failed”.
+- Parsed text, reasoning, and schema candidates now flow again, unblocking the pipeline’s earliest tasks.
+
+Files:
+- planexe/llm_util/simple_openai_llm.py
 ## [0.8.2] - 2025-10-25
 
 ### FIX: Early pipeline failures due to DB-first writes

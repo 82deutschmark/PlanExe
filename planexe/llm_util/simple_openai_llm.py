@@ -501,6 +501,167 @@ class SimpleOpenAILLM(LLM):
         _walk(value)
         return parsed
 
+    @staticmethod
+    def _normalize_usage(raw_usage: Any) -> Dict[str, Any]:
+        """Return a predictable usage dictionary from arbitrary Responses payloads."""
+
+        def _coerce_mapping(candidate: Any) -> Optional[Dict[str, Any]]:
+            if candidate is None:
+                return None
+            if isinstance(candidate, dict):
+                return candidate
+            for attr in ("model_dump", "dict", "to_dict"):
+                getter = getattr(candidate, attr, None)
+                if callable(getter):
+                    with suppress(Exception):
+                        data = getter()
+                        if isinstance(data, dict):
+                            return data
+            return None
+
+        # Responses sometimes wraps usage under lists or nested objects; flatten to a mapping
+        usage_sources: List[Dict[str, Any]] = []
+        if isinstance(raw_usage, list):
+            for item in raw_usage:
+                mapping = _coerce_mapping(item)
+                if mapping:
+                    usage_sources.append(mapping)
+        else:
+            mapping = _coerce_mapping(raw_usage)
+            if mapping:
+                usage_sources.append(mapping)
+
+        if not usage_sources:
+            return {}
+
+        normalized: Dict[str, Any] = {}
+        token_aliases: Dict[str, Set[str]] = {
+            "input_tokens": {"input_tokens", "prompt_tokens", "input_token_count"},
+            "output_tokens": {"output_tokens", "completion_tokens", "output_token_count"},
+            "total_tokens": {"total_tokens", "token_count", "total_token_count"},
+        }
+
+        def _coerce_number(value: Any) -> Optional[int]:
+            if isinstance(value, bool):
+                return int(value)
+            if isinstance(value, (int, float)):
+                return int(value)
+            if isinstance(value, str):
+                try:
+                    return int(float(value))
+                except (TypeError, ValueError):
+                    return None
+            return None
+
+        for source in usage_sources:
+            for canonical_key, aliases in token_aliases.items():
+                for alias in aliases:
+                    if alias in source and canonical_key not in normalized:
+                        coerced = _coerce_number(source.get(alias))
+                        if coerced is not None:
+                            normalized[canonical_key] = coerced
+                        break
+
+            # Preserve any additional numeric fields for downstream consumers
+            for key, value in source.items():
+                if key in normalized:
+                    continue
+                coerced = _coerce_number(value)
+                if coerced is not None:
+                    normalized[key] = coerced
+                elif key not in normalized:
+                    normalized.setdefault(key, value)
+
+        # Synthesize totals when possible
+        if "total_tokens" not in normalized:
+            input_tokens = normalized.get("input_tokens")
+            output_tokens = normalized.get("output_tokens")
+            if isinstance(input_tokens, int) and isinstance(output_tokens, int):
+                normalized["total_tokens"] = input_tokens + output_tokens
+
+        return normalized
+
+    @classmethod
+    def _extract_output(cls, payload: Dict[str, Any]) -> Dict[str, Any]:
+        text_parts: List[str] = []
+        parsed_candidates: List[Any] = []
+        reasoning_parts: List[str] = []
+
+        output = payload.get("output", [])
+        if isinstance(output, dict):
+            output = [output]
+        if isinstance(output, list):
+            for block in output:
+                if not isinstance(block, dict):
+                    continue
+                block_type = str(block.get("type", "")).lower()
+                if block_type in {"message", "text"}:
+                    contents = block.get("content")
+                    if isinstance(contents, list):
+                        for part in contents:
+                            if isinstance(part, dict):
+                                part_type = str(part.get("type", "")).lower()
+                                if part_type in {"output_text", "text"}:
+                                    text_parts.extend(
+                                        cls._collect_text_values(part.get("text") or part.get("content"))
+                                    )
+                                elif part_type in {"output_parsed", "parsed"}:
+                                    parsed_value = part.get("parsed")
+                                    if parsed_value is not None:
+                                        parsed_candidates.append(parsed_value)
+                                elif "reasoning" in part_type:
+                                    reasoning_parts.extend(cls._collect_text_values(part))
+                                else:
+                                    text_parts.extend(cls._collect_text_values(part))
+                            elif isinstance(part, str):
+                                text_parts.append(part)
+                    else:
+                        text_parts.extend(cls._collect_text_values(contents))
+                elif block_type == "reasoning":
+                    reasoning_parts.extend(cls._extract_reasoning_chunks(block))
+                elif block_type in {"output_text", "assistant"}:
+                    text_parts.extend(cls._collect_text_values(block.get("text") or block.get("content")))
+                elif block_type in {"output_parsed", "parsed"}:
+                    parsed_value = block.get("parsed")
+                    if parsed_value is not None:
+                        parsed_candidates.append(parsed_value)
+                else:
+                    text_parts.extend(cls._collect_text_values(block.get("content") or block.get("text")))
+
+        if not text_parts:
+            fallback_text = payload.get("output_text")
+            if isinstance(fallback_text, list):
+                text_parts.extend(str(item) for item in fallback_text)
+            elif isinstance(fallback_text, str):
+                text_parts.append(fallback_text)
+
+        if not parsed_candidates:
+            parsed_value = payload.get("output_parsed")
+            if isinstance(parsed_value, list):
+                parsed_candidates.extend(parsed_value)
+            elif parsed_value is not None:
+                parsed_candidates.append(parsed_value)
+
+        reasoning_summary = payload.get("output_reasoning")
+        if isinstance(reasoning_summary, dict):
+            reasoning_parts.extend(cls._collect_text_values(reasoning_summary.get("summary")))
+            reasoning_parts.extend(cls._collect_text_values(reasoning_summary.get("items")))
+        elif isinstance(reasoning_summary, list):
+            reasoning_parts.extend(cls._collect_text_values(reasoning_summary))
+        elif isinstance(reasoning_summary, str):
+            reasoning_parts.append(reasoning_summary)
+
+        reasoning_text = "\n\n".join([chunk for chunk in reasoning_parts if chunk]).strip() or None
+
+        usage = cls._normalize_usage(payload.get("usage"))
+
+        return {
+            "text": "".join(text_parts),
+            "parsed_candidates": [candidate for candidate in parsed_candidates if candidate is not None],
+            "reasoning": reasoning_text,
+            "usage": usage,
+        }
+
     @classmethod
     def _extract_reasoning_chunks(cls, block: Dict[str, Any]) -> List[str]:
         chunks: List[str] = []
