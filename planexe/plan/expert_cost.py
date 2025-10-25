@@ -1,3 +1,7 @@
+# Author: Cascade
+# Date: 2025-10-25T18:00:00Z
+# PURPOSE: Estimate task costs using SimpleOpenAILLM structured outputs instead of legacy llama_index bindings, while keeping metadata and CLI utilities.
+# SRP and DRY check: Pass. Module remains focused on expert cost estimation and reuses shared formatting/helpers without duplicating logic.
 """
 Ask a specific expert about estimating cost.
 """
@@ -8,9 +12,9 @@ from typing import Optional
 from enum import Enum
 from dataclasses import dataclass
 from pydantic import BaseModel, Field
-from llama_index.core.llms import ChatMessage, MessageRole
-from llama_index.core.llms.llm import LLM
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
+from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
+from planexe.llm_factory import get_llm
 
 class CostUnit(str, Enum):
     # An hour is 60 minutes.
@@ -151,41 +155,32 @@ Please provide exactly one cost estimate for each of the following {task_id_coun
         return query
 
     @classmethod
-    def execute(cls, llm: LLM, query: str, system_prompt: Optional[str]) -> 'ExpertCost':
+    def execute(cls, llm: object, query: str, system_prompt: Optional[str]) -> 'ExpertCost':
         """
         Invoke LLM to get cost estimation advice from the expert.
         """
-        if not isinstance(llm, LLM):
-            raise ValueError("Invalid LLM instance.")
+        if not hasattr(llm, "as_structured_llm"):
+            raise ValueError("Invalid LLM instance: missing as_structured_llm().")
         if not isinstance(query, str):
             raise ValueError("Invalid query.")
 
         chat_message_list = []
         if system_prompt:
-            chat_message_list.append(
-                ChatMessage(
-                    role=MessageRole.SYSTEM,
-                    content=system_prompt,
-                )
-            )
+            chat_message_list.append(SimpleChatMessage(role=SimpleMessageRole.SYSTEM, content=system_prompt))
         
-        chat_message_user = ChatMessage(
-            role=MessageRole.USER,
-            content=query,
-        )
-        chat_message_list.append(chat_message_user)
+        chat_message_list.append(SimpleChatMessage(role=SimpleMessageRole.USER, content=query))
 
         start_time = time.perf_counter()
 
         sllm = llm.as_structured_llm(ExpertCostEstimationResponse)
         chat_response = sllm.chat(chat_message_list)
-        json_response = json.loads(chat_response.message.content)
+        json_response = chat_response.raw.model_dump()
 
         end_time = time.perf_counter()
         duration = int(ceil(end_time - start_time))
 
-        metadata = dict(llm.metadata)
-        metadata["llm_classname"] = llm.class_name()
+        metadata = dict(getattr(llm, "metadata", {}))
+        metadata["llm_classname"] = getattr(llm, "class_name", lambda: llm.__class__.__name__)()
         metadata["duration"] = duration
 
         result = ExpertCost(
@@ -204,48 +199,26 @@ Please provide exactly one cost estimate for each of the following {task_id_coun
         return d
 
 if __name__ == "__main__":
-    from llama_index.llms.ollama import Ollama
-    from llama_index.llms.openai_like import OpenAILike
-    from dotenv import dotenv_values
     import os
+    from dotenv import dotenv_values
     from wbs_table_for_cost_estimation.wbs_table_for_cost_estimation import WBSTableForCostEstimation
     from chunk_dataframe_with_context.chunk_dataframe_with_context import chunk_dataframe_with_context
 
-    dotenv_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.env'))
-    dotenv_dict = dotenv_values(dotenv_path=dotenv_path)
+    llm = get_llm()
 
-    if True:
-        model_name = "llama3.1:latest"
-        # model_name = "qwen2.5-coder:latest"
-        # model_name = "phi4:latest"
-        llm = Ollama(model=model_name, request_timeout=120.0, temperature=0.5, is_function_calling_model=False)
-    else:
-        llm = OpenAILike(
-            api_base="https://api.deepseek.com/v1",
-            api_key=dotenv_dict['DEEPSEEK_API_KEY'],
-            model="deepseek-chat",
-            is_chat_model=True,
-            is_function_calling_model=True,
-            max_retries=1,
-        )
-    
-
-    # TODO: Eliminate hardcoded paths
     basepath = '/Users/neoneye/Desktop/planexe_data'
 
     def load_json(relative_path: str) -> dict:
         path = os.path.join(basepath, relative_path)
         print(f"loading file: {path}")
         with open(path, 'r', encoding='utf-8') as f:
-            the_json = json.load(f)
-        return the_json
+            return json.load(f)
 
-    def load_text(relative_path: str) -> dict:
+    def load_text(relative_path: str) -> str:
         path = os.path.join(basepath, relative_path)
         print(f"loading file: {path}")
         with open(path, 'r', encoding='utf-8') as f:
-            the_text = f.read()
-        return the_text
+            return f.read()
 
     plan_txt = load_text('001-plan.txt')
     document_plan = Document(name="vague_plan_description.txt", content=plan_txt)
@@ -265,53 +238,38 @@ if __name__ == "__main__":
     wbs_df = wbs_table.wbs_table_df.copy()
 
     expert = expert_list_json[5]
-    expert.pop('id')
+    expert.pop('id', None)
     system_prompt = ExpertCost.format_system(expert)
     print(f"System: {system_prompt}")
 
     currency = "DKK"
     location = "Kolonihave at Kongelundsvej, Copenhagen, Denmark"
 
-    # The LLM cannot handle the entire WBS hierarchy at once, usually more than 100 rows.
-    # Instead process the CSV in chunks of N rows.
-    chunk_size=3
-    overlap=4
+    chunk_size = 3
+    overlap = 4
 
-    # Collect all chunks in a list to know how many there are
-    all_chunks = list(chunk_dataframe_with_context(wbs_df, chunk_size, overlap))
-    # truncate to 5 chunks
-    all_chunks = all_chunks[:5]
-
-    # Print out the total number of chunks (iterations) that will be processed
+    all_chunks = list(chunk_dataframe_with_context(wbs_df, chunk_size, overlap))[:5]
     number_of_chunks = len(all_chunks)
     print(f"There will be {number_of_chunks} iterations.")
 
     documents_static = [document_plan, document_project_plan, document_swot_analysis]
 
-    # Then iterate over them as usual
     for chunk_index, (core_df, extended_df) in enumerate(all_chunks, start=1):
         print(f"Processing chunk {chunk_index} of {number_of_chunks} ...")
 
-        # Convert extended_df to CSV for the LLM prompt
         extended_csv = extended_df.to_csv(sep=';', index=False)
         document_wbs_chunk = Document(name="work_breakdown_structure.csv", content=extended_csv)
-        
-        # The tasks we want cost-estimated in this chunk (core tasks only)
+
         task_ids_to_process = core_df['Task ID'].tolist()
-        
-        # Format the query with extended context as the content,
-        # but instruct the LLM to only produce estimates for the 
-        # `task_ids_to_process`.
+
         query = ExpertCost.format_query(
             currency=currency,
             location=location,
             task_ids_to_process=task_ids_to_process,
             documents=documents_static + [document_wbs_chunk],
         )
-        
-        # Make the LLM call
+
         print(f"\n\nChunk {chunk_index} Query (len={len(query)}): {query}")
-        # print(f"\n\nChunk {chunk_index} Execute. len(query)={len(query)}")
         result = ExpertCost.execute(llm, query, system_prompt)
 
         print(f"\n\nChunk {chunk_index} Response:")
