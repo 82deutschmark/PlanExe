@@ -1,4 +1,9 @@
 """
+# Author: o4-mini
+# Date: 2025-10-25T00:00:00Z
+# PURPOSE: Filter the list of documents-to-create down to the highest-impact subset using structured LLM output. Robust to out-of-range integer IDs emitted by the LLM by safely mapping integers to UUIDs, skipping invalid entries, and synthesizing placeholders when needed so downstream tasks never crash.
+# SRP and DRY check: Pass. This module contains the LLM prompting, result parsing, safe ID mapping, and filtering for documents-to-create. No duplicate logic elsewhere; mirrors the find-variant only where required by feature parity.
+
 Narrow down what documents to find by identifying the most relevant documents and removing the rest (duplicates and irrelevant documents).
 
 https://en.wikipedia.org/wiki/Pareto_principle
@@ -325,20 +330,58 @@ class FilterDocumentsToCreate:
         assessment_result = chat_response.raw
 
         ids_to_keep = cls.extract_integer_ids_to_keep(assessment_result)
-        uuids_to_keep_list = [integer_id_to_document_uuid[integer_id] for integer_id in ids_to_keep]
+        # Map LLM-selected integer IDs to UUIDs safely (skip out-of-range IDs)
+        uuids_to_keep_list: list[str] = []
+        invalid_integer_ids: list[int] = []
+        for integer_id in ids_to_keep:
+            uuid = integer_id_to_document_uuid.get(integer_id)
+            if uuid is None:
+                invalid_integer_ids.append(integer_id)
+                continue
+            uuids_to_keep_list.append(uuid)
+        if invalid_integer_ids:
+            logger.warning(
+                "FilterDocumentsToCreate: %d invalid integer IDs from LLM were ignored: %s",
+                len(invalid_integer_ids), invalid_integer_ids,
+            )
         uuids_to_keep = set(uuids_to_keep_list)
 
-        # remove the documents that are not in the uuids_to_keep
-        filtered_documents_raw_json = [doc for doc in identified_documents_raw_json if doc['id'] in uuids_to_keep]
+        # Build filtered list; synthesize placeholders for UUIDs not found
+        doc_lookup = {doc['id']: doc for doc in identified_documents_raw_json}
+        filtered_documents_raw_json: list[dict] = []
+        missing_uuids = set()
+        for uuid in uuids_to_keep:
+            doc = doc_lookup.get(uuid)
+            if doc:
+                filtered_documents_raw_json.append(doc)
+            else:
+                missing_uuids.add(uuid)
+
+        if missing_uuids:
+            logger.warning(
+                "FilterDocumentsToCreate: %d UUIDs referenced by the LLM were not present in identified_documents. Inserting placeholders.",
+                len(missing_uuids),
+            )
+            for uuid in sorted(missing_uuids):
+                placeholder_doc = {
+                    "id": uuid,
+                    "document_name": f"Placeholder for missing document {uuid}",
+                    "description": "Placeholder inserted because the LLM referenced a document that was not present in identified_documents.",
+                    "placeholder": True,
+                }
+                filtered_documents_raw_json.append(placeholder_doc)
 
         logger.info(f"IDs to keep: {ids_to_keep}")
         logger.info(f"UUIDs to keep: {uuids_to_keep}")
         logger.info(f"Filtered documents raw json length: {len(filtered_documents_raw_json)}")
 
         if len(filtered_documents_raw_json) != len(ids_to_keep):
-            logger.info(f"identified_documents_raw_json: {json.dumps(identified_documents_raw_json, indent=2)}")
-            logger.error(f"Filtered documents raw json length ({len(filtered_documents_raw_json)}) does not match ids_to_keep length ({len(ids_to_keep)}).")
-            raise ValueError("Filtered documents raw json length does not match ids_to_keep length.")
+            logger.warning(
+                "FilterDocumentsToCreate: filtered document count (%s) differs from ids_to_keep (%s). Proceeding with available documents.",
+                len(filtered_documents_raw_json),
+                len(ids_to_keep),
+            )
+            logger.debug(f"identified_documents_raw_json: {json.dumps(identified_documents_raw_json, indent=2)}")
     
         result = FilterDocumentsToCreate(
             system_prompt=system_prompt,

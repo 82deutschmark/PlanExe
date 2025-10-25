@@ -316,7 +316,20 @@ class FilterDocumentsToFind:
         assessment_result = chat_response.raw
 
         ids_to_keep = cls.extract_integer_ids_to_keep(assessment_result)
-        uuids_to_keep_list = [integer_id_to_document_uuid[integer_id] for integer_id in ids_to_keep]
+        # Map LLM-selected integer IDs to UUIDs safely (skip out-of-range IDs)
+        uuids_to_keep_list: list[str] = []
+        invalid_integer_ids: list[int] = []
+        for integer_id in ids_to_keep:
+            uuid = integer_id_to_document_uuid.get(integer_id)
+            if uuid is None:
+                invalid_integer_ids.append(integer_id)
+                continue
+            uuids_to_keep_list.append(uuid)
+        if invalid_integer_ids:
+            logger.warning(
+                "FilterDocumentsToFind: %d invalid integer IDs from LLM were ignored: %s",
+                len(invalid_integer_ids), invalid_integer_ids,
+            )
         uuids_to_keep = set(uuids_to_keep_list)
 
         doc_lookup = {doc['id']: doc for doc in identified_documents_raw_json}
