@@ -1,3 +1,12 @@
+## [0.8.2] - 2025-10-25
+
+### FIX: Early pipeline failures due to DB-first writes
+
+- Ensure database tables exist before early Luigi tasks write to DB.
+- Call create_tables() inside PlanTask.get_database_service() so RedlineGate/IdentifyPurpose don’t fail when the API hasn’t initialized the DB yet.
+
+Files:
+- planexe/plan/run_plan_pipeline.py
 ## [0.8.1] - 2025-10-25
 
 ### FEAT: Landing page Speed vs Detail selector
