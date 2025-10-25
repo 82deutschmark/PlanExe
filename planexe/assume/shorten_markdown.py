@@ -10,8 +10,8 @@ import logging
 from math import ceil
 from typing import Optional
 from dataclasses import dataclass
-from llama_index.core.llms.llm import LLM
-from llama_index.core.llms import ChatMessage, MessageRole
+
+from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole, StructuredLLMResponse
 from planexe.markdown_util.fix_bullet_lists import fix_bullet_lists
 from planexe.markdown_util.remove_bold_formatting import remove_bold_formatting
 
@@ -38,46 +38,52 @@ class ShortenMarkdown:
     metadata: dict
 
     @classmethod
-    def execute(cls, llm: LLM, user_prompt: str) -> 'ShortenMarkdown':
+    def execute(cls, llm: any, user_prompt: str) -> 'ShortenMarkdown':
         """
         Invoke LLM with a long markdown document that is to be shortened.
         """
-        if not isinstance(llm, LLM):
-            raise ValueError("Invalid LLM instance.")
         if not isinstance(user_prompt, str):
             raise ValueError("Invalid user_prompt.")
-        
+
         user_prompt = user_prompt.strip()
         user_prompt = remove_bold_formatting(user_prompt)
 
         system_prompt = SHORTEN_MARKDOWN_SYSTEM_PROMPT.strip()
         chat_message_list = [
-            ChatMessage(
-                role=MessageRole.SYSTEM,
+            SimpleChatMessage(
+                role=SimpleMessageRole.SYSTEM,
                 content=system_prompt,
             ),
-            ChatMessage(
-                role=MessageRole.USER,
+            SimpleChatMessage(
+                role=SimpleMessageRole.USER,
                 content=user_prompt,
             )
         ]
-        
+
         logger.debug(f"User Prompt:\n{user_prompt}")
 
         logger.debug("Starting LLM chat interaction.")
         start_time = time.perf_counter()
-        chat_response = llm.chat(chat_message_list)
+        chat_output = llm.chat(chat_message_list)
+        if isinstance(chat_output, StructuredLLMResponse):
+            response_text = chat_output.message.content
+            usage = getattr(chat_output, "token_usage", None)
+        else:
+            response_text = str(chat_output)
+            usage = getattr(chat_output, "token_usage", None)
         end_time = time.perf_counter()
         duration = int(ceil(end_time - start_time))
-        response_byte_count = len(chat_response.message.content.encode('utf-8'))
+        response_byte_count = len(response_text.encode('utf-8'))
         logger.info(f"LLM chat interaction completed in {duration} seconds. Response byte count: {response_byte_count}")
 
-        metadata = dict(llm.metadata)
-        metadata["llm_classname"] = llm.class_name()
+        metadata = dict(getattr(llm, "metadata", {}))
+        metadata["llm_classname"] = getattr(llm, "class_name", lambda: type(llm).__name__)()
         metadata["duration"] = duration
         metadata["response_byte_count"] = response_byte_count
+        if usage:
+            metadata["token_usage"] = usage
 
-        response_content = chat_response.message.content
+        response_content = response_text
 
         start_delimiter = "[START_MARKDOWN]"
         end_delimiter = "[END_MARKDOWN]"
