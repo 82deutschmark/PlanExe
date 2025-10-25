@@ -58,7 +58,7 @@ Luigi/pipeline
 - Visibility: reflect resumed progress in WebSocket stream; ensure progress UI reads from the resumed plan_id
 
 ## Quick testing checklist
-- Start a plan, let it complete some tasks, then induce a failure
+- Start a plan, let it complete some tasks, watch it eventually fail
 - Click Resume — verify execution continues from next pending task (no re-run of completed tasks)
 - Click Relaunch — verify a brand-new plan_id is created and all tasks run from scratch
 - Confirm artefacts and fallback-report endpoints reflect resumed state
