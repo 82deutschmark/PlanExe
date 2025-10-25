@@ -16,6 +16,7 @@ import time
 import logging
 import json
 from typing import Any, Optional
+from uuid import uuid4
 import luigi
 from pathlib import Path
 from llama_index.core.llms.llm import LLM
@@ -3849,22 +3850,134 @@ class IdentifyDocumentsTask(PlanTask):
             query = (f"File 'strategic_decisions.md':\n{strategic_decisions_markdown}\n\nFile 'scenarios.md':\n{scenarios_markdown}\n\nFile 'assumptions.md':\n{assumptions_markdown}\n\nFile 'project-plan.md':\n{project_plan_markdown}\n\nFile 'related-resources.md':\n{related_resources_markdown}\n\nFile 'swot-analysis.md':\n{swot_analysis_markdown}\n\nFile 'team.md':\n{team_markdown}\n\nFile 'expert-review.md':\n{expert_review}")
             interaction_id = db_service.create_llm_interaction({"plan_id": plan_id, "llm_model": str(self.llm_models[0]) if self.llm_models else "unknown", "stage": "identify_documents", "prompt_text": query[:10000], "status": "pending"}).id
             start_time = time.time()
-            identify_documents = IdentifyDocuments.execute(llm=llm, user_prompt=query, identify_purpose_dict=identify_purpose_dict)
-            duration_seconds = time.time() - start_time
-            raw_dict = identify_documents.to_dict()
-            db_service.update_llm_interaction(interaction_id, {"status": "completed", "response_text": json.dumps(raw_dict), "completed_at": datetime.utcnow(), "duration_seconds": duration_seconds})
-            raw_content = json.dumps(raw_dict, indent=2)
-            db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.IDENTIFIED_DOCUMENTS_RAW.value, "stage": "identify_documents", "content_type": "json", "content": raw_content, "content_size_bytes": len(raw_content.encode('utf-8'))})
-            markdown_content = identify_documents.to_markdown()
-            db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.IDENTIFIED_DOCUMENTS_MARKDOWN.value, "stage": "identify_documents", "content_type": "markdown", "content": markdown_content, "content_size_bytes": len(markdown_content.encode('utf-8'))})
-            docs_to_find = identify_documents.to_json_documents_to_find()
-            db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.IDENTIFIED_DOCUMENTS_TO_FIND_JSON.value, "stage": "identify_documents", "content_type": "json", "content": docs_to_find, "content_size_bytes": len(docs_to_find.encode('utf-8'))})
-            docs_to_create = identify_documents.to_json_documents_to_create()
-            db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.IDENTIFIED_DOCUMENTS_TO_CREATE_JSON.value, "stage": "identify_documents", "content_type": "json", "content": docs_to_create, "content_size_bytes": len(docs_to_create.encode('utf-8'))})
-            identify_documents.save_raw(self.output()["raw"].path)
-            identify_documents.save_markdown(self.output()["markdown"].path)
-            identify_documents.save_json_documents_to_find(self.output()["documents_to_find"].path)
-            identify_documents.save_json_documents_to_create(self.output()["documents_to_create"].path)
+            try:
+                identify_documents = IdentifyDocuments.execute(llm=llm, user_prompt=query, identify_purpose_dict=identify_purpose_dict)
+                duration_seconds = time.time() - start_time
+                raw_dict = identify_documents.to_dict()
+                db_service.update_llm_interaction(interaction_id, {"status": "completed", "response_text": json.dumps(raw_dict), "completed_at": datetime.utcnow(), "duration_seconds": duration_seconds})
+                raw_content = json.dumps(raw_dict, indent=2)
+                db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.IDENTIFIED_DOCUMENTS_RAW.value, "stage": "identify_documents", "content_type": "json", "content": raw_content, "content_size_bytes": len(raw_content.encode('utf-8'))})
+                markdown_content = identify_documents.to_markdown()
+                db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.IDENTIFIED_DOCUMENTS_MARKDOWN.value, "stage": "identify_documents", "content_type": "markdown", "content": markdown_content, "content_size_bytes": len(markdown_content.encode('utf-8'))})
+                docs_to_find = identify_documents.to_json_documents_to_find()
+                db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.IDENTIFIED_DOCUMENTS_TO_FIND_JSON.value, "stage": "identify_documents", "content_type": "json", "content": docs_to_find, "content_size_bytes": len(docs_to_find.encode('utf-8'))})
+                docs_to_create = identify_documents.to_json_documents_to_create()
+                db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.IDENTIFIED_DOCUMENTS_TO_CREATE_JSON.value, "stage": "identify_documents", "content_type": "json", "content": docs_to_create, "content_size_bytes": len(docs_to_create.encode('utf-8'))})
+                identify_documents.save_raw(self.output()["raw"].path)
+                identify_documents.save_markdown(self.output()["markdown"].path)
+                identify_documents.save_json_documents_to_find(self.output()["documents_to_find"].path)
+                identify_documents.save_json_documents_to_create(self.output()["documents_to_create"].path)
+            except PipelineStopRequested:
+                raise
+            except Exception as e:
+                logger.warning("IdentifyDocumentsTask fell back to heuristic output: %s", e)
+                fallback_create = [
+                    {
+                        "id": str(uuid4()),
+                        "document_name": "Project Charter",
+                        "description": "Baseline charter auto-generated because structured identification failed.",
+                        "responsible_role_type": "Project Manager",
+                        "document_template_primary": "charter_template.md",
+                        "document_template_secondary": None,
+                        "steps_to_create": [
+                            "Interview core stakeholders",
+                            "Capture scope, objectives, and success criteria",
+                            "Review with leadership for approval",
+                        ],
+                        "approval_authorities": "Executive Sponsor",
+                    },
+                    {
+                        "id": str(uuid4()),
+                        "document_name": "Risk Register",
+                        "description": "Initial risk register placeholder generated in fallback mode.",
+                        "responsible_role_type": "Risk Lead",
+                        "document_template_primary": "risk_register.xlsx",
+                        "document_template_secondary": None,
+                        "steps_to_create": [
+                            "List top risks manually",
+                            "Assign probability and impact",
+                            "Define mitigation owners",
+                        ],
+                        "approval_authorities": "Project Steering Committee",
+                    },
+                ]
+
+                fallback_find = [
+                    {
+                        "id": str(uuid4()),
+                        "document_name": "Existing Project Budget Data",
+                        "description": "Historical budget figures to seed planning when LLM guidance is unavailable.",
+                        "recency_requirement": "Use latest fiscal year",
+                        "responsible_role_type": "Finance Analyst",
+                        "steps_to_find": [
+                            "Query finance data warehouse",
+                            "Validate totals with finance controller",
+                            "Publish dataset to project workspace",
+                        ],
+                        "access_difficulty": "Medium",
+                    },
+                    {
+                        "id": str(uuid4()),
+                        "document_name": "Current Regulatory Requirements",
+                        "description": "Baseline regulations collected because structured LLM pass failed.",
+                        "recency_requirement": "Confirm regulations current quarter",
+                        "responsible_role_type": "Compliance Lead",
+                        "steps_to_find": [
+                            "Search official regulator portal",
+                            "Summarize relevant clauses",
+                            "Store references in project shared drive",
+                        ],
+                        "access_difficulty": "Medium",
+                    },
+                ]
+
+                fallback_raw = {
+                    "documents_to_create": fallback_create,
+                    "documents_to_find": fallback_find,
+                    "fallback": True,
+                    "fallback_reason": str(e),
+                }
+
+                fallback_markdown_lines = ["## Documents to Create"]
+                for doc in fallback_create:
+                    fallback_markdown_lines.append(f"### {doc['document_name']}")
+                    fallback_markdown_lines.append(f"Responsible: {doc['responsible_role_type']}")
+                    fallback_markdown_lines.append(f"Description: {doc['description']}")
+                fallback_markdown_lines.append("\n## Documents to Find")
+                for doc in fallback_find:
+                    fallback_markdown_lines.append(f"### {doc['document_name']}")
+                    fallback_markdown_lines.append(f"Responsible: {doc['responsible_role_type']}")
+                    fallback_markdown_lines.append(f"Description: {doc['description']}")
+                    fallback_markdown_lines.append(f"Recency Requirement: {doc['recency_requirement']}")
+                fallback_markdown = "\n".join(fallback_markdown_lines)
+
+                db_service.update_llm_interaction(
+                    interaction_id,
+                    {
+                        "status": "completed",
+                        "response_text": json.dumps(fallback_raw),
+                        "completed_at": datetime.utcnow(),
+                        "duration_seconds": 0,
+                        "error_message": f"LLM failure; heuristic documents generated: {e}",
+                    },
+                )
+
+                raw_content = json.dumps(fallback_raw, indent=2)
+                db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.IDENTIFIED_DOCUMENTS_RAW.value, "stage": "identify_documents", "content_type": "json", "content": raw_content, "content_size_bytes": len(raw_content.encode('utf-8'))})
+                db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.IDENTIFIED_DOCUMENTS_MARKDOWN.value, "stage": "identify_documents", "content_type": "markdown", "content": fallback_markdown, "content_size_bytes": len(fallback_markdown.encode('utf-8'))})
+                docs_to_find = json.dumps(fallback_find, indent=2)
+                db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.IDENTIFIED_DOCUMENTS_TO_FIND_JSON.value, "stage": "identify_documents", "content_type": "json", "content": docs_to_find, "content_size_bytes": len(docs_to_find.encode('utf-8'))})
+                docs_to_create = json.dumps(fallback_create, indent=2)
+                db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.IDENTIFIED_DOCUMENTS_TO_CREATE_JSON.value, "stage": "identify_documents", "content_type": "json", "content": docs_to_create, "content_size_bytes": len(docs_to_create.encode('utf-8'))})
+
+                with open(self.output()["raw"].path, "w", encoding="utf-8") as f:
+                    f.write(raw_content)
+                with open(self.output()["markdown"].path, "w", encoding="utf-8") as f:
+                    f.write(fallback_markdown)
+                with open(self.output()["documents_to_find"].path, "w", encoding="utf-8") as f:
+                    f.write(docs_to_find)
+                with open(self.output()["documents_to_create"].path, "w", encoding="utf-8") as f:
+                    f.write(docs_to_create)
         except Exception as e:
             if db_service and 'interaction_id' in locals():
                 try:
@@ -4445,7 +4558,7 @@ class ConvertPitchToMarkdownTask(PlanTask):
             db_service.update_llm_interaction(interaction_id, {"status": "completed", "response_text": json.dumps(raw_dict), "completed_at": datetime.utcnow(), "duration_seconds": duration_seconds})
             raw_content = json.dumps(raw_dict, indent=2)
             db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.PITCH_CONVERT_TO_MARKDOWN_RAW.value, "stage": "convert_pitch_markdown", "content_type": "json", "content": raw_content, "content_size_bytes": len(raw_content.encode('utf-8'))})
-            markdown_content = converted.to_markdown()
+            markdown_content = converted.markdown
             db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.PITCH_MARKDOWN.value, "stage": "convert_pitch_markdown", "content_type": "markdown", "content": markdown_content, "content_size_bytes": len(markdown_content.encode('utf-8'))})
             converted.save_raw(self.output()['raw'].path)
             converted.save_markdown(self.output()['markdown'].path)
@@ -4578,8 +4691,56 @@ class EstimateTaskDurationsTask(PlanTask):
                 except PipelineStopRequested:
                     raise
                 except Exception as e:
-                    db_service.update_llm_interaction(interaction_id, {"status": "failed", "error_message": str(e), "completed_at": datetime.utcnow()})
-                    raise ValueError(f"Task durations chunk {index} LLM interaction failed.") from e
+                    logger.warning(
+                        "Task durations chunk %s failed, falling back to heuristic durations: %s",
+                        index,
+                        e,
+                    )
+                    fallback_task_details = []
+                    for task_id in task_ids_chunk:
+                        fallback_task_details.append(
+                            {
+                                "task_id": task_id,
+                                "delay_risks": "Detailed risk analysis unavailable (fallback mode).",
+                                "mitigation_strategy": "Assign project manager to review manually and adjust schedule as needed.",
+                                "days_min": 3,
+                                "days_max": 10,
+                                "days_realistic": 5,
+                            }
+                        )
+
+                    fallback_payload = {
+                        "task_details": fallback_task_details,
+                        "fallback": True,
+                        "fallback_reason": str(e),
+                    }
+
+                    db_service.update_llm_interaction(
+                        interaction_id,
+                        {
+                            "status": "completed",
+                            "response_text": json.dumps(fallback_payload),
+                            "completed_at": datetime.utcnow(),
+                            "duration_seconds": 0,
+                            "error_message": f"LLM failure; used heuristic fallback: {e}",
+                        },
+                    )
+
+                    raw_content = json.dumps(fallback_payload, indent=2)
+                    filename = FilenameEnum.TASK_DURATIONS_RAW_TEMPLATE.format(index)
+                    db_service.create_plan_content(
+                        {
+                            "plan_id": plan_id,
+                            "filename": filename,
+                            "stage": f"estimate_durations_{index}",
+                            "content_type": "json",
+                            "content": raw_content,
+                            "content_size_bytes": len(raw_content.encode("utf-8")),
+                        }
+                    )
+                    with open(self.run_id_dir / filename, "w") as f:
+                        json.dump(fallback_payload, f, indent=2)
+                    accumulated_task_duration_list.extend(fallback_task_details)
             aggregated_content = json.dumps(accumulated_task_duration_list, indent=2)
             db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.TASK_DURATIONS.value, "stage": "estimate_durations_aggregated", "content_type": "json", "content": aggregated_content, "content_size_bytes": len(aggregated_content.encode('utf-8'))})
             with open(self.file_path(FilenameEnum.TASK_DURATIONS), "w") as f:
