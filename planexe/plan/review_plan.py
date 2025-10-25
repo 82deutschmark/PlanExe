@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 from planexe.plan.speedvsdetail import SpeedVsDetailEnum
 from planexe.llm_util.llm_executor import LLMExecutor, LLMModelFromName, PipelineStopRequested
 from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole, StructuredLLMResponse
+from planexe.llm_util.schema_registry import register_schema
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,8 @@ class DocumentDetails(BaseModel):
     bullet_points: list[str] = Field(
         description="Answers to the questions in bullet points."
     )
+
+REGISTERED_SCHEMA = register_schema(DocumentDetails)
 
 REVIEW_PLAN_SYSTEM_PROMPT = """
 You are an expert in reviewing plans for projects of all scales. Your goal is to identify the most critical issues that could impact the project's success and provide actionable recommendations to address them.
@@ -136,8 +139,10 @@ class ReviewPlan:
                 sllm = llm.as_structured_llm(DocumentDetails)
                 # Pass previous_response_id for chaining; reasoning_effort remains from config
                 chat_response = sllm.chat(chat_message_list, previous_response_id=previous_response_id)
-                metadata = dict(llm.metadata)
-                metadata["llm_classname"] = llm.class_name()
+                metadata = dict(getattr(llm, "metadata", {}))
+                metadata.setdefault("model", getattr(llm, "model", None))
+                metadata.setdefault("provider", getattr(llm, "provider", None))
+                metadata["llm_classname"] = getattr(llm, "class_name", lambda: type(llm).__name__)()
                 # Read the last response id for chaining the next iteration
                 last_id = None
                 try:
