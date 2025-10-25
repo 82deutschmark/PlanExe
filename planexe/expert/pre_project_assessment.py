@@ -1,9 +1,7 @@
-"""
-Author: Codex using GPT-5
-Date: `2025-10-02T18:50:00Z`
-PURPOSE: Provide JSON helper for PreProjectAssessment persistence.
-SRP and DRY check: Pass - serialization only.
-"""
+# Author: gpt-5-codex
+# Date: 2025-03-10T00:00:00Z
+# PURPOSE: Generate pre-project expert assessments via SimpleOpenAILLM structured outputs for Luigi pipeline execution.
+# SRP and DRY check: Pass. Module focuses on assessment prompts and response post-processing while reusing shared utilities.
 """
 PROMPT> python -m planexe.expert.pre_project_assessment
 
@@ -36,11 +34,11 @@ import time
 from datetime import datetime
 import logging
 from math import ceil
-from typing import List, Optional, Any
+from typing import Any, List, Optional
 from dataclasses import dataclass
 from pydantic import BaseModel, Field
-from llama_index.core.llms.llm import LLM
-from llama_index.core.llms import ChatMessage, MessageRole
+
+from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 
 logger = logging.getLogger(__name__)
 
@@ -261,12 +259,12 @@ class PreProjectAssessment:
     preproject_assessment: dict
 
     @classmethod
-    def execute(cls, llm: LLM, user_prompt: str, **kwargs: Any) -> 'PreProjectAssessment':
+    def execute(cls, llm: Any, user_prompt: str, **kwargs: Any) -> 'PreProjectAssessment':
         """
         Invoke LLM and have 2 experts take a broad look at the initial plan.
         """
-        if not isinstance(llm, LLM):
-            raise ValueError("Invalid LLM instance.")
+        if not hasattr(llm, "as_structured_llm"):
+            raise ValueError("Invalid LLM instance: missing as_structured_llm().")
         if not isinstance(user_prompt, str):
             raise ValueError("Invalid query.")
 
@@ -291,15 +289,15 @@ class PreProjectAssessment:
         chat_message_list1 = []
         if system_prompt:
             chat_message_list1.append(
-                ChatMessage(
-                    role=MessageRole.SYSTEM,
+                SimpleChatMessage(
+                    role=SimpleMessageRole.SYSTEM,
                     content=system_prompt,
                 )
             )
         
         logger.debug(f"User Prompt:\n{user_prompt}")
-        chat_message_user = ChatMessage(
-            role=MessageRole.USER,
+        chat_message_user = SimpleChatMessage(
+            role=SimpleMessageRole.USER,
             content=user_prompt,
         )
         chat_message_list1.append(chat_message_user)
@@ -314,15 +312,15 @@ class PreProjectAssessment:
         response_byte_count = len(chat_response1.message.content.encode('utf-8'))
         logger.info(f"LLM chat interaction completed in {duration} seconds. Response byte count: {response_byte_count}")
 
-        metadata = dict(llm.metadata)
-        metadata["llm_classname"] = llm.class_name()
+        metadata = dict(getattr(llm, "metadata", {}))
+        metadata["llm_classname"] = getattr(llm, "class_name", lambda: llm.__class__.__name__)()
         metadata["duration"] = duration
         metadata["response_byte_count"] = response_byte_count
 
         try:
-            json_response = json.loads(chat_response1.message.content)
-        except json.JSONDecodeError as e:
-            logger.error("Failed to parse LLM response as JSON.", exc_info=True)
+            json_response = chat_response1.raw.model_dump()
+        except Exception as e:
+            logger.error("Failed to parse structured LLM response.", exc_info=True)
             raise ValueError("Invalid JSON response from LLM.") from e
 
         # Cleanup the json response from the LLM model.

@@ -1,3 +1,7 @@
+# Author: gpt-5-codex
+# Date: 2025-03-10T00:00:00Z
+# PURPOSE: Coordinate expert discovery and criticism tasks using SimpleOpenAILLM-backed executors without llama-index types.
+# SRP and DRY check: Pass. Module orchestrates expert flows while delegating LLM interactions to shared executors/utilities.
 """
 IDEA: If the expert file for expert_index already exist, then there is no need to run the LLM again.
 
@@ -6,7 +10,8 @@ PROMPT> python -m planexe.expert.expert_orchestrator
 import logging
 import time
 from math import ceil
-from llama_index.core.llms.llm import LLM
+from typing import Any
+
 from planexe.llm_util.llm_executor import LLMExecutor, PipelineStopRequested
 from planexe.expert.expert_finder import ExpertFinder
 from planexe.expert.expert_criticism import ExpertCriticism
@@ -56,7 +61,7 @@ class ExpertOrchestrator:
             logger.info(f"Getting criticism from expert {expert_index + 1} of {expert_list_truncated_count}. expert_title: {expert_title}")
             system_prompt = ExpertCriticism.format_system(expert_dict)
 
-            def execute_expert_criticism(llm: LLM) -> ExpertCriticism:
+            def execute_expert_criticism(llm: Any) -> ExpertCriticism:
                 return ExpertCriticism.execute(llm, query, system_prompt)
 
             start_time = time.perf_counter()

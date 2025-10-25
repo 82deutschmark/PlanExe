@@ -1,3 +1,7 @@
+# Author: gpt-5-codex
+# Date: 2025-03-10T00:00:00Z
+# PURPOSE: Gather expert criticism using SimpleOpenAILLM structured outputs, removing legacy llama-index dependencies.
+# SRP and DRY check: Pass. Module handles expert critique generation only and leverages shared messaging helpers.
 """
 PROMPT> python -m planexe.expert.expert_criticism
 
@@ -6,11 +10,11 @@ Ask a specific expert about something, and get criticism back or constructive fe
 import json
 import time
 from math import ceil
-from typing import Optional
+from typing import Any, Optional
 from dataclasses import dataclass
 from pydantic import BaseModel, Field
-from llama_index.core.llms import ChatMessage, MessageRole
-from llama_index.core.llms.llm import LLM
+
+from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 
 class NegativeFeedbackItem(BaseModel):
     feedback_index: int = Field(description="Incrementing index, such as 1, 2, 3, 4, 5.")
@@ -100,26 +104,26 @@ class ExpertCriticism:
         return query
 
     @classmethod
-    def execute(cls, llm: LLM, query: str, system_prompt: Optional[str]) -> 'ExpertCriticism':
+    def execute(cls, llm: Any, query: str, system_prompt: Optional[str]) -> 'ExpertCriticism':
         """
         Invoke LLM to get advise from the expert.
         """
-        if not isinstance(llm, LLM):
-            raise ValueError("Invalid LLM instance.")
+        if not hasattr(llm, "as_structured_llm"):
+            raise ValueError("Invalid LLM instance: missing as_structured_llm().")
         if not isinstance(query, str):
             raise ValueError("Invalid query.")
 
         chat_message_list = []
         if system_prompt:
             chat_message_list.append(
-                ChatMessage(
-                    role=MessageRole.SYSTEM,
+                SimpleChatMessage(
+                    role=SimpleMessageRole.SYSTEM,
                     content=system_prompt,
                 )
             )
-        
-        chat_message_user = ChatMessage(
-            role=MessageRole.USER,
+
+        chat_message_user = SimpleChatMessage(
+            role=SimpleMessageRole.USER,
             content=query,
         )
         chat_message_list.append(chat_message_user)
@@ -128,13 +132,13 @@ class ExpertCriticism:
 
         sllm = llm.as_structured_llm(ExpertConsultation)
         chat_response = sllm.chat(chat_message_list)
-        json_response = json.loads(chat_response.message.content)
+        json_response = chat_response.raw.model_dump()
 
         end_time = time.perf_counter()
         duration = int(ceil(end_time - start_time))
 
-        metadata = dict(llm.metadata)
-        metadata["llm_classname"] = llm.class_name()
+        metadata = dict(getattr(llm, "metadata", {}))
+        metadata["llm_classname"] = getattr(llm, "class_name", lambda: llm.__class__.__name__)()
         metadata["duration"] = duration
 
         # Cleanup the json response from the LLM model.
