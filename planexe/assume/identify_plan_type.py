@@ -1,3 +1,7 @@
+# Author: gpt-5-codex
+# Date: 2025-03-10T00:00:00Z
+# PURPOSE: Classify plans as digital or physical using SimpleOpenAILLM structured outputs within the Luigi pipeline.
+# SRP and DRY check: Pass. Module focuses solely on plan type inference and reuses shared LLM helpers without duplication.
 """
 Determine if the plan can be executed digitally without any physical location. Or if the plan requires a physical location.
 
@@ -9,9 +13,11 @@ import logging
 from math import ceil
 from enum import Enum
 from dataclasses import dataclass
+from typing import Any
+
 from pydantic import BaseModel, Field
-from llama_index.core.llms import ChatMessage, MessageRole
-from llama_index.core.llms.llm import LLM
+
+from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 
 logger = logging.getLogger(__name__)
 
@@ -176,12 +182,12 @@ class IdentifyPlanType:
     markdown: str
 
     @classmethod
-    def execute(cls, llm: LLM, user_prompt: str) -> 'IdentifyPlanType':
+    def execute(cls, llm: Any, user_prompt: str) -> 'IdentifyPlanType':
         """
         Invoke LLM with the project description.
         """
-        if not isinstance(llm, LLM):
-            raise ValueError("Invalid LLM instance.")
+        if not hasattr(llm, "as_structured_llm"):
+            raise ValueError("Invalid LLM instance: missing as_structured_llm().")
         if not isinstance(user_prompt, str):
             raise ValueError("Invalid user_prompt.")
 
@@ -190,12 +196,12 @@ class IdentifyPlanType:
         system_prompt = PLAN_TYPE_SYSTEM_PROMPT.strip()
 
         chat_message_list = [
-            ChatMessage(
-                role=MessageRole.SYSTEM,
+            SimpleChatMessage(
+                role=SimpleMessageRole.SYSTEM,
                 content=system_prompt,
             ),
-            ChatMessage(
-                role=MessageRole.USER,
+            SimpleChatMessage(
+                role=SimpleMessageRole.USER,
                 content=user_prompt,
             )
         ]
@@ -216,8 +222,8 @@ class IdentifyPlanType:
 
         json_response = chat_response.raw.model_dump()
 
-        metadata = dict(llm.metadata)
-        metadata["llm_classname"] = llm.class_name()
+        metadata = dict(getattr(llm, "metadata", {}))
+        metadata["llm_classname"] = getattr(llm, "class_name", lambda: llm.__class__.__name__)()
         metadata["duration"] = duration
         metadata["response_byte_count"] = response_byte_count
 

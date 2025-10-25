@@ -1,3 +1,7 @@
+# Author: gpt-5-codex
+# Date: 2025-03-10T00:00:00Z
+# PURPOSE: Identify expert reviewers using SimpleOpenAILLM structured outputs without llama-index dependencies.
+# SRP and DRY check: Pass. Module focuses on expert discovery logic leveraging shared LLM executor abstractions.
 """
 PROMPT> python -m planexe.expert.expert_finder
 
@@ -18,9 +22,10 @@ import logging
 from math import ceil
 from uuid import uuid4
 from dataclasses import dataclass
+from typing import Any
 from pydantic import BaseModel, Field
-from llama_index.core.llms.llm import LLM
-from llama_index.core.llms import ChatMessage, MessageRole
+
+from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 from planexe.llm_util.llm_executor import LLMExecutor, PipelineStopRequested
 
 logger = logging.getLogger(__name__)
@@ -168,17 +173,17 @@ class ExpertFinder:
         system_prompt = EXPERT_FINDER_SYSTEM_PROMPT.strip()
 
         chat_message_list1 = [
-            ChatMessage(
-                role=MessageRole.SYSTEM,
+            SimpleChatMessage(
+                role=SimpleMessageRole.SYSTEM,
                 content=system_prompt,
             ),
-            ChatMessage(
-                role=MessageRole.USER,
+            SimpleChatMessage(
+                role=SimpleMessageRole.USER,
                 content=user_prompt,
             )
         ]
 
-        def execute_function1(llm: LLM) -> dict:
+        def execute_function1(llm: Any) -> dict:
             sllm = llm.as_structured_llm(ExpertDetails)
             logger.debug("Starting LLM chat interaction 1.")
             start_time = time.perf_counter()
@@ -188,8 +193,8 @@ class ExpertFinder:
             response_byte_count = len(chat_response.message.content.encode('utf-8'))
             logger.info(f"LLM chat interaction completed in {duration} seconds. Response byte count: {response_byte_count}")
             
-            metadata = dict(llm.metadata)
-            metadata["llm_classname"] = llm.class_name()
+            metadata = dict(getattr(llm, "metadata", {}))
+            metadata["llm_classname"] = getattr(llm, "class_name", lambda: llm.__class__.__name__)()
             metadata["duration"] = duration
             metadata["response_byte_count"] = response_byte_count
             metadata["expert_count"] = len(chat_response.raw.experts)
@@ -219,19 +224,19 @@ class ExpertFinder:
         previous_response_id = result1.get("previous_response_id")
 
         # Do a follow up question, for obtaining more experts.
-        chat_message_assistant2 = ChatMessage(
-            role=MessageRole.ASSISTANT,
+        chat_message_assistant2 = SimpleChatMessage(
+            role=SimpleMessageRole.ASSISTANT,
             content=chat_response1.message.content,
         )
-        chat_message_user2 = ChatMessage(
-            role=MessageRole.USER,
+        chat_message_user2 = SimpleChatMessage(
+            role=SimpleMessageRole.USER,
             content="4 more please",
         )
         chat_message_list2 = chat_message_list1.copy()
         chat_message_list2.append(chat_message_assistant2)
         chat_message_list2.append(chat_message_user2)
 
-        def execute_function2(llm: LLM) -> dict:
+        def execute_function2(llm: Any) -> dict:
             sllm = llm.as_structured_llm(ExpertDetails)
             logger.debug("Starting LLM chat interaction 2.")
             start_time = time.perf_counter()
@@ -242,8 +247,8 @@ class ExpertFinder:
             response_byte_count = len(chat_response.message.content.encode('utf-8'))
             logger.info(f"LLM chat interaction completed in {duration} seconds. Response byte count: {response_byte_count}")
             
-            metadata = dict(llm.metadata)
-            metadata["llm_classname"] = llm.class_name()
+            metadata = dict(getattr(llm, "metadata", {}))
+            metadata["llm_classname"] = getattr(llm, "class_name", lambda: llm.__class__.__name__)()
             metadata["duration"] = duration
             metadata["response_byte_count"] = response_byte_count
             metadata["expert_count"] = len(chat_response.raw.experts)
@@ -268,8 +273,8 @@ class ExpertFinder:
             "result2": result2["metadata"]
         }
 
-        json_response1 = json.loads(chat_response1.message.content)
-        json_response2 = json.loads(chat_response2.message.content)
+        json_response1 = chat_response1.raw.model_dump()
+        json_response2 = chat_response2.raw.model_dump()
 
         json_response_merged = {}
         experts1 = json_response1.get('experts', [])
