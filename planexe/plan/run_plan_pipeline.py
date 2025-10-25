@@ -4041,6 +4041,10 @@ class FilterDocumentsToFindTask(PlanTask):
             db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.FILTER_DOCUMENTS_TO_FIND_CLEAN.value, "stage": "filter_docs_to_find", "content_type": "json", "content": clean_content, "content_size_bytes": len(clean_content.encode('utf-8'))})
             filter_documents.save_raw(self.output()["raw"].path)
             filter_documents.save_filtered_documents(self.output()["clean"].path)
+            if getattr(filter_documents, "filtered_documents_raw_json", None):
+                missing_placeholders = [doc for doc in filter_documents.filtered_documents_raw_json if doc.get("placeholder")]
+                if missing_placeholders:
+                    logger.warning("FilterDocumentsToFindTask inserted %d placeholder documents due to missing UUID matches.", len(missing_placeholders))
         except Exception as e:
             if db_service and 'interaction_id' in locals():
                 try:
