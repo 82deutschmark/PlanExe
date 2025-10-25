@@ -56,6 +56,7 @@ from planexe_api.models import (
     PlanArtefact,
     PlanArtefactListResponse,
     PlanFilesResponse,
+    PipelineDetailsResponse,
     PlanResponse,
     PlanStatus,
     PromptExample,
