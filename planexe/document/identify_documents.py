@@ -1,7 +1,7 @@
 # Author: Cascade
-# Date: 2025-10-24T23:20:00Z
-# PURPOSE: Identify required documents for planning using structured LLM outputs, providing schemas and cleanup helpers with safe defaults.
-# SRP and DRY check: Pass. This module encapsulates document identification logic unique to the pipeline.
+# Date: 2025-10-25T17:30:00Z
+# PURPOSE: Identify required documents for planning via centralized SimpleOpenAILLM abstractions, using structured outputs with cleanup helpers and no direct llama_index imports.
+# SRP and DRY check: Pass. The module encapsulates document identification logic while delegating messaging to shared utilities without duplicating logic.
 """
 Generates a preliminary checklist of required documents and data sources needed to start detailed planning.
 
@@ -21,10 +21,10 @@ import logging
 from uuid import uuid4
 from math import ceil
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Any
+
 from pydantic import BaseModel, Field
-from llama_index.core.llms import ChatMessage, MessageRole
-from llama_index.core.llms.llm import LLM
+
 from planexe.assume.identify_purpose import IdentifyPurpose, PlanPurposeInfo, PlanPurpose
 
 logger = logging.getLogger(__name__)
@@ -272,12 +272,12 @@ class IdentifyDocuments:
     markdown: str
 
     @classmethod
-    def execute(cls, llm: LLM, user_prompt: str, identify_purpose_dict: Optional[dict]) -> 'IdentifyDocuments':
+    def execute(cls, llm: Any, user_prompt: str, identify_purpose_dict: Optional[dict]) -> 'IdentifyDocuments':
         """
         Invoke LLM with the project description.
         """
-        if not isinstance(llm, LLM):
-            raise ValueError("Invalid LLM instance.")
+        if not hasattr(llm, "as_structured_llm"):
+            raise ValueError("Invalid LLM instance: missing as_structured_llm().")
         if not isinstance(user_prompt, str):
             raise ValueError("Invalid user_prompt.")
         if identify_purpose_dict is not None and not isinstance(identify_purpose_dict, dict):
@@ -314,14 +314,8 @@ class IdentifyDocuments:
         system_prompt = system_prompt.strip()
 
         chat_message_list = [
-            ChatMessage(
-                role=MessageRole.SYSTEM,
-                content=system_prompt,
-            ),
-            ChatMessage(
-                role=MessageRole.USER,
-                content=user_prompt,
-            )
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
         ]
 
         sllm = llm.as_structured_llm(DocumentDetails)

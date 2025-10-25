@@ -10,7 +10,9 @@ import json
 import logging
 import os
 from contextlib import suppress
-from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Set, Type
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Set, Type, Union
 
 import openai
 from llama_index.core.llms.llm import LLM
@@ -26,6 +28,18 @@ from planexe.llm_util import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class SimpleMessageRole(str, Enum):
+    SYSTEM = "system"
+    USER = "user"
+    ASSISTANT = "assistant"
+
+
+@dataclass
+class SimpleChatMessage:
+    role: Union[str, SimpleMessageRole]
+    content: Any
 
 
 def _deep_copy_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
@@ -127,11 +141,13 @@ def _enforce_openai_schema_requirements(schema: Dict[str, Any]) -> Dict[str, Any
 
 def _ensure_message_dict(message: Any) -> Dict[str, Any]:
     if isinstance(message, dict):
-        return message
+        role = message.get("role", "user")
+        content = message.get("content", "")
+        return {"role": str(getattr(role, "value", role)).lower(), "content": content}
 
     if hasattr(message, "role") and hasattr(message, "content"):
-        role = getattr(message.role, "value", message.role)
-        return {"role": str(role).lower(), "content": getattr(message, "content")}
+        role_value = getattr(message.role, "value", message.role)
+        return {"role": str(role_value).lower(), "content": getattr(message, "content")}
 
     raise TypeError(f"Unsupported message format: {message!r}")
 

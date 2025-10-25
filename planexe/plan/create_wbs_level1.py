@@ -1,3 +1,7 @@
+# Author: Cascade
+# Date: 2025-10-25T17:30:00Z
+# PURPOSE: Generate WBS Level 1 using the centralized SimpleOpenAILLM adapter. Builds prompts from plan JSON, normalizes responses with UUIDs, and keeps CLI entry compatible with factory-driven configuration.
+# SRP and DRY check: Pass. Module remains scoped to WBS Level 1 creation while delegating shared concerns (LLM creation, formatting) to existing utilities without duplication.
 """
 WBS Level 1: Create a Work Breakdown Structure (WBS) from a project plan.
 
@@ -8,8 +12,9 @@ import time
 from math import ceil
 from uuid import uuid4
 from dataclasses import dataclass
+from typing import Any
+
 from pydantic import BaseModel, Field
-from llama_index.core.llms.llm import LLM
 
 class WBSLevel1(BaseModel):
     """
@@ -47,28 +52,26 @@ class CreateWBSLevel1:
     final_deliverable: str
 
     @classmethod
-    def execute(cls, llm: LLM, query: str) -> 'CreateWBSLevel1':
+    def execute(cls, llm: Any, query: str) -> 'CreateWBSLevel1':
         """
-        Invoke LLM to create a Work Breakdown Structure (WBS) from a json representation of a project plan.
+        Invoke LLM to create a work breakdown structure level 1.
         """
-        if not isinstance(llm, LLM):
-            raise ValueError("Invalid LLM instance.")
+        if not hasattr(llm, "complete") or not hasattr(llm, "metadata"):
+            raise ValueError("Invalid LLM instance: missing complete() or metadata attributes.")
         if not isinstance(query, str):
             raise ValueError("Invalid query.")
 
         start_time = time.perf_counter()
 
-        sllm = llm.as_structured_llm(WBSLevel1)
-        response = sllm.complete(QUERY_PREAMBLE + query)
-        json_response = json.loads(response.text)
+        response = llm.complete(QUERY_PREAMBLE + query)
+        raw_text = response.text if hasattr(response, "text") else str(response)
+        json_response = json.loads(raw_text)
 
         end_time = time.perf_counter()
         duration = int(ceil(end_time - start_time))
 
         metadata = dict(llm.metadata)
-        metadata["llm_classname"] = llm.class_name()
         metadata["duration"] = duration
-        metadata["query"] = query
 
         project_id = str(uuid4())
         result = CreateWBSLevel1(
@@ -95,24 +98,27 @@ class CreateWBSLevel1:
         }
 
 if __name__ == "__main__":
-    from llama_index.llms.ollama import Ollama
+    import os
+
+    from planexe.llm_factory import get_llm
+
     # TODO: Eliminate hardcoded paths
     path = '/Users/neoneye/Desktop/planexe_data/plan.json'
 
-    print(f"file: {path}")
     with open(path, 'r', encoding='utf-8') as f:
         plan_json = json.load(f)
 
-    if 'metadata' in plan_json:
-        del plan_json['metadata']
-
-    model_name = "llama3.1:latest"
-    # model_name = "qwen2.5-coder:latest"
-    # model_name = "phi4:latest"
-    llm = Ollama(model=model_name, request_timeout=120.0, temperature=0.5, is_function_calling_model=False)
-
     query = json.dumps(plan_json, indent=2)
     print(f"\nQuery: {query}")
+
+    model_name = os.getenv("PLANEXE_CLI_MODEL")
+    llm = get_llm(model_name) if model_name else get_llm()
+
     result = CreateWBSLevel1.execute(llm, query)
-    print("\n\nResult:")
-    print(json.dumps(result.raw_response_dict(), indent=2))
+
+    print("Response:")
+    response_dict = result.raw_response_dict(include_metadata=False)
+    print(json.dumps(response_dict, indent=2))
+
+    print("\n\nExtracted result:")
+    print(json.dumps(result.cleanedup_dict(), indent=2))

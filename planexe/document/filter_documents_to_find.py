@@ -1,7 +1,7 @@
 # Author: Cascade
-# Date: 2025-10-24T23:20:00Z
-# PURPOSE: Filter identified documents down to the highest-impact subset using structured LLM output, with safeguards for missing IDs and logging.
-# SRP and DRY check: Pass. Filtering logic and LLM orchestration reside only in this module; no duplication across the project.
+# Date: 2025-10-25T17:30:00Z
+# PURPOSE: Filter identified documents down to the highest-impact subset using structured outputs through the centralized SimpleOpenAILLM adapter, with safeguards for missing IDs and logging.
+# SRP and DRY check: Pass. Filtering logic and orchestration remain localized while messaging leverages shared utilities.
 """
 Narrow down what documents to find by identifying the most relevant documents and removing the rest (duplicates and irrelevant documents).
 
@@ -22,11 +22,12 @@ import logging
 from math import ceil
 from enum import Enum
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import Optional, List, Any
+
 from pydantic import BaseModel, Field
-from llama_index.core.llms import ChatMessage, MessageRole
-from llama_index.core.llms.llm import LLM
+
 from planexe.assume.identify_purpose import IdentifyPurpose, PlanPurposeInfo, PlanPurpose
+from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 
 logger = logging.getLogger(__name__)
 
@@ -240,12 +241,12 @@ class FilterDocumentsToFind:
         return process_documents, integer_id_to_document_uuid
 
     @classmethod
-    def execute(cls, llm: LLM, user_prompt: str, identified_documents_raw_json: list[dict], integer_id_to_document_uuid: dict[int, str], identify_purpose_dict: Optional[dict]) -> 'FilterDocumentsToFind':
+    def execute(cls, llm: Any, user_prompt: str, identified_documents_raw_json: list[dict], integer_id_to_document_uuid: dict[int, str], identify_purpose_dict: Optional[dict]) -> 'FilterDocumentsToFind':
         """
         Invoke LLM with the document details to analyze.
         """
-        if not isinstance(llm, LLM):
-            raise ValueError("Invalid LLM instance.")
+        if not hasattr(llm, "as_structured_llm"):
+            raise ValueError("Invalid LLM instance: missing as_structured_llm().")
         if not isinstance(user_prompt, str):
             raise ValueError("Invalid user_prompt.")
         if identify_purpose_dict is not None and not isinstance(identify_purpose_dict, dict):
@@ -282,14 +283,8 @@ class FilterDocumentsToFind:
         system_prompt = system_prompt.strip()
 
         chat_message_list = [
-            ChatMessage(
-                role=MessageRole.SYSTEM,
-                content=system_prompt,
-            ),
-            ChatMessage(
-                role=MessageRole.USER,
-                content=user_prompt,
-            )
+            SimpleChatMessage(role=SimpleMessageRole.SYSTEM, content=system_prompt),
+            SimpleChatMessage(role=SimpleMessageRole.USER, content=user_prompt),
         ]
 
         sllm = llm.as_structured_llm(DocumentImpactAssessmentResult)

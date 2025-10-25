@@ -1,7 +1,7 @@
 # Author: Cascade
-# Date: 2025-10-24T23:20:00Z
-# PURPOSE: Convert LLM-generated pitch JSON into markdown, applying formatting guards and fallbacks for missing delimiters or empty output.
-# SRP and DRY check: Pass. This module encapsulates pitch-to-markdown conversion logic unique to the pipeline; no duplicate functionality elsewhere.
+# Date: 2025-10-25T17:30:00Z
+# PURPOSE: Convert LLM-generated pitch JSON into markdown using the centralized SimpleOpenAILLM adapter, applying formatting guards and fallbacks for missing delimiters or empty output.
+# SRP and DRY check: Pass. This module encapsulates pitch-to-markdown conversion logic while delegating LLM interfacing to shared utilities.
 """
 Convert the raw json pitch to a markdown document.
 
@@ -12,12 +12,12 @@ import json
 import time
 import logging
 from math import ceil
-from typing import Optional
+from typing import Optional, Any
 from dataclasses import dataclass
-from llama_index.core.llms.llm import LLM
-from llama_index.core.llms import ChatMessage, MessageRole
+
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
 from planexe.markdown_util.fix_bullet_lists import fix_bullet_lists
+from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 
 logger = logging.getLogger(__name__)
 
@@ -61,25 +61,19 @@ class ConvertPitchToMarkdown:
     metadata: dict
 
     @classmethod
-    def execute(cls, llm: LLM, user_prompt: str) -> 'ConvertPitchToMarkdown':
+    def execute(cls, llm: Any, user_prompt: str) -> 'ConvertPitchToMarkdown':
         """
         Invoke LLM with a json document that is the raw pitch.
         """
-        if not isinstance(llm, LLM):
-            raise ValueError("Invalid LLM instance.")
+        if not hasattr(llm, "chat") or not hasattr(llm, "metadata"):
+            raise ValueError("Invalid LLM instance: missing chat() or metadata attributes.")
         if not isinstance(user_prompt, str):
             raise ValueError("Invalid query.")
 
         system_prompt = CONVERT_PITCH_TO_MARKDOWN_SYSTEM_PROMPT.strip()
         chat_message_list = [
-            ChatMessage(
-                role=MessageRole.SYSTEM,
-                content=system_prompt,
-            ),
-            ChatMessage(
-                role=MessageRole.USER,
-                content=user_prompt,
-            )
+            SimpleChatMessage(role=SimpleMessageRole.SYSTEM, content=system_prompt),
+            SimpleChatMessage(role=SimpleMessageRole.USER, content=user_prompt),
         ]
         
         logger.debug(f"User Prompt:\n{user_prompt}")

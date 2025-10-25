@@ -1,3 +1,7 @@
+# Author: Cascade
+# Date: 2025-10-25T17:30:00Z
+# PURPOSE: Generate WBS Level 2 using the centralized SimpleOpenAILLM adapter. Formats queries from plan JSON plus WBS L1 context, invokes the LLM through the factory, and normalizes responses with UUIDs for phases and tasks for both pipeline and CLI use.
+# SRP and DRY check: Pass. The module remains focused on WBS Level 2 generation while delegating shared helpers (query formatting, LLM factory) to existing utilities with no duplicated logic.
 """
 WBS Level 2: Create a Work Breakdown Structure (WBS) from a project plan.
 
@@ -11,9 +15,12 @@ import time
 from math import ceil
 from uuid import uuid4
 from dataclasses import dataclass
+from typing import Any
+
 from pydantic import BaseModel, Field
-from llama_index.core.llms.llm import LLM
+
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
+from planexe.llm_factory import get_llm
 
 class SubtaskDetails(BaseModel):
     subtask_wbs_number: str = Field(
@@ -90,12 +97,12 @@ WBS Level 1:
         return query
     
     @classmethod
-    def execute(cls, llm: LLM, query: str) -> 'CreateWBSLevel2':
+    def execute(cls, llm: Any, query: str) -> 'CreateWBSLevel2':
         """
         Invoke LLM to create a Work Breakdown Structure (WBS) from a json representation of a project plan.
         """
-        if not isinstance(llm, LLM):
-            raise ValueError("Invalid LLM instance.")
+        if not hasattr(llm, "as_structured_llm"):
+            raise ValueError("Invalid LLM instance: missing as_structured_llm().")
         if not isinstance(query, str):
             raise ValueError("Invalid query.")
 
@@ -156,10 +163,45 @@ WBS Level 1:
         return d
     
 if __name__ == "__main__":
-    from llama_index.llms.ollama import Ollama
+    import os
+    import sys
+    from pathlib import Path
+    from planexe.plan.filenames import FilenameEnum
+    from planexe.plan.pipeline_environment import PipelineEnvironment
 
-    # TODO: Eliminate hardcoded paths
-    path = '/Users/neoneye/Desktop/planexe_data/plan.json'
+    def _discover_plan_path() -> Path:
+        # 1) CLI arg wins
+        if len(sys.argv) > 1:
+            candidate = Path(sys.argv[1]).expanduser().resolve()
+            if candidate.is_file():
+                return candidate
+            raise FileNotFoundError(f"Provided plan path does not exist: {candidate}")
+
+        # 2) RUN_ID_DIR with common filenames
+        try:
+            run_dir = PipelineEnvironment.from_env().get_run_id_dir()
+        except Exception:
+            run_dir = None
+
+        possible_names = [
+            FilenameEnum.PROJECT_PLAN_RAW.value,   # 005-1-project_plan_raw.json
+            "002-project_plan.json",              # legacy/dev sample
+            "project-plan.json",                  # common alt
+            "plan.json",                          # generic
+        ]
+        search_roots = [p for p in [run_dir, Path.cwd()] if p is not None]
+        for root in search_roots:
+            for name in possible_names:
+                candidate = (root / name)
+                if candidate.is_file():
+                    return candidate
+
+        raise FileNotFoundError(
+            "Could not locate a plan JSON. Provide a path as an argument or set RUN_ID_DIR to a run folder containing one of: "
+            + ", ".join(possible_names)
+        )
+
+    path = _discover_plan_path()
 
     wbs_level1_json = {
         "id": "d0169227-bf29-4a54-a898-67d6ff4d1193",
@@ -173,10 +215,8 @@ if __name__ == "__main__":
 
     query = CreateWBSLevel2.format_query(plan_json, wbs_level1_json)
 
-    model_name = "llama3.1:latest"
-    # model_name = "qwen2.5-coder:latest"
-    # model_name = "phi4:latest"
-    llm = Ollama(model=model_name, request_timeout=120.0, temperature=0.5, is_function_calling_model=False)
+    model_name = os.getenv("PLANEXE_CLI_MODEL")
+    llm = get_llm(model_name) if model_name else get_llm()
 
     print(f"Query: {query}")
     result = CreateWBSLevel2.execute(llm, query)
