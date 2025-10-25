@@ -1,15 +1,4 @@
-# Author: GPT-5 Codex (Codex CLI)
-# Date: 2025-10-21T22:27:00Z
-# PURPOSE: Strengthen Luigi pipeline bootstrap diagnostics, including API key validation and improved resume guidance.
-# SRP and DRY check: Pass - File already owns pipeline orchestration; additions extend entrypoint validation without duplicating logic.
-"""
-PROMPT> python -m planexe.plan.run_plan_pipeline
-
-In order to resume an unfinished run.
-Insert the run_id_dir of the thing you want to resume.
-If it's an already finished run, then remove the "999-pipeline_complete.txt" file.
-PROMPT> RUN_ID_DIR=/absolute/path/to/PlanExe_20250216_150332 python -m planexe.plan.run_plan_pipeline
-"""
+"""Luigi pipeline entrypoint for orchestrating plan execution within the PlanExe full-stack app."""
 from dataclasses import dataclass, field
 from datetime import date, datetime
 import time
@@ -19,7 +8,6 @@ from typing import Any, Optional
 from uuid import uuid4
 import luigi
 from pathlib import Path
-from llama_index.core.llms.llm import LLM
 from planexe.diagnostics.redline_gate import RedlineGate
 from planexe.diagnostics.premise_attack import PremiseAttack
 from planexe.diagnostics.premortem import Premortem
@@ -235,14 +223,14 @@ class PlanTask(luigi.Task):
         llm_executor: LLMExecutor = self.create_llm_executor()
         
         # Attempt executing this code with the first LLM, if that fails, try the next one, and so on.
-        def execute_function(llm: LLM) -> None:
+        def execute_function(llm: Any) -> None:
             self.run_with_llm(llm)
 
         # Make multiple attempts at running the run_with_llm() function.
         # No try/except needed here. Let PlanTask.run() handle it.
         llm_executor.run(execute_function)
 
-    def run_with_llm(self, llm: LLM) -> None:
+    def run_with_llm(self, llm: Any) -> None:
         """
         Override this method or the run_inner() method.
         """
