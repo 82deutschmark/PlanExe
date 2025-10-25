@@ -1,3 +1,7 @@
+# Author: Cascade
+# Date: 2025-10-25T17:55:00Z
+# PURPOSE: Generate data collection plans via SimpleOpenAILLM structured outputs, eliminating llama_index message dependencies.
+# SRP and DRY check: Pass. Module remains focused on data collection logic while reusing shared adapters and formatting helpers.
 """
 Identify what data is needed for the plan. Such as for validating demand, the plan needs data from audience research or simulations.
 
@@ -23,9 +27,11 @@ import logging
 from math import ceil
 from enum import Enum
 from dataclasses import dataclass
+from typing import Any
+
 from pydantic import BaseModel, Field
-from llama_index.core.llms import ChatMessage, MessageRole
-from llama_index.core.llms.llm import LLM
+
+from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 
 logger = logging.getLogger(__name__)
 
@@ -133,33 +139,27 @@ class DataCollection:
     markdown: str
 
     @classmethod
-    def execute(cls, llm: LLM, user_prompt: str) -> 'DataCollection':
+    def execute(cls, llm: Any, user_prompt: str) -> 'DataCollection':
         """
         Invoke LLM with the project details.
         """
-        if not isinstance(llm, LLM):
-            raise ValueError("Invalid LLM instance.")
+        if not hasattr(llm, "as_structured_llm"):
+            raise ValueError("Invalid LLM instance: missing as_structured_llm().")
         if not isinstance(user_prompt, str):
             raise ValueError("Invalid user_prompt.")
 
         system_prompt = DATA_COLLECTION_SYSTEM_PROMPT.strip()
 
         chat_message_list = [
-            ChatMessage(
-                role=MessageRole.SYSTEM,
-                content=system_prompt,
-            ),
-            ChatMessage(
-                role=MessageRole.USER,
-                content=user_prompt,
-            )
+            SimpleChatMessage(role=SimpleMessageRole.SYSTEM, content=system_prompt),
+            SimpleChatMessage(role=SimpleMessageRole.USER, content=user_prompt),
         ]
 
         sllm = llm.as_structured_llm(DocumentDetails)
         start_time = time.perf_counter()
         try:
             # Add start log for consistency
-            logger.info("[DataCollection] LLM chat starting. prompt_len=%s model=%s", len(user_prompt), getattr(llm, "model_name", llm.class_name()))
+            logger.info("[DataCollection] LLM chat starting. prompt_len=%s model=%s", len(user_prompt), getattr(llm, "model_name", getattr(llm, "class_name", lambda: llm.__class__.__name__)()))
             chat_response = sllm.chat(chat_message_list)
         except Exception as e:
             logger.debug(f"LLM chat interaction failed: {e}")
@@ -174,8 +174,8 @@ class DataCollection:
 
         json_response = chat_response.raw.model_dump()
 
-        metadata = dict(llm.metadata)
-        metadata["llm_classname"] = llm.class_name()
+        metadata = dict(getattr(llm, "metadata", {}))
+        metadata["llm_classname"] = getattr(llm, "class_name", lambda: llm.__class__.__name__)()
         metadata["duration"] = duration
         metadata["response_byte_count"] = response_byte_count
 

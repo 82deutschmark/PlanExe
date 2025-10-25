@@ -1,3 +1,7 @@
+# Author: Cascade
+# Date: 2025-10-25T17:50:00Z
+# PURPOSE: Identify WBS task dependencies via SimpleOpenAILLM structured outputs without llama_index imports.
+# SRP and DRY check: Pass. Module focuses on dependency extraction while reusing shared formatting and adapter utilities.
 """
 Identified dependencies, that serves as a foundation for task sequencing.
 https://en.wikipedia.org/wiki/Work_breakdown_structure
@@ -21,9 +25,13 @@ import json
 import time
 from math import ceil
 from dataclasses import dataclass
+from typing import Any
+
 from pydantic import BaseModel, Field
-from llama_index.core.llms.llm import LLM
+
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
+from planexe.llm_factory import get_llm
+from planexe.plan.filenames import FilenameEnum
 
 class TaskDependencyDetail(BaseModel):
     """
@@ -98,12 +106,12 @@ The Work Breakdown Structure (WBS):
         return query
 
     @classmethod
-    def execute(cls, llm: LLM, query: str) -> 'IdentifyWBSTaskDependencies':
+    def execute(cls, llm: Any, query: str) -> 'IdentifyWBSTaskDependencies':
         """
         Invoke LLM to identify task dependencies from a json representation of a project plan and Work Breakdown Structure (WBS).
         """
-        if not isinstance(llm, LLM):
-            raise ValueError("Invalid LLM instance.")
+        if not hasattr(llm, "as_structured_llm"):
+            raise ValueError("Invalid LLM instance: missing as_structured_llm().")
         if not isinstance(query, str):
             raise ValueError("Invalid query.")
 
@@ -116,8 +124,8 @@ The Work Breakdown Structure (WBS):
         end_time = time.perf_counter()
         duration = int(ceil(end_time - start_time))
 
-        metadata = dict(llm.metadata)
-        metadata["llm_classname"] = llm.class_name()
+        metadata = dict(getattr(llm, "metadata", {}))
+        metadata["llm_classname"] = getattr(llm, "class_name", lambda: llm.__class__.__name__)()
         metadata["duration"] = duration
 
         result = IdentifyWBSTaskDependencies(
@@ -136,7 +144,6 @@ The Work Breakdown Structure (WBS):
         return d
 
 if __name__ == "__main__":
-    from llama_index.llms.ollama import Ollama
     # TODO: Eliminate hardcoded paths
     basepath = '/Users/neoneye/Desktop/planexe_data'
 
@@ -152,10 +159,7 @@ if __name__ == "__main__":
 
     query = IdentifyWBSTaskDependencies.format_query(plan_json, wbs_json)
 
-    model_name = "llama3.1:latest"
-    # model_name = "qwen2.5-coder:latest"
-    # model_name = "phi4:latest"
-    llm = Ollama(model=model_name, request_timeout=120.0, temperature=0.5, is_function_calling_model=False)
+    llm = get_llm()
 
     print(f"Query: {query}")
     result = IdentifyWBSTaskDependencies.execute(llm, query)

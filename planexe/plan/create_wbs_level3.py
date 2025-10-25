@@ -1,3 +1,7 @@
+# Author: Cascade
+# Date: 2025-10-25T17:50:00Z
+# PURPOSE: Decompose WBS Level 2 tasks via SimpleOpenAILLM structured outputs and factory-backed configuration without llama_index dependencies.
+# SRP and DRY check: Pass. Module focuses on WBS Level 3 creation while reusing shared query formatting and LLM factory utilities.
 """
 WBS Level 3: Create a Work Breakdown Structure (WBS) from a project plan.
 
@@ -11,10 +15,13 @@ import time
 from dataclasses import dataclass
 from math import ceil
 from uuid import uuid4
+from typing import Any
+
 from pydantic import BaseModel, Field
-from llama_index.core.llms.llm import LLM
+
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
 from planexe.plan.filenames import FilenameEnum
+from planexe.llm_factory import get_llm
 
 class WBSSubtask(BaseModel):
     """
@@ -94,12 +101,12 @@ Only decompose this task:
         return query
 
     @classmethod
-    def execute(cls, llm: LLM, query: str, decompose_task_id: str) -> 'CreateWBSLevel3':
+    def execute(cls, llm: Any, query: str, decompose_task_id: str) -> 'CreateWBSLevel3':
         """
         Invoke LLM to decompose a big WBS level 2 task into smaller tasks.
         """
-        if not isinstance(llm, LLM):
-            raise ValueError("Invalid LLM instance.")
+        if not hasattr(llm, "as_structured_llm"):
+            raise ValueError("Invalid LLM instance: missing as_structured_llm().")
         if not isinstance(query, str):
             raise ValueError("Invalid query.")
         if not isinstance(decompose_task_id, str):
@@ -114,8 +121,8 @@ Only decompose this task:
         end_time = time.perf_counter()
         duration = int(ceil(end_time - start_time))
 
-        metadata = dict(llm.metadata)
-        metadata["llm_classname"] = llm.class_name()
+        metadata = dict(getattr(llm, "metadata", {}))
+        metadata["llm_classname"] = getattr(llm, "class_name", lambda: llm.__class__.__name__)()
         metadata["duration"] = duration
 
         # Cleanup the json response from the LLM model, assign unique ids to each subtask.
@@ -155,8 +162,6 @@ Only decompose this task:
         return d
 
 if __name__ == "__main__":
-    from llama_index.llms.ollama import Ollama
-
     # TODO: Eliminate hardcoded paths
     basepath = '/Users/neoneye/Desktop/planexe_data'
 
@@ -175,10 +180,7 @@ if __name__ == "__main__":
 
     query = CreateWBSLevel3.format_query(plan_json, wbs_level1_json, wbs_level2_json, wbs_level2_task_durations_json, decompose_task_id)
 
-    model_name = "llama3.1:latest"
-    # model_name = "qwen2.5-coder:latest"
-    # model_name = "phi4:latest"
-    llm = Ollama(model=model_name, request_timeout=120.0, temperature=0.5, is_function_calling_model=False)
+    llm = get_llm()
 
     print(f"Query: {query}")
     result = CreateWBSLevel3.execute(llm, query, decompose_task_id)
