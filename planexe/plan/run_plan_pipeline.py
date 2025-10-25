@@ -97,6 +97,9 @@ from planexe_api.database import DatabaseService, get_database_service, create_t
 logger = logging.getLogger(__name__)
 DEFAULT_LLM_MODEL = "gpt-5-nano-2025-08-07"  # Use a real Responses API model id present in llm_config.json
 
+# Backwards-compatible alias for tasks expecting the legacy LLM type.
+LLM = Any
+
 REPORT_EXECUTE_PLAN_SECTION_HIDDEN = True
 # REPORT_EXECUTE_PLAN_SECTION_HIDDEN = False
 
