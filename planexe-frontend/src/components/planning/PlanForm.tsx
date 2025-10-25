@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PlanFormSchema, PlanFormData } from '@/lib/types/forms';
 import { CreatePlanRequest, LLMModel, PromptExample } from '@/lib/api/fastapi-client';
 import { Loader2 } from 'lucide-react';
+import { configService } from '@/lib/config/dynamic-config';
 
 interface PlanFormProps {
   onSubmit: (data: CreatePlanRequest) => Promise<void>;
@@ -51,19 +52,34 @@ export const PlanForm: React.FC<PlanFormProps> = ({
       prompt: '',
       llm_model: '',
       speed_vs_detail: 'all_details_but_slow',
-      reasoning_effort: 'medium',
+      reasoning_effort: 'minimal' as const, // Temporary fallback, will be updated by useEffect
       title: '',
       tags: []
     }
   });
 
-  // Set default model if available
+  // Load default reasoning effort from backend config
   useEffect(() => {
-    if (llmModels.length > 0 && !form.getValues('llm_model')) {
-      const defaultModel = llmModels.find(m => m.priority === 1) || llmModels[0];
-      form.setValue('llm_model', defaultModel.id);
-    }
-  }, [llmModels, form]);
+    const loadDefaultReasoningEffort = async () => {
+      try {
+        const config = await configService.getConfig();
+        // Type guard to ensure the value is valid
+        const isValidReasoningEffort = (value: string): value is 'minimal' | 'low' | 'medium' | 'high' => {
+          return ['minimal', 'low', 'medium', 'high'].includes(value);
+        };
+
+        const reasoningEffort = isValidReasoningEffort(config.reasoningEffort)
+          ? config.reasoningEffort
+          : 'minimal';
+        form.setValue('reasoning_effort', reasoningEffort);
+      } catch (error) {
+        console.warn('Failed to load reasoning effort config, using fallback:', error);
+        // Keep the fallback value set in defaultValues
+      }
+    };
+
+    loadDefaultReasoningEffort();
+  }, [form]);
 
   const handleSubmit = async (data: PlanFormData) => {
     const request: CreatePlanRequest = {

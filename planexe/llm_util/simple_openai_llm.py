@@ -412,8 +412,8 @@ class SimpleOpenAILLM(LLM):
             # Ensure reasoning section exists with a default effort if not provided
             if isinstance(request, dict):
                 reasoning = request.setdefault("reasoning", {})
-                # Default from env (e.g., REASONING_EFFORT=low|medium|high|intense)
-                default_effort = os.getenv("REASONING_EFFORT", "medium")
+                # Default from env (e.g., REASONING_EFFORT_DEFAULT=low|medium|high|intense)
+                default_effort = os.getenv("REASONING_EFFORT_DEFAULT", "minimal")
                 reasoning.setdefault("effort", default_effort)
         except Exception:
             pass

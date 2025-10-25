@@ -9,8 +9,8 @@
 
 import { createWebSocketUrl, getApiBaseUrl } from '@/lib/utils/api-config';
 import {
-  RESPONSES_CONVERSATION_DEFAULTS,
-  RESPONSES_STREAMING_DEFAULTS,
+  getStreamingDefaults,
+  getConversationDefaults,
 } from '@/lib/config/responses';
 
 // FastAPI Backend Types (EXACT match with backend)
@@ -18,7 +18,7 @@ export interface CreatePlanRequest {
   prompt: string;
   llm_model?: string;
   speed_vs_detail: 'fast_but_skip_details' | 'balanced_speed_and_detail' | 'all_details_but_slow';
-  reasoning_effort?: 'minimal' | 'medium' | 'high';
+  reasoning_effort?: 'minimal' | 'low' | 'medium' | 'high';
   enriched_intake?: EnrichedPlanIntake;
 }
 
@@ -35,7 +35,7 @@ export interface PlanResponse {
   prompt: string;
   llm_model?: string | null;
   speed_vs_detail: 'fast_but_skip_details' | 'balanced_speed_and_detail' | 'all_details_but_slow';
-  reasoning_effort: 'minimal' | 'medium' | 'high';
+  reasoning_effort: 'minimal' | 'low' | 'medium' | 'high';
   progress_percentage: number;
   progress_message: string;
   error_message?: string;
@@ -179,7 +179,7 @@ export interface AnalysisStreamRequestPayload {
   metadata?: Record<string, unknown>;
   temperature?: number;
   maxOutputTokens?: number;
-  reasoningEffort?: 'medium' | 'high';
+  reasoningEffort?: 'low' | 'medium' | 'high';
   reasoningSummary?: string;
   textVerbosity?: string;
   schemaName?: string;
@@ -274,7 +274,7 @@ export interface ConversationTurnRequestPayload {
   previousResponseId?: string;
   instructions?: string;
   metadata?: Record<string, unknown>;
-  reasoningEffort?: 'medium' | 'high';
+  reasoningEffort?: 'low' | 'medium' | 'high';
   reasoningSummary?: string;
   textVerbosity?: string;
   store?: boolean;
@@ -571,10 +571,18 @@ export class FastAPIClient {
     return this.handleResponse<LLMModel[]>(response);
   }
 
-  // Get example prompts
-  async getPrompts(): Promise<PromptExample[]> {
-    const response = await fetch(`${this.baseURL}/api/prompts`);
-    return this.handleResponse<PromptExample[]>(response);
+  // Get frontend configuration
+  async getConfig(): Promise<{
+    reasoning_effort_streaming_default: string;
+    reasoning_effort_conversation_default: string;
+    reasoning_summary_default: string;
+    text_verbosity_default: string;
+    max_output_tokens_default: number | null;
+    streaming_enabled: boolean;
+    version: string;
+  }> {
+    const response = await fetch(`${this.baseURL}/api/config`);
+    return this.handleResponse(response);
   }
 
   // Create new plan
@@ -594,10 +602,14 @@ export class FastAPIClient {
       throw new Error('Cannot relaunch plan without the original prompt text.');
     }
 
+    // Get the default reasoning effort from backend
+    const defaults = await getStreamingDefaults();
+    const defaultReasoningEffort = defaults.reasoningEffort;
+
     const request: CreatePlanRequest = {
       prompt: previousPlan.prompt,
       speed_vs_detail: options.speedVsDetail ?? 'balanced_speed_and_detail',
-      reasoning_effort: options.reasoningEffort ?? previousPlan.reasoning_effort ?? 'medium',
+      reasoning_effort: options.reasoningEffort ?? previousPlan.reasoning_effort ?? defaultReasoningEffort,
     };
 
     if (options.llmModel) {
@@ -703,15 +715,13 @@ export class FastAPIClient {
     conversation_id: string,
     payload: ConversationTurnRequestPayload,
   ): Promise<ConversationRequestSession> {
+    const defaults = await getConversationDefaults();
     const body: Record<string, unknown> = {
       model_key: payload.modelKey,
       user_message: payload.userMessage,
-      reasoning_effort:
-        payload.reasoningEffort ?? RESPONSES_CONVERSATION_DEFAULTS.reasoningEffort,
-      reasoning_summary:
-        payload.reasoningSummary ?? RESPONSES_CONVERSATION_DEFAULTS.reasoningSummary,
-      text_verbosity:
-        payload.textVerbosity ?? RESPONSES_CONVERSATION_DEFAULTS.textVerbosity,
+      reasoning_effort: payload.reasoningEffort ?? defaults.reasoningEffort,
+      reasoning_summary: payload.reasoningSummary ?? defaults.reasoningSummary,
+      text_verbosity: payload.textVerbosity ?? defaults.textVerbosity,
       store: payload.store ?? true,
     };
     if (payload.previousResponseId) body.previous_response_id = payload.previousResponseId;
@@ -758,15 +768,13 @@ export class FastAPIClient {
     conversation_id: string,
     payload: ConversationTurnRequestPayload,
   ): Promise<ConversationFinalizeResponse> {
+    const defaults = await getConversationDefaults();
     const body: Record<string, unknown> = {
       model_key: payload.modelKey,
       user_message: payload.userMessage,
-      reasoning_effort:
-        payload.reasoningEffort ?? RESPONSES_CONVERSATION_DEFAULTS.reasoningEffort,
-      reasoning_summary:
-        payload.reasoningSummary ?? RESPONSES_CONVERSATION_DEFAULTS.reasoningSummary,
-      text_verbosity:
-        payload.textVerbosity ?? RESPONSES_CONVERSATION_DEFAULTS.textVerbosity,
+      reasoning_effort: payload.reasoningEffort ?? defaults.reasoningEffort,
+      reasoning_summary: payload.reasoningSummary ?? defaults.reasoningSummary,
+      text_verbosity: payload.textVerbosity ?? defaults.textVerbosity,
       store: payload.store ?? true,
     };
     if (payload.previousResponseId) body.previous_response_id = payload.previousResponseId;
@@ -792,16 +800,14 @@ export class FastAPIClient {
   async createAnalysisStream(
     payload: AnalysisStreamRequestPayload,
   ): Promise<AnalysisStreamSession> {
+    const defaults = await getStreamingDefaults();
     const body: Record<string, unknown> = {
       task_id: payload.taskId,
       model_key: payload.modelKey,
       prompt: payload.prompt,
-      reasoning_effort:
-        payload.reasoningEffort ?? RESPONSES_STREAMING_DEFAULTS.reasoningEffort,
-      reasoning_summary:
-        payload.reasoningSummary ?? RESPONSES_STREAMING_DEFAULTS.reasoningSummary,
-      text_verbosity:
-        payload.textVerbosity ?? RESPONSES_STREAMING_DEFAULTS.textVerbosity,
+      reasoning_effort: payload.reasoningEffort ?? defaults.reasoningEffort,
+      reasoning_summary: payload.reasoningSummary ?? defaults.reasoningSummary,
+      text_verbosity: payload.textVerbosity ?? defaults.textVerbosity,
     };
 
     if (payload.context) body.context = payload.context;
@@ -810,7 +816,7 @@ export class FastAPIClient {
     const maxOutputTokens =
       typeof payload.maxOutputTokens === 'number'
         ? payload.maxOutputTokens
-        : RESPONSES_STREAMING_DEFAULTS.maxOutputTokens;
+        : defaults.maxOutputTokens;
     if (typeof maxOutputTokens === 'number') {
       body.max_output_tokens = maxOutputTokens;
     }

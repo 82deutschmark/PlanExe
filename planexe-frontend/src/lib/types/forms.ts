@@ -30,7 +30,7 @@ export const PlanFormSchema = z.object({
     .enum(['fast_but_skip_details', 'balanced_speed_and_detail', 'all_details_but_slow']),
 
   reasoning_effort: z
-    .enum(['minimal', 'medium', 'high']),
+    .enum(['minimal', 'low', 'medium', 'high']),
 
   title: z
     .string()

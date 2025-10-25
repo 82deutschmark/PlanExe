@@ -37,7 +37,7 @@ class CreatePlanRequest(BaseModel):
     llm_model: Optional[str] = Field(None, description="LLM model ID to use")
     speed_vs_detail: SpeedVsDetail = Field(SpeedVsDetail.ALL_DETAILS_BUT_SLOW, description="Speed vs detail preference")
     reasoning_effort: Optional[str] = Field(
-        "minimal",
+        RESPONSES_STREAMING_CONTROLS.reasoning_effort,
         description="Reasoning effort level forwarded to the pipeline (minimal, medium, high)",
     )
     enriched_intake: Optional[Dict[str, Any]] = Field(
@@ -48,9 +48,9 @@ class CreatePlanRequest(BaseModel):
     @field_validator("reasoning_effort")
     @classmethod
     def validate_reasoning_effort(cls, value: Optional[str]) -> str:
-        """Validate reasoning effort values while defaulting to medium."""
+        """Validate reasoning effort values while defaulting to config value."""
         if value is None:
-            return "minimal"
+            return RESPONSES_STREAMING_CONTROLS.reasoning_effort
         valid_values = ["minimal", "low", "medium", "high"]
         if value not in valid_values:
             raise ValueError(f"reasoning_effort must be one of {valid_values}, got '{value}'")
@@ -381,6 +381,14 @@ class ConversationFinalizeResponse(BaseModel):
     reasoning_text: str = Field("", description="Aggregated reasoning summary text")
     json_chunks: List[Dict[str, Any]] = Field(default_factory=list, description="Structured output deltas")
     usage: Dict[str, Any] = Field(default_factory=dict, description="Token usage metadata")
-    completed_at: Optional[datetime] = Field(
-        None, description="Timestamp the assistant finished streaming"
-    )
+class ConfigResponse(BaseModel):
+    """Response payload for frontend configuration data."""
+
+    reasoning_effort_streaming_default: str = Field(..., description="Default reasoning effort for streaming operations")
+    reasoning_effort_conversation_default: str = Field(..., description="Default reasoning effort for conversations")
+    reasoning_summary_default: str = Field(..., description="Default reasoning summary level")
+    text_verbosity_default: str = Field(..., description="Default text verbosity level")
+    max_output_tokens_default: Optional[int] = Field(None, description="Default max output tokens")
+    streaming_enabled: bool = Field(..., description="Whether streaming features are enabled")
+    version: str = Field(..., description="API version")
+

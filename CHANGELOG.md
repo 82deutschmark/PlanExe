@@ -1,9 +1,41 @@
+## [0.7.5] - 2025-10-24
+
+### REFACTOR: Consolidate Reasoning Effort Configuration - Single Source of Truth
+
+**Problem**: Reasoning effort defaults were hardcoded and duplicated across 8+ locations:
+- Frontend: `responses.ts`, `fastapi-client.ts`, `PlanForm.tsx`, `forms.ts`
+- Backend: `config.py`, `models.py`, `pipeline_environment.py`, `simple_openai_llm.py`
+- Pipeline: Environment variables scattered across multiple files
+
+**Solution**: Established single source of truth with `REASONING_EFFORT_DEFAULT` environment variable:
+- **Backend**: `/api/config` endpoint serves all frontend configuration from backend
+- **Frontend**: Dynamic config service fetches defaults from backend API
+- **Pipeline**: All components use consolidated environment variable
+- **Types**: Updated all interfaces to include 'low' option (4 levels: minimal, low, medium, high)
+
+**Files Updated**:
+- ✅ `planexe_api/config.py` - Consolidated to single `REASONING_EFFORT_DEFAULT` env var
+- ✅ `planexe_api/models.py` - Uses config defaults instead of hardcoded values
+- ✅ `planexe_api/api.py` - Added `/api/config` endpoint
+- ✅ `planexe/plan/pipeline_environment.py` - Uses consolidated source
+- ✅ `planexe/llm_util/simple_openai_llm.py` - Uses consolidated source
+- ✅ `planexe_api/services/pipeline_execution_service.py` - Already correct
+- ✅ Frontend: `dynamic-config.ts`, `responses.ts`, `fastapi-client.ts`, `PlanForm.tsx`, `forms.ts`
+- ✅ All streaming components updated to use dynamic config
+
+**Result**:
+- ✅ **Single Source of Truth**: Change `REASONING_EFFORT_DEFAULT=minimal` updates everywhere
+- ✅ **No More Duplication**: Eliminated SRP/DRY violations across 8+ locations
+- ✅ **Backend Authority**: Frontend automatically gets updates without rebuild
+- ✅ **Clean Architecture**: Proper separation of concerns with config centralized
+
+**Environment Variable**: `REASONING_EFFORT_DEFAULT` (default: "minimal")
+**API Endpoint**: `GET /api/config` returns all frontend configuration
+**Validation**: All 4 levels (minimal, low, medium, high) properly supported end-to-end
+
 ## [0.7.4] - 2025-10-24
 
 ### FIX: Keep pipeline progressing when LLM calls fail
-- ConvertPitchToMarkdownTask now persists results using the existing `markdown` attribute so the task never throws `AttributeError`, ensuring downstream tasks continue @planexe/plan/run_plan_pipeline.py#4555-4564.
-- EstimateTaskDurationsTask records per-chunk LLM failures, injects heuristic estimates, and writes fallback payloads without aborting aggregation @planexe/plan/run_plan_pipeline.py#4684-4743.
-- IdentifyDocumentsTask wraps structured calls in a fallback generator that fabricates baseline create/find lists and writes them to storage when parsing fails @planexe/plan/run_plan_pipeline.py#3852-3980.
 
 ## [0.7.3] - 2025-10-24
 

@@ -35,18 +35,9 @@ from planexe.utils.planexe_dotenv import PlanExeDotEnv, DotEnvKeyEnum
 from planexe.llm_factory import LLMInfo
 from planexe.utils.planexe_llmconfig import PlanExeLLMConfig
 
-from planexe_api.models import (
-    CreatePlanRequest, PlanResponse, PlanProgressEvent, LLMModel,
-    PromptExample, PlanFilesResponse, PlanArtefactListResponse, PlanArtefact, APIError, HealthResponse,
-    PlanStatus, SpeedVsDetail, PipelineDetailsResponse, StreamStatusResponse,
-    FallbackReportResponse, ReportSection, MissingSection,
-    AnalysisStreamRequest,
-    AnalysisStreamSessionResponse,
-    ConversationCreateRequest,
-    ConversationCreateResponse,
-    ConversationTurnRequest,
-    ConversationRequestResponse,
-    ConversationFinalizeResponse,
+from planexe_api.config import (
+    RESPONSES_STREAMING_CONTROLS,
+    RESPONSES_CONVERSATION_CONTROLS,
 )
 from planexe_api.database import (
     get_database, get_database_service, create_tables, DatabaseService, Plan, LLMInteraction,
@@ -490,7 +481,21 @@ async def get_prompts():
         raise HTTPException(status_code=500, detail=f"Failed to get prompts: {str(e)}")
 
 
-# Plan creation endpoint
+# Frontend configuration endpoint
+@app.get("/api/config", response_model=ConfigResponse)
+async def get_frontend_config():
+    """Get frontend configuration values from backend"""
+    return ConfigResponse(
+        reasoning_effort_streaming_default=RESPONSES_STREAMING_CONTROLS.reasoning_effort,
+        reasoning_effort_conversation_default=RESPONSES_CONVERSATION_CONTROLS.reasoning_effort,
+        reasoning_summary_default=RESPONSES_STREAMING_CONTROLS.reasoning_summary,
+        text_verbosity_default=RESPONSES_STREAMING_CONTROLS.text_verbosity,
+        max_output_tokens_default=RESPONSES_STREAMING_CONTROLS.max_output_tokens,
+        streaming_enabled=STREAMING_ENABLED,
+        version="1.0.0",
+    )
+
+
 @app.post("/api/plans", response_model=PlanResponse)
 async def create_plan(request: CreatePlanRequest):
     """Create a new plan and start background processing"""

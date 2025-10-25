@@ -43,7 +43,7 @@ class ResponsesStreamingControls:
     max_output_tokens: Optional[int] = None
     min_output_tokens: int = 512
     max_output_tokens_ceiling: int = 120000
-    reasoning_effort: str = "minimal"
+    reasoning_effort: str = "minimal"  # Default fallback
     reasoning_summary: str = "detailed"
     text_verbosity: str = "high"
 
@@ -52,13 +52,17 @@ class ResponsesStreamingControls:
 class ResponsesConversationControls:
     """Configuration defaults for Conversations API requests."""
 
-    reasoning_effort: str = "minimal"
+    reasoning_effort: str = "minimal"  # Default fallback
     reasoning_summary: str = "detailed"
     text_verbosity: str = "high"
 
 
 def _build_streaming_controls() -> ResponsesStreamingControls:
     defaults = ResponsesStreamingControls()
+
+    # Single source of truth for reasoning effort default
+    reasoning_effort_default = _str_setting("REASONING_EFFORT_DEFAULT", defaults.reasoning_effort)
+
     max_ceiling = _int_setting("OPENAI_MAX_OUTPUT_TOKENS_CEILING", defaults.max_output_tokens_ceiling)
     max_tokens = _optional_int_setting("OPENAI_MAX_OUTPUT_TOKENS", defaults.max_output_tokens)
     if max_tokens is not None and max_tokens > max_ceiling:
@@ -74,7 +78,7 @@ def _build_streaming_controls() -> ResponsesStreamingControls:
         max_output_tokens=max_tokens,
         min_output_tokens=min_tokens,
         max_output_tokens_ceiling=max_ceiling,
-        reasoning_effort=_str_setting("OPENAI_REASONING_EFFORT", defaults.reasoning_effort),
+        reasoning_effort=reasoning_effort_default,
         reasoning_summary=_str_setting("OPENAI_REASONING_SUMMARY", defaults.reasoning_summary),
         text_verbosity=_str_setting("OPENAI_TEXT_VERBOSITY", defaults.text_verbosity),
     )
@@ -82,10 +86,14 @@ def _build_streaming_controls() -> ResponsesStreamingControls:
 
 def _build_conversation_controls() -> ResponsesConversationControls:
     defaults = ResponsesConversationControls()
+
+    # Use same source of truth for reasoning effort default
+    reasoning_effort_default = _str_setting("REASONING_EFFORT_DEFAULT", defaults.reasoning_effort)
+
     return ResponsesConversationControls(
-        reasoning_effort=_str_setting("OPENAI_CONVERSATION_REASONING_EFFORT", defaults.reasoning_effort),
-        reasoning_summary=_str_setting("OPENAI_CONVERSATION_REASONING_SUMMARY", defaults.reasoning_summary),
-        text_verbosity=_str_setting("OPENAI_CONVERSATION_TEXT_VERBOSITY", defaults.text_verbosity),
+        reasoning_effort=reasoning_effort_default,
+        reasoning_summary=_str_setting("OPENAI_REASONING_SUMMARY", defaults.reasoning_summary),
+        text_verbosity=_str_setting("OPENAI_TEXT_VERBOSITY", defaults.text_verbosity),
     )
 
 

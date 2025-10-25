@@ -18,7 +18,7 @@ import {
   EnrichedPlanIntake,
 } from '@/lib/api/fastapi-client';
 import { useConversationStreaming } from '@/lib/streaming/conversation-streaming';
-import { RESPONSES_CONVERSATION_DEFAULTS } from '@/lib/config/responses';
+import { getConversationDefaults } from '@/lib/config/responses';
 
 export type ConversationRole = 'user' | 'assistant';
 
@@ -197,6 +197,7 @@ export function useResponsesConversation(
       }
 
       const previousResponseId = currentResponseIdRef.current ?? undefined;
+      const defaults = await getConversationDefaults();
       const payload: ConversationTurnRequestPayload = {
         modelKey,
         userMessage: trimmedMessage,
@@ -206,9 +207,9 @@ export function useResponsesConversation(
           initialPrompt,
           ...(metadata ?? {}),
         },
-        reasoningEffort: RESPONSES_CONVERSATION_DEFAULTS.reasoningEffort,
-        reasoningSummary: RESPONSES_CONVERSATION_DEFAULTS.reasoningSummary,
-        textVerbosity: RESPONSES_CONVERSATION_DEFAULTS.textVerbosity,
+        reasoningEffort: defaults.reasoningEffort as 'low' | 'medium' | 'high',
+        reasoningSummary: defaults.reasoningSummary,
+        textVerbosity: defaults.textVerbosity,
         store: true,
         ...(previousResponseId ? { previousResponseId } : {}),
         ...(schemaName ? { schemaName } : {}),
