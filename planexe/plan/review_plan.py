@@ -1,3 +1,7 @@
+# Author: Cascade
+# Date: 2025-10-25T17:45:00Z
+# PURPOSE: Review plan task powered by SimpleOpenAILLM, chaining structured responses without llama_index dependencies.
+# SRP and DRY check: Pass. The module focuses on plan review logic while reusing shared executor, message helpers, and schema utilities elsewhere.
 """
 Ask questions about the almost finished plan.
 
@@ -11,11 +15,13 @@ import time
 import logging
 from math import ceil
 from dataclasses import dataclass
+from typing import Any
+
 from pydantic import BaseModel, Field
-from llama_index.core.llms import ChatMessage, MessageRole, ChatResponse
-from llama_index.core.llms.llm import LLM
+
 from planexe.plan.speedvsdetail import SpeedVsDetailEnum
 from planexe.llm_util.llm_executor import LLMExecutor, LLMModelFromName, PipelineStopRequested
+from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole, StructuredLLMResponse
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +59,7 @@ Do not duplicate issues already identified in previous questions of this review.
 
 @dataclass
 class ReviewPlanRunResult:
-    chat_response: ChatResponse
+    chat_response: StructuredLLMResponse
     metadata: dict
     previous_response_id: str | None = None
 
@@ -109,11 +115,8 @@ class ReviewPlan:
         else:
             logger.info("Running in ALL_DETAILS_BUT_SLOW mode. Processing all questions.")
 
-        chat_message_list = [
-            ChatMessage(
-                role=MessageRole.SYSTEM,
-                content=system_prompt,
-            )
+        chat_message_list: list[SimpleChatMessage] = [
+            SimpleChatMessage(role=SimpleMessageRole.SYSTEM, content=system_prompt)
         ]
 
         question_answers_list = []
@@ -127,12 +130,9 @@ class ReviewPlan:
         for index, title_question in enumerate(title_question_list, start=1):
             title, question = title_question
             logger.debug(f"Question {index} of {len(title_question_list)}: {question}")
-            chat_message_list.append(ChatMessage(
-                role=MessageRole.USER,
-                content=question,
-            ))
+            chat_message_list.append(SimpleChatMessage(role=SimpleMessageRole.USER, content=question))
 
-            def execute_function(llm: LLM) -> ReviewPlanRunResult:
+            def execute_function(llm: Any) -> ReviewPlanRunResult:
                 sllm = llm.as_structured_llm(DocumentDetails)
                 # Pass previous_response_id for chaining; reasoning_effort remains from config
                 chat_response = sllm.chat(chat_message_list, previous_response_id=previous_response_id)
@@ -184,8 +184,8 @@ class ReviewPlan:
             # Update previous_response_id for chaining to the next question
             previous_response_id = review_plan_run_result.previous_response_id
 
-            chat_message_list.append(ChatMessage(
-                role=MessageRole.ASSISTANT,
+            chat_message_list.append(SimpleChatMessage(
+                role=SimpleMessageRole.ASSISTANT,
                 content=review_plan_run_result.chat_response.message.content,
             ))
 

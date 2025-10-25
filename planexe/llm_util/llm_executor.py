@@ -35,7 +35,6 @@ import typing
 from uuid import uuid4
 from typing import Any, Callable, Optional, List
 from dataclasses import dataclass
-from llama_index.core.llms.llm import LLM
 from llama_index.core.instrumentation.dispatcher import instrument_tags
 from planexe.llm_factory import get_llm
 
@@ -54,14 +53,14 @@ class PipelineStopRequested(RuntimeError):
     pass
 
 class LLMModelBase:
-    def create_llm(self) -> LLM:
+    def create_llm(self) -> Any:
         raise NotImplementedError("Subclasses must implement this method")
 
 class LLMModelFromName(LLMModelBase):
     def __init__(self, name: str):
         self.name = name
 
-    def create_llm(self) -> LLM:
+    def create_llm(self) -> Any:
         return get_llm(self.name)
     
     def __repr__(self) -> str:
@@ -72,17 +71,17 @@ class LLMModelFromName(LLMModelBase):
         return [cls(name) for name in names]
 
 class LLMModelWithInstance(LLMModelBase):
-    def __init__(self, llm: LLM):
+    def __init__(self, llm: Any):
         self.llm = llm
 
-    def create_llm(self) -> LLM:
+    def create_llm(self) -> Any:
         return self.llm
     
     def __repr__(self) -> str:
         return f"LLMModelWithInstance(llm={self.llm.__class__.__name__})"
 
     @classmethod
-    def from_instances(cls, llms: list[LLM]) -> list['LLMModelBase']:
+    def from_instances(cls, llms: list[Any]) -> list['LLMModelBase']:
         return [cls(llm) for llm in llms]
 
 @dataclass
@@ -186,7 +185,7 @@ class LLMExecutor:
         last_attempt.total_tokens = total_tokens if total_tokens is not None else (input_tokens + output_tokens)
         logger.debug(f"Token usage recorded: input={input_tokens}, output={output_tokens}, total={last_attempt.total_tokens}")
 
-    def run(self, execute_function: Callable[[LLM], Any]):
+    def run(self, execute_function: Callable[[Any], Any]):
         self._validate_execute_function(execute_function)
 
         # Reset attempts for each new run
@@ -208,44 +207,20 @@ class LLMExecutor:
         # If we get here, all attempts have failed.
         self._raise_final_exception()
 
-    def _validate_execute_function(self, execute_function: Callable[[LLM], Any]) -> None:
+    def _validate_execute_function(self, execute_function: Callable[[Any], Any]) -> None:
         """
-        Validate that the execute_function is a function that takes a single LLM parameter.
-        It doesn't matter what the return type is or if it doesn't return anything.
+        Validate that the execute_function is callable with exactly one positional parameter.
         """
         if not callable(execute_function):
-            raise TypeError("validate_execute_function1: must be a function that takes a LLM parameter")
-        
+            raise TypeError("execute_function must be callable")
+
         # Validate function signature
         sig = inspect.signature(execute_function)
         params = list(sig.parameters.values())
         if len(params) != 1:
-            raise TypeError("validate_execute_function2: must be a function that takes a single parameter")
-        
-        try:
-            # Use get_type_hints to correctly resolve postponed annotations (strings)
-            # This is the key to supporting `from __future__ import annotations`
-            type_hints = typing.get_type_hints(execute_function)
-            param_name = params[0].name
-            param_type = type_hints.get(param_name)
-        except (NameError, TypeError) as e:
-            # NameError happens if a type hint string can't be resolved.
-            # TypeError can happen with complex but invalid type hints.
-            raise TypeError(f"Could not resolve type hints for execute_function. Error: {e}")
+            raise TypeError("execute_function must accept exactly one argument")
 
-        if param_type is None:
-            # No type hint provided, so we can't validate. Let it pass.
-            return
-
-        # Now `param_type` is guaranteed to be a real type object.
-        # Use issubclass for the most flexible and correct check.
-        if not (isinstance(param_type, type) and issubclass(param_type, LLM)):
-            raise TypeError(
-                f"validate_execute_function3: must be a function that takes a single parameter of type LLM, "
-                f"but got type '{param_type}'"
-            )
-
-    def _try_one_attempt(self, llm_model: LLMModelBase, execute_function: Callable[[LLM], Any]) -> LLMAttempt:
+    def _try_one_attempt(self, llm_model: LLMModelBase, execute_function: Callable[[Any], Any]) -> LLMAttempt:
         """
         Performs a single, complete attempt with one LLM, returning a detailed result.
         

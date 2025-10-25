@@ -1,3 +1,7 @@
+# Author: Cascade
+# Date: 2025-10-25T17:45:00Z
+# PURPOSE: Recommend related resources using SimpleOpenAILLM structured outputs, removing legacy llama_index dependencies.
+# SRP and DRY check: Pass. Module stays focused on resource suggestion logic while reusing shared factories and adapters.
 """
 Suggest similar past or existing projects that can be used as a reference for the current project.
 
@@ -8,9 +12,9 @@ import time
 import logging
 from math import ceil
 from dataclasses import dataclass
+from typing import Any
+
 from pydantic import BaseModel, Field
-from llama_index.core.llms import ChatMessage, MessageRole
-from llama_index.core.llms.llm import LLM
 
 logger = logging.getLogger(__name__)
 
@@ -89,12 +93,12 @@ class RelatedResources:
     markdown: str
 
     @classmethod
-    def execute(cls, llm: LLM, user_prompt: str) -> 'RelatedResources':
+    def execute(cls, llm: Any, user_prompt: str) -> 'RelatedResources':
         """
         Invoke LLM with the project description.
         """
-        if not isinstance(llm, LLM):
-            raise ValueError("Invalid LLM instance.")
+        if not hasattr(llm, "as_structured_llm"):
+            raise ValueError("Invalid LLM instance: missing as_structured_llm().")
         if not isinstance(user_prompt, str):
             raise ValueError("Invalid user_prompt.")
 
@@ -103,14 +107,8 @@ class RelatedResources:
         system_prompt = RELATED_RESOURCES_SYSTEM_PROMPT.strip()
 
         chat_message_list = [
-            ChatMessage(
-                role=MessageRole.SYSTEM,
-                content=system_prompt,
-            ),
-            ChatMessage(
-                role=MessageRole.USER,
-                content=user_prompt,
-            )
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
         ]
 
         sllm = llm.as_structured_llm(DocumentDetails)
@@ -129,8 +127,8 @@ class RelatedResources:
 
         json_response = chat_response.raw.model_dump()
 
-        metadata = dict(llm.metadata)
-        metadata["llm_classname"] = llm.class_name()
+        metadata = dict(getattr(llm, "metadata", {}))
+        metadata["llm_classname"] = getattr(llm, "class_name", lambda: llm.__class__.__name__)()
         metadata["duration"] = duration
         metadata["response_byte_count"] = response_byte_count
 

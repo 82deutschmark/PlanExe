@@ -1,3 +1,7 @@
+# Author: Cascade
+# Date: 2025-10-25T17:45:00Z
+# PURPOSE: Generate project plans via SimpleOpenAILLM structured outputs without llama_index bindings; formats SMART sections and metadata.
+# SRP and DRY check: Pass. Module focuses on project-plan orchestration while reusing shared schema helpers and LLM factory utilities.
 """
 PROMPT> python -m planexe.plan.project_plan
 
@@ -8,10 +12,9 @@ import time
 import logging
 from dataclasses import dataclass
 from math import ceil
-from typing import TypeVar
+from typing import TypeVar, Any
+
 from pydantic import BaseModel, Field
-from llama_index.core.llms.llm import LLM
-from llama_index.core.llms import ChatMessage, MessageRole
 
 logger = logging.getLogger(__name__)
 
@@ -212,7 +215,7 @@ class ProjectPlan:
     markdown: str
 
     @classmethod
-    def execute(cls, llm: LLM, user_prompt: str) -> 'ProjectPlan':
+    def execute(cls, llm: Any, user_prompt: str) -> 'ProjectPlan':
         """
         Invoke LLM to create project plan from a vague description.
 
@@ -220,8 +223,8 @@ class ProjectPlan:
         :param user_prompt: A vague description of the project.
         :return: An instance of CreateProjectPlan.
         """
-        if not isinstance(llm, LLM):
-            raise ValueError("Invalid LLM instance.")
+        if not hasattr(llm, "as_structured_llm"):
+            raise ValueError("Invalid LLM instance: missing as_structured_llm().")
         if not isinstance(user_prompt, str):
             raise ValueError("Invalid user_prompt.")
 
@@ -230,14 +233,8 @@ class ProjectPlan:
         logger.debug(f"User Prompt:\n{user_prompt}")
 
         chat_message_list = [
-            ChatMessage(
-                role=MessageRole.SYSTEM,
-                content=system_prompt,
-            ),
-            ChatMessage(
-                role=MessageRole.USER,
-                content=user_prompt,
-            )
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
         ]
         
         sllm = llm.as_structured_llm(GoalDefinition)
@@ -258,8 +255,8 @@ class ProjectPlan:
 
         json_response = chat_response.raw.model_dump()
 
-        metadata = dict(llm.metadata)
-        metadata["llm_classname"] = llm.class_name()
+        metadata = dict(getattr(llm, "metadata", {}))
+        metadata["llm_classname"] = getattr(llm, "class_name", lambda: llm.__class__.__name__)()
         metadata["duration"] = duration
         metadata["response_byte_count"] = response_byte_count
 
@@ -379,7 +376,7 @@ class ProjectPlan:
 
 if __name__ == "__main__":
     import logging
-    from planexe.llm_factory import get_llm
+    from planexe.llm_factory import get_llm, get_llm_names_by_priority
     from planexe.plan.find_plan_prompt import find_plan_prompt
 
     logging.basicConfig(
@@ -392,9 +389,8 @@ if __name__ == "__main__":
 
     plan_prompt = find_plan_prompt("4dc34d55-0d0d-4e9d-92f4-23765f49dd29")
 
-    llm = get_llm("ollama-llama3.1")
-    # llm = get_llm("openrouter-paid-gemini-2.0-flash-001")
-    # llm = get_llm("deepseek-chat")
+    preferred = get_llm_names_by_priority()
+    llm = get_llm(preferred[0] if preferred else None)
 
     print(f"Query:\n{plan_prompt}\n\n")
     result = ProjectPlan.execute(llm, plan_prompt)
