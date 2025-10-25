@@ -1,3 +1,13 @@
+## [0.8.1] - 2025-10-25
+
+### FEAT: Landing page Speed vs Detail selector
+
+- Added a Speed vs Detail control on the landing page to choose execution mode: ast_but_skip_details, alanced_speed_and_detail, or ll_details_but_slow.
+- Selection is sent in snake_case via CreatePlanRequest.speed_vs_detail to the FastAPI backend, enabling the vital FAST_BUT_SKIP_DETAILS mode from the first screen.
+- UI provides quick hints about expected run duration per mode.
+
+Files:
+- planexe-frontend/src/app/page.tsx: New selector UI and payload wiring.
 ## [0.8.0] - 2025-10-24
 
 ### FEAT: Recovery workspace streams live reasoning and replies
