@@ -1,3 +1,11 @@
+## [0.8.6] - 2025-10-25
+
+### WIP: Luigi pipeline refactor alignment
+
+- Updated `planexe/plan/run_plan_pipeline.py` to stop importing `llama_index.core.llms.llm.LLM`, hand tasks the `SimpleOpenAILLM` adapter directly, and carry a temporary alias so downstream modules keep compiling while we finish the sweep.
+- Captured the remaining migration work and runbook in `docs/pipeline_handoff_notes.md` so the next pass can finish replacing legacy message helpers and signature annotations.
+- Known gap: most pipeline tasks still accept `llm: LLM` and need to migrate to `Any` + `SimpleChatMessage` helpers before the adapter can run end-to-end.
+
 ## [0.8.5] - 2025-10-25
 
 ### UI: Highlight recovery logs and relocate prompt summary
