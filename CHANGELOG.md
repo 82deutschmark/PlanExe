@@ -1,3 +1,12 @@
+## [0.8.0] - 2025-10-24
+
+### FEAT: Recovery workspace streams live reasoning and replies
+
+- Hooked `useRecoveryPlan` into the same LLM stream reducer used by the Terminal so the recovery UI receives text, reasoning, usage, and error telemetry in real time.
+- Added **LiveStreamPanel** and **StreamHistoryPanel** components that mirror the terminal two-column layout for the active interaction and recent history.
+- Highlight the active stage inside the stage timeline and reorder the recovery layout so live reasoning/replies appear above logs, reports, and artefacts.
+- Documented the completed plan in `docs/2025-10-23-recovery-page-streaming-reasoning-plan.md` with follow-up notes.
+
 ## [0.7.5] - 2025-10-24
 
 ### REFACTOR: Consolidate Reasoning Effort Configuration - Single Source of Truth
@@ -36,6 +45,9 @@
 ## [0.7.4] - 2025-10-24
 
 ### FIX: Keep pipeline progressing when LLM calls fail
+- ConvertPitchToMarkdownTask now persists results using the existing `markdown` attribute so the task never throws `AttributeError`, ensuring downstream tasks continue @planexe/plan/run_plan_pipeline.py#4555-4564.
+- EstimateTaskDurationsTask records per-chunk LLM failures, injects heuristic estimates, and writes fallback payloads without aborting aggregation @planexe/plan/run_plan_pipeline.py#4684-4743.
+- IdentifyDocumentsTask wraps structured calls in a fallback generator that fabricates baseline create/find lists and writes them to storage when parsing fails @planexe/plan/run_plan_pipeline.py#3852-3980.
 
 ## [0.7.3] - 2025-10-24
 
