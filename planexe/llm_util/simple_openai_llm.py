@@ -1,5 +1,5 @@
-# Author: Cascade
-# Date: 2025-10-24T23:05:00Z
+# Author: gpt-5-codex
+# Date: 2025-10-25T00:00:00Z
 # PURPOSE: Responses API client and structured output adapter used by Luigi tasks; handles message normalization, schema enforcement, streaming fallbacks, and non-streaming structured completions for reliability across the pipeline.
 # SRP and DRY check: Pass. This module centralizes OpenAI Responses logic, preventing duplication in individual tasks; no equivalent functionality elsewhere.
 """OpenAI Responses API client with reasoning-aware streaming hooks for PlanExe."""
@@ -290,6 +290,7 @@ class SimpleOpenAILLM(LLM):
             raise ValueError(error_msg)
 
         logger.debug("Creating OpenAI Responses client for model %s", model)
+
         self._client = OpenAI(api_key=api_key)
         self._responses_client = self._resolve_responses_client(self._client)
         if self._responses_client is None:
