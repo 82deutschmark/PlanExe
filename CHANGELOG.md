@@ -1,3 +1,14 @@
+## [0.8.5] - 2025-10-25
+
+### UI: Highlight recovery logs and relocate prompt summary
+
+- Moved the Luigi pipeline logs panel to the top of the recovery workspace for quicker troubleshooting access and preserved the panel styling in its new full-width placement.
+- Shifted the original plan prompt into a dedicated "Initial Plan Request" card at the bottom of the page so operators can review the request context without scrolling past live telemetry.
+
+Files:
+- planexe-frontend/src/app/recovery/page.tsx
+- planexe-frontend/src/app/recovery/components/RecoveryHeader.tsx
+
 ## [0.8.4] - 2025-10-25
 
 ### CRITICAL: Legacy llama_index bindings breaking production pipeline
