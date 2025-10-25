@@ -1,3 +1,7 @@
+# Author: Cascade
+# Date: 2025-10-25T18:10:00Z
+# PURPOSE: Orchestrate full SWOT analysis using SimpleOpenAILLM adapters, delegating phase logic without llama_index dependencies.
+# SRP and DRY check: Pass. Module coordinates SWOT stages while reusing shared IdentifyPurpose and phase helpers.
 """
 Perform a full SWOT analysis
 
@@ -11,15 +15,15 @@ import time
 import logging
 from math import ceil
 from dataclasses import dataclass, asdict
-from typing import Optional
+from typing import Optional, Any
+
 from planexe.assume.identify_purpose import IdentifyPurpose, PlanPurposeInfo, PlanPurpose
 from planexe.swot.swot_phase2_conduct_analysis import (
-    swot_phase2_conduct_analysis, 
-    CONDUCT_SWOT_ANALYSIS_BUSINESS_SYSTEM_PROMPT, 
+    swot_phase2_conduct_analysis,
+    CONDUCT_SWOT_ANALYSIS_BUSINESS_SYSTEM_PROMPT,
     CONDUCT_SWOT_ANALYSIS_PERSONAL_SYSTEM_PROMPT,
     CONDUCT_SWOT_ANALYSIS_OTHER_SYSTEM_PROMPT,
 )
-from llama_index.core.llms.llm import LLM
 
 logger = logging.getLogger(__name__)
 
@@ -34,14 +38,14 @@ class SWOTAnalysis:
     metadata: dict
 
     @classmethod
-    def execute(cls, llm: LLM, query: str, identify_purpose_dict: Optional[dict]) -> 'SWOTAnalysis':
+    def execute(cls, llm: Any, query: str, identify_purpose_dict: Optional[dict]) -> 'SWOTAnalysis':
         """
         Invoke LLM to a full SWOT analysis of the provided query.
 
         Allow identify_purpose_dict to be None, and we will use IdentifyPurpose to get it
         """
-        if not isinstance(llm, LLM):
-            raise ValueError("Invalid llm instance.")
+        if not hasattr(llm, "as_structured_llm"):
+            raise ValueError("Invalid llm instance: missing as_structured_llm().")
         if not isinstance(query, str):
             raise ValueError("Invalid query.")
         if identify_purpose_dict is not None and not isinstance(identify_purpose_dict, dict):
@@ -87,8 +91,8 @@ class SWOTAnalysis:
         logging.debug("swot_phase2_conduct_analysis json " + json.dumps(json_response_conduct, indent=2))
 
         duration = int(ceil(end_time - start_time))
-        metadata = dict(llm.metadata)
-        metadata["llm_classname"] = llm.class_name()
+        metadata = dict(getattr(llm, "metadata", {}))
+        metadata["llm_classname"] = getattr(llm, "class_name", lambda: llm.__class__.__name__)()
         metadata["duration"] = duration
         metadata["query"] = query
 

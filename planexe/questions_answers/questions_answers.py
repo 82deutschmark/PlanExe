@@ -9,10 +9,12 @@ import time
 import logging
 from math import ceil
 from dataclasses import dataclass
+from typing import Any
+
 from pydantic import BaseModel, Field
-from llama_index.core.llms import ChatMessage, MessageRole
-from llama_index.core.llms.llm import LLM
+
 from planexe.plan.pipeline_environment import PipelineEnvironment
+from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 
 logger = logging.getLogger(__name__)
 
@@ -89,12 +91,12 @@ class QuestionsAnswers:
     html: str
 
     @classmethod
-    def execute(cls, llm: LLM, user_prompt: str) -> 'QuestionsAnswers':
+    def execute(cls, llm: Any, user_prompt: str) -> 'QuestionsAnswers':
         """
         Invoke LLM with the project description.
         """
-        if not isinstance(llm, LLM):
-            raise ValueError("Invalid LLM instance.")
+        if not hasattr(llm, "as_structured_llm"):
+            raise ValueError("Invalid LLM instance: missing as_structured_llm().")
         if not isinstance(user_prompt, str):
             raise ValueError("Invalid user_prompt.")
 
@@ -107,14 +109,8 @@ class QuestionsAnswers:
         reasoning_effort = env.get_reasoning_effort()
 
         chat_message_list1 = [
-            ChatMessage(
-                role=MessageRole.SYSTEM,
-                content=system_prompt,
-            ),
-            ChatMessage(
-                role=MessageRole.USER,
-                content=user_prompt,
-            )
+            SimpleChatMessage(role=SimpleMessageRole.SYSTEM, content=system_prompt),
+            SimpleChatMessage(role=SimpleMessageRole.USER, content=user_prompt),
         ]
 
         sllm = llm.as_structured_llm(DocumentDetails)
@@ -133,14 +129,8 @@ class QuestionsAnswers:
         logger.info(f"LLM chat interaction 1 completed in {duration1} seconds. Response byte count: {response_byte_count1}")
 
         # Do a follow up question, for obtaining more Q&A pairs
-        chat_message_assistant2 = ChatMessage(
-            role=MessageRole.ASSISTANT,
-            content=chat_response1.message.content,
-        )
-        chat_message_user2 = ChatMessage(
-            role=MessageRole.USER,
-            content=SECOND_USER_PROMPT.strip()
-        )
+        chat_message_assistant2 = SimpleChatMessage(role=SimpleMessageRole.ASSISTANT, content=chat_response1.message.content)
+        chat_message_user2 = SimpleChatMessage(role=SimpleMessageRole.USER, content=SECOND_USER_PROMPT.strip())
         chat_message_list2 = chat_message_list1.copy()
         chat_message_list2.append(chat_message_assistant2)
         chat_message_list2.append(chat_message_user2)
@@ -172,8 +162,8 @@ class QuestionsAnswers:
         response_byte_count2 = len(chat_response2.message.content.encode('utf-8'))
         logger.info(f"LLM chat interaction 2 completed in {duration2} seconds. Response byte count: {response_byte_count2}")
 
-        metadata = dict(llm.metadata)
-        metadata["llm_classname"] = llm.class_name()
+        metadata = dict(getattr(llm, "metadata", {}))
+        metadata["llm_classname"] = getattr(llm, "class_name", lambda: llm.__class__.__name__)()
         metadata["duration1"] = duration1
         metadata["duration2"] = duration2
         metadata["response_byte_count1"] = response_byte_count1

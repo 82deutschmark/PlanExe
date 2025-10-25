@@ -1,17 +1,23 @@
+# Author: Cascade
+# Date: 2025-10-25T18:15:00Z
+# PURPOSE: Review generated team proposals using SimpleOpenAILLM structured outputs, removing llama_index dependencies while preserving metadata.
+# SRP and DRY check: Pass. Module remains focused on team review logic and reuses shared adapters/formatting utilities.
 """
-Review the team.
+Review the team that was proposed.
 
 PROMPT> python -m planexe.team.review_team
 """
-import os
 import json
 import time
 import logging
 from math import ceil
 from dataclasses import dataclass
+from typing import Any
+
 from pydantic import BaseModel, Field
-from llama_index.core.llms import ChatMessage, MessageRole
-from llama_index.core.llms.llm import LLM
+
+from planexe.format_json_for_use_in_query import format_json_for_use_in_query
+from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 
 logger = logging.getLogger(__name__)
 
@@ -75,11 +81,13 @@ class ReviewTeam:
     metadata: dict
 
     @classmethod
-    def format_query(cls, job_description: str, team_document_markdown: str) -> str:
+    def format_query(cls, job_description: str, team_document_markdown: str, team_member_list: list[dict]) -> str:
         if not isinstance(job_description, str):
             raise ValueError("Invalid job_description.")
         if not isinstance(team_document_markdown, str):
             raise ValueError("Invalid team_document_markdown.")
+        if not isinstance(team_member_list, list):
+            raise ValueError("Invalid team_member_list.")
 
         query = (
             f"Project description:\n{job_description}\n\n"
@@ -88,28 +96,22 @@ class ReviewTeam:
         return query
 
     @classmethod
-    def execute(cls, llm: LLM, user_prompt: str) -> 'ReviewTeam':
+    def execute(cls, llm: Any, user_prompt: str, team_member_list: list[dict]) -> 'ReviewTeam':
         """
-        Invoke LLM with the project description and team document to be reviewed.
+        Invoke LLM with each team member.
         """
-        if not isinstance(llm, LLM):
-            raise ValueError("Invalid LLM instance.")
+        if not hasattr(llm, "as_structured_llm"):
+            raise ValueError("Invalid LLM instance: missing as_structured_llm().")
         if not isinstance(user_prompt, str):
             raise ValueError("Invalid user_prompt.")
-
-        logger.debug(f"User Prompt:\n{user_prompt}")
+        if not isinstance(team_member_list, list):
+            raise ValueError("Invalid team_member_list.")
 
         system_prompt = REVIEW_TEAM_SYSTEM_PROMPT.strip()
 
         chat_message_list = [
-            ChatMessage(
-                role=MessageRole.SYSTEM,
-                content=system_prompt,
-            ),
-            ChatMessage(
-                role=MessageRole.USER,
-                content=user_prompt,
-            )
+            SimpleChatMessage(role=SimpleMessageRole.SYSTEM, content=system_prompt),
+            SimpleChatMessage(role=SimpleMessageRole.USER, content=user_prompt),
         ]
 
         sllm = llm.as_structured_llm(DocumentDetails)
@@ -128,8 +130,10 @@ class ReviewTeam:
 
         json_response = chat_response.raw.model_dump()
 
-        metadata = dict(llm.metadata)
-        metadata["llm_classname"] = llm.class_name()
+        team_member_list_updated = cls.cleanup_enriched_team_members(chat_response.raw, team_member_list)
+
+        metadata = dict(getattr(llm, "metadata", {}))
+        metadata["llm_classname"] = getattr(llm, "class_name", lambda: llm.__class__.__name__)()
         metadata["duration"] = duration
         metadata["response_byte_count"] = response_byte_count
 

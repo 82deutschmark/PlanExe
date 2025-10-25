@@ -7,9 +7,10 @@
   - Added lightweight `SimpleMessageRole`/`SimpleChatMessage` helpers to `SimpleOpenAILLM` so tasks can build chat payloads without `llama_index` types.
   - Refactored WBS Level 1 & 2, IdentifyDocuments, FilterDocumentsToFind, and ConvertPitchToMarkdown to request LLMs via `planexe.llm_factory.get_llm()` and operate purely on the centralized adapter metadata.
   - Updated corresponding CLI entry points to respect `PLANEXE_CLI_MODEL` / priority order instead of hard-coded Ollama/OpenRouter models.
+  - Migrated DataCollection, ExecutiveSummary, ExpertCost, EstimateWBSTaskDurations, team enrichment/review tasks, SWOT analysis, and QuestionsAnswers to the `SimpleOpenAILLM` adapter with shared metadata + message helpers.
 - **Remaining work before release**:
-  - Migrate downstream reviewers (ReviewPlan, ProjectPlan, RelatedResources) and team/SWOT tasks off `llama_index` abstractions.
-  - Update `LLMExecutor` and Luigi bootstrap (`run_plan_pipeline.py`) to drop the `LLM` type dependency and enforce the SimpleOpenAILLM contract end-to-end.
+  - Update Luigi bootstrap (`run_plan_pipeline.py`) and legacy CLI/POC scripts to drop `llama_index` imports and rely on adapter metadata.
+  - Sweep repository for any remaining `llama_index` references (proof-of-concepts, backups, utilities) and replace or archive as appropriate.
   - Run pipeline smoke tests and document rollout steps before tagging the release.
 
 ## [0.8.3] - 2025-10-25
