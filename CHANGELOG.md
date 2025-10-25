@@ -1,3 +1,10 @@
+## [0.7.4] - 2025-10-24
+
+### FIX: Keep pipeline progressing when LLM calls fail
+- ConvertPitchToMarkdownTask now persists results using the existing `markdown` attribute so the task never throws `AttributeError`, ensuring downstream tasks continue @planexe/plan/run_plan_pipeline.py#4555-4564.
+- EstimateTaskDurationsTask records per-chunk LLM failures, injects heuristic estimates, and writes fallback payloads without aborting aggregation @planexe/plan/run_plan_pipeline.py#4684-4743.
+- IdentifyDocumentsTask wraps structured calls in a fallback generator that fabricates baseline create/find lists and writes them to storage when parsing fails @planexe/plan/run_plan_pipeline.py#3852-3980.
+
 ## [0.7.3] - 2025-10-24
 
 ### FIX: Logging consistency, deterministic outputs, and frontend race guard
