@@ -37,7 +37,7 @@ class CreatePlanRequest(BaseModel):
     llm_model: Optional[str] = Field(None, description="LLM model ID to use")
     speed_vs_detail: SpeedVsDetail = Field(SpeedVsDetail.ALL_DETAILS_BUT_SLOW, description="Speed vs detail preference")
     reasoning_effort: Optional[str] = Field(
-        "medium",
+        "minimal",
         description="Reasoning effort level forwarded to the pipeline (minimal, medium, high)",
     )
     enriched_intake: Optional[Dict[str, Any]] = Field(
@@ -50,8 +50,8 @@ class CreatePlanRequest(BaseModel):
     def validate_reasoning_effort(cls, value: Optional[str]) -> str:
         """Validate reasoning effort values while defaulting to medium."""
         if value is None:
-            return "medium"
-        valid_values = ["minimal", "medium", "high"]
+            return "minimal"
+        valid_values = ["minimal", "low", "medium", "high"]
         if value not in valid_values:
             raise ValueError(f"reasoning_effort must be one of {valid_values}, got '{value}'")
         return value
