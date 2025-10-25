@@ -63,4 +63,4 @@ class PipelineEnvironment:
             cfg_effort = None
         if cfg_effort:
             return str(cfg_effort)
-        return os.getenv("REASONING_EFFORT", "medium")
+        return os.getenv("REASONING_EFFORT", "low")

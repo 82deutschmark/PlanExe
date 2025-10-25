@@ -43,7 +43,7 @@ class ResponsesStreamingControls:
     max_output_tokens: Optional[int] = None
     min_output_tokens: int = 512
     max_output_tokens_ceiling: int = 120000
-    reasoning_effort: str = "medium"
+    reasoning_effort: str = "minimal"
     reasoning_summary: str = "detailed"
     text_verbosity: str = "high"
 
@@ -52,7 +52,7 @@ class ResponsesStreamingControls:
 class ResponsesConversationControls:
     """Configuration defaults for Conversations API requests."""
 
-    reasoning_effort: str = "medium"
+    reasoning_effort: str = "minimal"
     reasoning_summary: str = "detailed"
     text_verbosity: str = "high"
 
