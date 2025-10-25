@@ -1,7 +1,7 @@
-# Author: GPT-5 Codex (Codex CLI)
-# Date: 2025-10-23T01:07:00Z
-# PURPOSE: Enforce Responses API compatibility and streaming behaviour for all OpenAI-backed LLM calls, including SDK version validation, structured output handling, and message normalization to align with updated content type requirements.
-# SRP and DRY check: Pass - Single class encapsulates OpenAI Responses interactions reused throughout the pipeline, and the normalization helpers remain unique within the project.
+# Author: Cascade
+# Date: 2025-10-24T23:05:00Z
+# PURPOSE: Responses API client and structured output adapter used by Luigi tasks; handles message normalization, schema enforcement, streaming fallbacks, and non-streaming structured completions for reliability across the pipeline.
+# SRP and DRY check: Pass. This module centralizes OpenAI Responses logic, preventing duplication in individual tasks; no equivalent functionality elsewhere.
 """OpenAI Responses API client with reasoning-aware streaming hooks for PlanExe."""
 
 from __future__ import annotations
@@ -875,7 +875,6 @@ class SimpleOpenAILLM(LLM):
         except Exception:
             pass
 
-
 class StructuredLLMResponse:
     """LlamaIndex compatible wrapper for structured responses."""
 
@@ -939,43 +938,25 @@ class StructuredSimpleOpenAILLM:
     def chat(self, messages: Sequence[Any], **kwargs: Any) -> StructuredLLMResponse:
         formatted_messages = self._format_messages(messages)
         schema_entry = get_schema_entry(self.output_cls)
-        text_chunks: List[str] = []
 
-        # Extract response chaining parameters from kwargs
         previous_response_id = kwargs.get("previous_response_id")
         reasoning_effort = kwargs.get("reasoning_effort", "medium")
 
-        for delta in self.base_llm.stream_chat(
+        result = self.base_llm._invoke_responses(
             formatted_messages,
             schema_entry=schema_entry,
             previous_response_id=previous_response_id,
             reasoning_effort=reasoning_effort,
-            **{k: v for k, v in kwargs.items() if k not in ["previous_response_id", "reasoning_effort"]}
-        ):
-            if delta:
-                text_chunks.append(delta)
+        )
 
-        last_payload = self.base_llm._last_response_payload or {}
-        last_extracted = getattr(self.base_llm, "_last_extracted_output", None)
-
-        if last_extracted is None and last_payload:
-            extracted = self.base_llm._extract_output(last_payload)
-            extracted["raw"] = last_payload
-            last_extracted = extracted
-
-        aggregated_text = "".join(text_chunks)
-        if not aggregated_text and last_extracted:
-            aggregated_text = last_extracted.get("text", "")
-
-        parsed_candidates = []
-        if last_extracted:
-            parsed_candidates = last_extracted.get("parsed_candidates", []) or []
+        aggregated_text = result.get("text") or ""
+        parsed_candidates = result.get("parsed_candidates") or []
 
         parsed_model = self._parse_candidates(parsed_candidates, aggregated_text)
         raw_text = aggregated_text or json.dumps(parsed_model.model_dump())
 
-        reasoning = last_extracted.get("reasoning") if last_extracted else None
-        usage = last_extracted.get("usage") if last_extracted else None
+        reasoning = result.get("reasoning")
+        usage = result.get("usage")
 
         return StructuredLLMResponse(
             parsed_model,

@@ -46,10 +46,10 @@ Each failure is linked to our new OpenAI Responses API adapter (`planexe/llm_uti
 
 ## Cross-Cutting Issues
 
-1. **Responses Structured Streaming** (`SimpleOpenAILLM.stream_chat` + `StructuredSimpleOpenAILLM`)
-   - Streaming adapter prioritizes text deltas; when only parsed JSON exists, aggregated text is blank and parser falls back to `parsed_candidates`. That path fails if `parsed_candidates` empty or schema enforcement too strict.
-   - `_enforce_openai_schema_requirements` forces `additionalProperties=False` and marks every property required. Optional fields without defaults become required; extra keys from model lead to rejection.
-   - No instrumentation captures raw payload on failure, leaving us blind in production.
+1. **Structured Responses vs Streaming** (`SimpleOpenAILLM.stream_chat` + `StructuredSimpleOpenAILLM`)
+   - For structured outputs, Responses API already returns a JSON block in `output_parsed`. Our streaming adapter waited for textual deltas and occasionally observed an empty `aggregated_text`, triggering downstream validation errors.
+   - Streaming adds complexity (partial chunks, reasoning events) without tangible benefits for these tasks. Non-streaming structured calls are supported directly by the API and remove this failure mode.
+   - `_enforce_openai_schema_requirements` still forces strict schemas; optional fields should provide defaults to avoid rejections.
 
 2. **Error Handling**
    - Tasks wrap structured calls but don’t catch `ValueError`/`ValidationError` before Luigi surfaces failure. Minimal fallback coverage (only durations task has heuristics).
@@ -65,12 +65,11 @@ Each failure is linked to our new OpenAI Responses API adapter (`planexe/llm_uti
    - Capture `chat_response.text`, `chat_response.raw`, and Response IDs in DB before raising. Add temporary logging around structured parsing points for the three tasks.
    - Update failure handling to persist raw payload to `plan_content` or a diagnostic table when validation fails.
 
-2. **Adjust Structured Adapter**
-   - Consider disabling strict `additionalProperties=False` for complex schemas or defining `extra="allow"` in Pydantic models.
-   - For structured tasks, experiment with `stream=False` to receive a single JSON payload, reducing risk of partial text aggregation issues.
-   - Ensure `_parse_candidates` handles whitespace-only text and gracefully surfaces the original payload in error messages.
+2. **Adapter Change (Implemented 2025-10-24)**
+   - `StructuredSimpleOpenAILLM.chat` now bypasses streaming and calls `_invoke_responses` directly. This leverages the Responses API's native structured JSON return path, eliminating dependence on partial text chunks.
+   - The adapter still surfaces reasoning and usage metadata from the final payload.
 
-3. **Task-Level Safeguards**
+3. **Task-Level Safeguards (Follow-Up)**
    - `ConvertPitchToMarkdownTask`: add guard for empty markdown, fallback to storing raw content with warning.
    - `EstimateTaskDurationsTask`: catch `ValueError` inside chunk loop to trigger built-in heuristic fallback, log failure details.
    - `FilterDocumentsToFindTask`: soften strict length check (warn and proceed) or pre-validate that Response IDs map to known UUIDs.
@@ -83,7 +82,7 @@ Each failure is linked to our new OpenAI Responses API adapter (`planexe/llm_uti
 
 - What exact payloads did the Responses API return? Need instrumentation before next run.
 - Are there other tasks using structured streaming that can fail the same way? (Likely yes: governance, team enrichment, etc.)
-- Should we standardize on non-streaming mode for structured calls until we validate streaming path?
+- Should we standardize on non-streaming mode for structured structured outputs? Implemented for structured adapter; monitor for regressions before rolling back.
 
 ## File References
 

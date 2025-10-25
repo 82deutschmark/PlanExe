@@ -7,6 +7,9 @@
 - Highlight the active stage inside the stage timeline and reorder the recovery layout so live reasoning/replies appear above logs, reports, and artefacts.
 - Documented the completed plan in `docs/2025-10-23-recovery-page-streaming-reasoning-plan.md` with follow-up notes.
 
+- **Structured Responses Adapter Hardening**: Simplified `StructuredSimpleOpenAILLM` by switching to the Responses API's native non-streaming structured call path. Eliminates partial-text parsing bugs, keeps reasoning/usage metadata, and stabilizes tasks that require strict JSON schemas (ConvertPitchToMarkdownTask, EstimateTaskDurationsTask, FilterDocumentsToFindTask).
+- **Pipeline Task Safeguards**: Added defensive fallbacks to `ConvertPitchToMarkdownTask`, `EstimateTaskDurationsTask`, and `FilterDocumentsToFindTask` so empty markdown, schema parsing failures, or missing document IDs no longer abort the run.
+
 ## [0.7.5] - 2025-10-24
 
 ### REFACTOR: Consolidate Reasoning Effort Configuration - Single Source of Truth

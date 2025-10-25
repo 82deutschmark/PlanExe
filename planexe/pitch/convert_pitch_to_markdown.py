@@ -1,3 +1,7 @@
+# Author: Cascade
+# Date: 2025-10-24T23:20:00Z
+# PURPOSE: Convert LLM-generated pitch JSON into markdown, applying formatting guards and fallbacks for missing delimiters or empty output.
+# SRP and DRY check: Pass. This module encapsulates pitch-to-markdown conversion logic unique to the pipeline; no duplicate functionality elsewhere.
 """
 Convert the raw json pitch to a markdown document.
 
@@ -106,6 +110,15 @@ class ConvertPitchToMarkdown:
         else:
             markdown_content = response_content  # Use the entire content if delimiters are missing
             logger.warning("Output delimiters not found in LLM response.")
+
+        if not markdown_content.strip():
+            logger.error("LLM returned empty markdown content; using fallback summary.")
+            fallback_body = user_prompt.strip()
+            markdown_content = (
+                "# Pitch Summary\n\n"
+                "The language model returned no formatted markdown. Displaying the raw pitch content instead:\n\n"
+                f"```text\n{fallback_body}\n```"
+            )
 
         # The bullet lists are supposed to be preceded by 2 newlines. 
         # However often there is just 1 newline. 

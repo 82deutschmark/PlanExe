@@ -4674,45 +4674,32 @@ class EstimateTaskDurationsTask(PlanTask):
             for index, task_ids_chunk in enumerate(task_ids_chunks, start=1):
                 query = EstimateWBSTaskDurations.format_query(project_plan_dict, major_phases_with_subtasks, task_ids_chunk)
                 interaction_id = db_service.create_llm_interaction({"plan_id": plan_id, "llm_model": str(self.llm_models[0]) if self.llm_models else "unknown", "stage": f"estimate_durations_{index}", "prompt_text": query[:10000], "status": "pending"}).id
+
                 def execute_estimate_task_durations(llm: LLM) -> EstimateWBSTaskDurations:
                     return EstimateWBSTaskDurations.execute(llm, query)
-                start_time = time.time()
-                try:
-                    estimate_durations = llm_executor.run(execute_estimate_task_durations)
-                    duration_seconds = time.time() - start_time
-                    durations_raw_dict = estimate_durations.raw_response_dict()
-                    db_service.update_llm_interaction(interaction_id, {"status": "completed", "response_text": json.dumps(durations_raw_dict), "completed_at": datetime.utcnow(), "duration_seconds": duration_seconds})
-                    raw_content = json.dumps(durations_raw_dict, indent=2)
-                    filename = FilenameEnum.TASK_DURATIONS_RAW_TEMPLATE.format(index)
-                    db_service.create_plan_content({"plan_id": plan_id, "filename": filename, "stage": f"estimate_durations_{index}", "content_type": "json", "content": raw_content, "content_size_bytes": len(raw_content.encode('utf-8'))})
-                    with open(self.run_id_dir / filename, "w") as f:
-                        json.dump(durations_raw_dict, f, indent=2)
-                    accumulated_task_duration_list.extend(durations_raw_dict.get('task_details', []))
-                except PipelineStopRequested:
-                    raise
-                except Exception as e:
+
+                def apply_fallback(failure_reason: Exception) -> None:
                     logger.warning(
-                        "Task durations chunk %s failed, falling back to heuristic durations: %s",
+                        "Task durations chunk %s falling back to heuristic durations: %s",
                         index,
-                        e,
+                        failure_reason,
                     )
-                    fallback_task_details = []
-                    for task_id in task_ids_chunk:
-                        fallback_task_details.append(
-                            {
-                                "task_id": task_id,
-                                "delay_risks": "Detailed risk analysis unavailable (fallback mode).",
-                                "mitigation_strategy": "Assign project manager to review manually and adjust schedule as needed.",
-                                "days_min": 3,
-                                "days_max": 10,
-                                "days_realistic": 5,
-                            }
-                        )
+                    fallback_task_details = [
+                        {
+                            "task_id": task_id,
+                            "delay_risks": "Detailed risk analysis unavailable (fallback mode).",
+                            "mitigation_strategy": "Assign project manager to review manually and adjust schedule as needed.",
+                            "days_min": 3,
+                            "days_max": 10,
+                            "days_realistic": 5,
+                        }
+                        for task_id in task_ids_chunk
+                    ]
 
                     fallback_payload = {
                         "task_details": fallback_task_details,
                         "fallback": True,
-                        "fallback_reason": str(e),
+                        "fallback_reason": str(failure_reason),
                     }
 
                     db_service.update_llm_interaction(
@@ -4722,7 +4709,7 @@ class EstimateTaskDurationsTask(PlanTask):
                             "response_text": json.dumps(fallback_payload),
                             "completed_at": datetime.utcnow(),
                             "duration_seconds": 0,
-                            "error_message": f"LLM failure; used heuristic fallback: {e}",
+                            "error_message": f"LLM failure; used heuristic fallback: {failure_reason}",
                         },
                     )
 
@@ -4741,9 +4728,32 @@ class EstimateTaskDurationsTask(PlanTask):
                     with open(self.run_id_dir / filename, "w") as f:
                         json.dump(fallback_payload, f, indent=2)
                     accumulated_task_duration_list.extend(fallback_task_details)
+
+                start_time = time.time()
+                try:
+                    estimate_durations = llm_executor.run(execute_estimate_task_durations)
+                    duration_seconds = time.time() - start_time
+                    try:
+                        durations_raw_dict = estimate_durations.raw_response_dict()
+                    except Exception as parse_error:  # pragma: no cover - defensive guard
+                        apply_fallback(parse_error)
+                        continue
+
+                    db_service.update_llm_interaction(interaction_id, {"status": "completed", "response_text": json.dumps(durations_raw_dict), "completed_at": datetime.utcnow(), "duration_seconds": duration_seconds})
+                    raw_content = json.dumps(durations_raw_dict, indent=2)
+                    filename = FilenameEnum.TASK_DURATIONS_RAW_TEMPLATE.format(index)
+                    db_service.create_plan_content({"plan_id": plan_id, "filename": filename, "stage": f"estimate_durations_{index}", "content_type": "json", "content": raw_content, "content_size_bytes": len(raw_content.encode('utf-8'))})
+                    with open(self.run_id_dir / filename, "w") as f:
+                        json.dump(durations_raw_dict, f, indent=2)
+                    accumulated_task_duration_list.extend(durations_raw_dict.get('task_details', []))
+                except PipelineStopRequested:
+                    raise
+                except Exception as e:  # pragma: no cover - fallback path
+                    apply_fallback(e)
             aggregated_content = json.dumps(accumulated_task_duration_list, indent=2)
+            aggregated_path = self.file_path(FilenameEnum.TASK_DURATIONS)
             db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.TASK_DURATIONS.value, "stage": "estimate_durations_aggregated", "content_type": "json", "content": aggregated_content, "content_size_bytes": len(aggregated_content.encode('utf-8'))})
-            with open(self.file_path(FilenameEnum.TASK_DURATIONS), "w") as f:
+            with open(aggregated_path, "w") as f:
                 json.dump(accumulated_task_duration_list, f, indent=2)
         except Exception as e:
             raise
