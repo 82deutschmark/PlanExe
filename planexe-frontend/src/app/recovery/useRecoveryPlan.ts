@@ -20,6 +20,7 @@ import {
 } from '@/lib/api/fastapi-client';
 import { Activity, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { PlanFile } from '@/lib/types/pipeline';
+import { parseBackendDate, toIsoStringOrFallback } from '@/lib/utils/date';
 
 export interface StatusDisplay {
   label: string;
@@ -358,12 +359,13 @@ const mapArtefacts = (response: PlanArtefactListResponse): PlanFile[] => {
   const entries = (response.artefacts ?? []).filter((entry) => entry && entry.filename);
   const mapped = entries.map<PlanFile>((entry) => {
     const normalizedStage = normaliseStageKey(entry.stage);
+    const createdAt = toIsoStringOrFallback(entry.created_at);
     return {
       filename: entry.filename,
       stage: normalizedStage,
       contentType: entry.content_type ?? 'unknown',
       sizeBytes: entry.size_bytes ?? 0,
-      createdAt: entry.created_at ?? new Date().toISOString(),
+      createdAt: createdAt ?? new Date().toISOString(),
       description: entry.description ?? entry.filename,
       taskName: entry.task_name ?? normalizedStage ?? entry.filename,
       order: entry.order ?? Number.MAX_SAFE_INTEGER,
@@ -469,9 +471,19 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
     try {
       const response: PlanArtefactListResponse = await fastApiClient.getPlanArtefacts(planId);
       const artefacts = mapArtefacts(response);
+      const latestArtefactAt = artefacts.reduce<Date | null>((latest, file) => {
+        const created = parseBackendDate(file.createdAt);
+        if (!created) {
+          return latest;
+        }
+        if (!latest || created > latest) {
+          return created;
+        }
+        return latest;
+      }, null);
       dispatch({
         type: 'artefacts:success',
-        payload: { artefacts, timestamp: new Date() },
+        payload: { artefacts, timestamp: latestArtefactAt ?? new Date() },
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to load artefacts.';
@@ -689,7 +701,7 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
         return;
       }
       const message = payload;
-      const timestamp = message.timestamp ? new Date(message.timestamp) : new Date();
+      const timestamp = message.timestamp ? parseBackendDate(message.timestamp) ?? new Date() : new Date();
       switch (message.type) {
         case 'status':
           setConnection((prev) => ({
