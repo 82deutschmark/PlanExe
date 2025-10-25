@@ -1,6 +1,6 @@
 # Author: Cascade
-# Date: 2025-10-24T23:20:00Z
-# PURPOSE: Structured schema and execution helpers for estimating WBS task durations via LLM responses, with safeguards around structured parsing.
+# Date: 2025-10-25T18:05:00Z
+# PURPOSE: Structured schema and execution helpers for estimating WBS task durations via SimpleOpenAILLM responses, removing llama_index dependencies.
 # SRP and DRY check: Pass. This module encapsulates duration estimation logic used by EstimateTaskDurationsTask; functionality not duplicated elsewhere.
 """
 https://en.wikipedia.org/wiki/Work_breakdown_structure
@@ -11,9 +11,12 @@ import json
 import time
 from math import ceil
 from dataclasses import dataclass
+from typing import Any
+
 from pydantic import BaseModel, Field
-from llama_index.core.llms.llm import LLM
+
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
+from planexe.llm_factory import get_llm
 
 class TaskTimeEstimateDetail(BaseModel):
     """
@@ -101,15 +104,15 @@ Only estimate these {len(task_ids)} tasks:
         return query
     
     @classmethod
-    def execute(cls, llm: LLM, query: str) -> 'EstimateWBSTaskDurations':
+    def execute(cls, llm: Any, query: str) -> 'EstimateWBSTaskDurations':
         """
         Invoke LLM to estimate task durations from a json representation of a project plan and Work Breakdown Structure (WBS).
 
         Executing with too many task_ids may result in a timeout, where the LLM cannot complete the task within a reasonable time.
         Split the task_ids into smaller chunks of around 3 task_ids each, and process them one at a time.
         """
-        if not isinstance(llm, LLM):
-            raise ValueError("Invalid LLM instance.")
+        if not hasattr(llm, "as_structured_llm"):
+            raise ValueError("Invalid LLM instance: missing as_structured_llm().")
         if not isinstance(query, str):
             raise ValueError("Invalid query.")
 
@@ -122,8 +125,8 @@ Only estimate these {len(task_ids)} tasks:
         end_time = time.perf_counter()
         duration = int(ceil(end_time - start_time))
 
-        metadata = dict(llm.metadata)
-        metadata["llm_classname"] = llm.class_name()
+        metadata = dict(getattr(llm, "metadata", {}))
+        metadata["llm_classname"] = getattr(llm, "class_name", lambda: llm.__class__.__name__)()
         metadata["duration"] = duration
 
         result = EstimateWBSTaskDurations(
@@ -142,8 +145,6 @@ Only estimate these {len(task_ids)} tasks:
         return d
 
 if __name__ == "__main__":
-    from llama_index.llms.ollama import Ollama
-
     # TODO: Eliminate hardcoded paths
     basepath = '/Users/neoneye/Desktop/planexe_data'
 
@@ -151,8 +152,7 @@ if __name__ == "__main__":
         path = os.path.join(basepath, relative_path)
         print(f"loading file: {path}")
         with open(path, 'r', encoding='utf-8') as f:
-            the_json = json.load(f)
-        return the_json
+            return json.load(f)
 
     plan_json = load_json('002-project_plan.json')
     wbs_level2_json = load_json(FilenameEnum.WBS_LEVEL2.value)
@@ -165,10 +165,7 @@ if __name__ == "__main__":
 
     query = EstimateWBSTaskDurations.format_query(plan_json, wbs_level2_json, task_ids)
 
-    model_name = "llama3.1:latest"
-    # model_name = "qwen2.5-coder:latest"
-    # model_name = "phi4:latest"
-    llm = Ollama(model=model_name, request_timeout=120.0, temperature=0.5, is_function_calling_model=False)
+    llm = get_llm()
 
     print(f"Query: {query}")
     result = EstimateWBSTaskDurations.execute(llm, query)
