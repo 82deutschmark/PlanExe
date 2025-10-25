@@ -437,6 +437,10 @@ class SimpleOpenAILLM(LLM):
         json_text = getattr(response, "json", None)
         if callable(json_text):
             return json.loads(json_text())
+        try:
+            return json.loads(response)
+        except Exception:
+            pass
         raise TypeError(f"Unsupported response payload type: {type(response)!r}")
 
     @staticmethod
@@ -444,6 +448,7 @@ class SimpleOpenAILLM(LLM):
         texts: List[str] = []
         if value is None:
             return texts
+
         if isinstance(value, str):
             if value:
                 texts.append(value)
@@ -472,6 +477,30 @@ class SimpleOpenAILLM(LLM):
             return [text for text in texts if text]
         return texts
 
+    @staticmethod
+    def _collect_parsed_values(value: Any) -> List[Any]:
+        parsed: List[Any] = []
+
+        def _walk(node: Any) -> None:
+            if isinstance(node, dict):
+                for key, val in node.items():
+                    lower_key = str(key).lower()
+                    if "parsed" in lower_key and val is not None:
+                        if isinstance(val, list):
+                            for item in val:
+                                if item is not None:
+                                    parsed.append(item)
+                        else:
+                            parsed.append(val)
+                    else:
+                        _walk(val)
+            elif isinstance(node, list):
+                for item in node:
+                    _walk(item)
+
+        _walk(value)
+        return parsed
+
     @classmethod
     def _extract_reasoning_chunks(cls, block: Dict[str, Any]) -> List[str]:
         chunks: List[str] = []
@@ -489,103 +518,6 @@ class SimpleOpenAILLM(LLM):
             chunks.extend(cls._collect_text_values(text))
         return [chunk for chunk in chunks if chunk]
 
-    @staticmethod
-    def _normalize_usage(usage: Any) -> Dict[str, Any]:
-        if not isinstance(usage, dict):
-            return {}
-
-        normalized: Dict[str, Any] = dict(usage)
-        details = normalized.get("output_tokens_details")
-        if isinstance(details, dict):
-            for key, value in details.items():
-                if key not in normalized and value is not None:
-                    normalized[key] = value
-            reasoning_tokens = details.get("reasoning_tokens")
-            if reasoning_tokens is not None:
-                normalized.setdefault("reasoning_tokens", reasoning_tokens)
-
-        input_tokens = normalized.get("input_tokens")
-        output_tokens = normalized.get("output_tokens")
-        if (
-            normalized.get("total_tokens") is None
-            and isinstance(input_tokens, (int, float))
-            and isinstance(output_tokens, (int, float))
-        ):
-            normalized["total_tokens"] = input_tokens + output_tokens
-
-        return normalized
-
-    @classmethod
-    def _extract_output(cls, payload: Dict[str, Any]) -> Dict[str, Any]:
-        text_parts: List[str] = []
-        parsed_candidates: List[Any] = []
-        reasoning_parts: List[str] = []
-
-        output = payload.get("output", [])
-        if isinstance(output, dict):
-            output = [output]
-        if isinstance(output, list):
-            for block in output:
-                if not isinstance(block, dict):
-                    continue
-                block_type = str(block.get("type", "")).lower()
-                if block_type in {"message", "text"}:
-                    contents = block.get("content")
-                    if isinstance(contents, list):
-                        for part in contents:
-                            if isinstance(part, dict):
-                                part_type = str(part.get("type", "")).lower()
-                                if part_type in {"output_text", "text"}:
-                                    text_parts.extend(
-                                        cls._collect_text_values(part.get("text") or part.get("content"))
-                                    )
-                                elif part_type in {"output_parsed", "parsed"}:
-                                    parsed_value = part.get("parsed")
-                                    if parsed_value is not None:
-                                        parsed_candidates.append(parsed_value)
-                                elif "reasoning" in part_type:
-                                    reasoning_parts.extend(cls._collect_text_values(part))
-                                else:
-                                    text_parts.extend(cls._collect_text_values(part))
-                            elif isinstance(part, str):
-                                text_parts.append(part)
-                    else:
-                        text_parts.extend(cls._collect_text_values(contents))
-                elif block_type == "reasoning":
-                    reasoning_parts.extend(cls._extract_reasoning_chunks(block))
-                elif block_type in {"output_text", "assistant"}:
-                    text_parts.extend(cls._collect_text_values(block.get("text") or block.get("content")))
-                elif block_type in {"output_parsed", "parsed"}:
-                    parsed_value = block.get("parsed")
-                    if parsed_value is not None:
-                        parsed_candidates.append(parsed_value)
-                else:
-                    text_parts.extend(cls._collect_text_values(block.get("content") or block.get("text")))
-
-        if not text_parts:
-            fallback_text = payload.get("output_text")
-            if isinstance(fallback_text, list):
-                text_parts.extend(str(item) for item in fallback_text)
-            elif isinstance(fallback_text, str):
-                text_parts.append(fallback_text)
-
-        if not parsed_candidates:
-            parsed_value = payload.get("output_parsed")
-            if isinstance(parsed_value, list):
-                parsed_candidates.extend(parsed_value)
-            elif parsed_value is not None:
-                parsed_candidates.append(parsed_value)
-
-        reasoning_summary = payload.get("output_reasoning")
-        if isinstance(reasoning_summary, dict):
-            reasoning_parts.extend(cls._collect_text_values(reasoning_summary.get("summary")))
-            reasoning_parts.extend(cls._collect_text_values(reasoning_summary.get("items")))
-        elif isinstance(reasoning_summary, list):
-            reasoning_parts.extend(cls._collect_text_values(reasoning_summary))
-        elif isinstance(reasoning_summary, str):
-            reasoning_parts.append(reasoning_summary)
-
-        reasoning_text = "\n\n".join([chunk for chunk in reasoning_parts if chunk]).strip() or None
 
         usage = cls._normalize_usage(payload.get("usage"))
 

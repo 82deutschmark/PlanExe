@@ -10,7 +10,7 @@
 
 'use client';
 
-import React from 'react';
+import type { FC, ReactNode } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
@@ -21,12 +21,12 @@ interface LiveStreamPanelProps {
 }
 
 const STATUS_BADGE: Record<LLMStreamState['status'], string> = {
-  running: 'bg-blue-600/20 text-blue-300 border border-blue-500/40 animate-pulse',
-  completed: 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/40',
-  failed: 'bg-red-600/20 text-red-300 border border-red-500/40',
+  running: 'bg-blue-500/20 text-blue-100 border border-blue-400/70 animate-pulse',
+  completed: 'bg-emerald-500/20 text-emerald-100 border border-emerald-400/70',
+  failed: 'bg-rose-500/25 text-rose-100 border border-rose-400/70',
 };
 
-const formatUsageValue = (value: unknown): string => {
+const formatUsageScalar = (value: unknown): string => {
   if (value === null || value === undefined) {
     return '—';
   }
@@ -36,19 +36,54 @@ const formatUsageValue = (value: unknown): string => {
   if (typeof value === 'boolean') {
     return value ? 'true' : 'false';
   }
-  return String(value);
+  if (typeof value === 'string') {
+    return value;
+  }
+  return JSON.stringify(value);
 };
 
-export const LiveStreamPanel: React.FC<LiveStreamPanelProps> = ({ stream }) => {
+const renderUsageValue = (value: unknown): ReactNode => {
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return <span className="text-slate-400">(empty)</span>;
+    }
+    return (
+      <ul className="mt-1 space-y-0.5 list-disc pl-4 text-[11px] text-slate-200">
+        {value.map((item, index) => (
+          <li key={index}>{formatUsageScalar(item)}</li>
+        ))}
+      </ul>
+    );
+  }
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length === 0) {
+      return <span className="text-slate-400">(empty)</span>;
+    }
+    return (
+      <div className="mt-1 space-y-1">
+        {entries.map(([nestedKey, nestedValue]) => (
+          <div key={nestedKey} className="flex justify-between gap-3 text-[11px]">
+            <span className="text-slate-300">{nestedKey}</span>
+            <span className="text-slate-100">{formatUsageScalar(nestedValue)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return <span className="text-slate-100">{formatUsageScalar(value)}</span>;
+};
+
+export const LiveStreamPanel: FC<LiveStreamPanelProps> = ({ stream }) => {
   const assembledText = stream?.finalText ?? stream?.textBuffer ?? stream?.textDeltas.join('');
   const assembledReasoning =
     stream?.finalReasoning ?? stream?.reasoningBuffer ?? stream?.reasoningDeltas.join('\n');
 
   return (
-    <Card className="border-slate-800 bg-slate-950/60">
+    <Card className="border-slate-600 bg-slate-900/95 text-slate-50 shadow-inner">
       <CardHeader className="pb-3">
-        <CardTitle className="text-base text-slate-100">Live LLM Stream</CardTitle>
-        <p className="text-xs text-slate-400">
+        <CardTitle className="text-base text-slate-50">Live LLM Stream</CardTitle>
+        <p className="text-xs text-slate-300">
           Shows the current interaction&apos;s reply and reasoning trace in real time.
         </p>
       </CardHeader>
@@ -56,8 +91,8 @@ export const LiveStreamPanel: React.FC<LiveStreamPanelProps> = ({ stream }) => {
         {stream ? (
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <div className="flex items-center justify-between text-xs text-slate-400">
-                <span className="font-semibold text-slate-100">{stream.stage}</span>
+              <div className="flex items-center justify-between text-xs text-slate-200">
+                <span className="font-semibold text-slate-50">{stream.stage}</span>
                 <span
                   className={`px-2 py-0.5 rounded-full uppercase tracking-wide text-[10px] ${STATUS_BADGE[stream.status]}`}
                 >
@@ -65,31 +100,36 @@ export const LiveStreamPanel: React.FC<LiveStreamPanelProps> = ({ stream }) => {
                 </span>
               </div>
               {stream.promptPreview && (
-                <p className="mt-1 text-[11px] text-slate-500 truncate">Prompt: {stream.promptPreview}</p>
+                <p className="mt-1 text-[11px] text-slate-300 truncate">Prompt: {stream.promptPreview}</p>
               )}
               <div className="mt-3 space-y-1">
-                <p className="text-[11px] uppercase text-slate-500 tracking-wide">Model Output</p>
-                <div className="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-slate-200 whitespace-pre-wrap max-h-48 overflow-y-auto">
+                <p className="text-[11px] uppercase tracking-wide text-sky-200">Model Output</p>
+                <div className="bg-slate-950/80 border border-sky-800/70 rounded p-2 text-xs text-sky-100 whitespace-pre-wrap max-h-48 overflow-y-auto">
                   {assembledText || 'Awaiting tokens…'}
                 </div>
               </div>
             </div>
-            <div className="space-y-2 md:border-l md:border-slate-800 md:pl-4">
+            <div className="space-y-2 md:border-l md:border-slate-700 md:pl-4">
               <div>
-                <p className="text-[11px] uppercase text-slate-500 tracking-wide">Reasoning Trace</p>
-                <div className="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-slate-300 whitespace-pre-wrap max-h-48 overflow-y-auto">
+                <p className="text-[11px] uppercase tracking-wide text-rose-200">Reasoning Trace</p>
+                <div className="bg-slate-950/80 border border-rose-800/70 rounded p-2 text-xs text-rose-100 whitespace-pre-wrap max-h-48 overflow-y-auto">
                   {assembledReasoning || 'Waiting for reasoning…'}
                 </div>
               </div>
-              {stream.error && <p className="text-[11px] text-red-400">Error: {stream.error}</p>}
+              {stream.error && <p className="text-[11px] text-rose-300">Error: {stream.error}</p>}
               {stream.usage && (
-                <div className="space-y-1 text-[11px] text-slate-500">
-                  {Object.entries(stream.usage).map(([key, value]) => (
-                    <div key={key} className="flex justify-between gap-3">
-                      <span className="font-semibold text-slate-400">{key}</span>
-                      <span className="text-slate-300">{formatUsageValue(value)}</span>
-                    </div>
-                  ))}
+                <div className="mt-3 space-y-2 text-[11px] text-slate-200">
+                  {(Object.entries(stream.usage) as Array<[string, unknown]>).map(([key, value]) => {
+                    const usageContent = renderUsageValue(value);
+                    return (
+                      <div key={key} className="rounded border border-slate-700/70 bg-slate-900/70 p-2">
+                        <p className="text-[11px] font-semibold text-slate-50 uppercase tracking-wide">
+                          {key}
+                        </p>
+                        <div className="mt-1 text-slate-100">{usageContent}</div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
