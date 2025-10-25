@@ -15,13 +15,7 @@ import { Home } from 'lucide-react';
 
 import { PipelineDetails, PipelineLogsPanel } from '@/components/PipelineDetails';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { fastApiClient, CreatePlanRequest } from '@/lib/api/fastapi-client';
 
 import { RecoveryHeader } from './components/RecoveryHeader';
@@ -29,6 +23,8 @@ import { StageTimeline } from './components/StageTimeline';
 import { RecoveryReportPanel } from './components/ReportPanel';
 import { RecoveryArtefactPanel } from './components/ArtefactList';
 import { ArtefactPreview } from './components/ArtefactPreview';
+import { LiveStreamPanel } from './components/LiveStreamPanel';
+import { StreamHistoryPanel } from './components/StreamHistoryPanel';
 import { useRecoveryPlan } from './useRecoveryPlan';
 
 const MissingPlanMessage: React.FC = () => (
@@ -70,7 +66,17 @@ const RecoveryPageContent: React.FC = () => {
   const planId = useMemo(() => rawPlanId.replace(/\s+/g, '').trim(), [rawPlanId]);
 
   const recovery = useRecoveryPlan(planId);
-  const { plan, reports, artefacts, preview, stageSummary, connection, lastWriteAt } = recovery;
+  const {
+    plan,
+    reports,
+    artefacts,
+    preview,
+    stageSummary,
+    connection,
+    lastWriteAt,
+    llmStreams,
+    activeStageKey,
+  } = recovery;
   const { clear: clearPreview, select: selectPreview, file: previewFile } = preview;
 
   const handleRelaunch = useCallback(async () => {
@@ -135,10 +141,16 @@ const RecoveryPageContent: React.FC = () => {
               stages={stageSummary}
               isLoading={artefacts.loading && stageSummary.length === 0}
               connection={connection}
+              activeStageKey={activeStageKey}
             />
             <PipelineDetails planId={planId} className="h-fit" />
           </div>
           <div className="flex flex-col gap-4">
+            <LiveStreamPanel stream={llmStreams.active} />
+            <StreamHistoryPanel
+              streams={llmStreams.history}
+              activeStreamId={llmStreams.active?.interactionId ?? null}
+            />
             <PipelineLogsPanel planId={planId} className="h-fit" />
             <RecoveryReportPanel
               canonicalHtml={reports.canonicalHtml}

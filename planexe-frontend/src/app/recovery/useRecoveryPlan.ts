@@ -15,6 +15,7 @@ import {
   fastApiClient,
   PlanArtefactListResponse,
   PlanResponse,
+  WebSocketLLMStreamMessage,
   WebSocketMessage,
 } from '@/lib/api/fastapi-client';
 import { Activity, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react';
@@ -43,6 +44,32 @@ export interface RecoveryConnectionState {
   lastEventAt: Date | null;
   lastHeartbeatAt: Date | null;
   error?: string | null;
+}
+
+type StreamStatus = 'running' | 'completed' | 'failed';
+
+export interface LLMStreamState {
+  interactionId: number;
+  planId: string;
+  stage: string;
+  status: StreamStatus;
+  textDeltas: string[];
+  reasoningDeltas: string[];
+  textBuffer: string;
+  reasoningBuffer: string;
+  finalText?: string;
+  finalReasoning?: string;
+  usage?: Record<string, unknown>;
+  rawPayload?: Record<string, unknown> | null;
+  error?: string;
+  lastUpdated: number;
+  promptPreview?: string | null;
+  events: Array<{
+    sequence: number;
+    event: string;
+    timestamp: string;
+    payload: Record<string, unknown>;
+  }>;
 }
 
 interface RecoveryState {
@@ -138,6 +165,32 @@ const initialConnectionState: RecoveryConnectionState = {
   lastEventAt: null,
   lastHeartbeatAt: null,
   error: null,
+};
+
+const MAX_STREAM_DELTAS = 200;
+const MAX_STREAM_EVENTS = 100;
+
+const sanitizeStreamPayload = (data: unknown): Record<string, unknown> => {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return {};
+  }
+  return data as Record<string, unknown>;
+};
+
+const cloneEventPayload = (data: Record<string, unknown>): Record<string, unknown> => {
+  try {
+    return JSON.parse(JSON.stringify(data));
+  } catch {
+    return {};
+  }
+};
+
+const appendReasoningChunk = (buffer: { text: string; reasoning: string }, delta: string): void => {
+  if (buffer.reasoning) {
+    buffer.reasoning = `${buffer.reasoning}\n${delta}`;
+  } else {
+    buffer.reasoning = delta;
+  }
 };
 
 const recoveryReducer = (state: RecoveryState, action: RecoveryAction): RecoveryState => {
@@ -376,12 +429,21 @@ export interface UseRecoveryPlanReturn {
   stageSummary: StageSummary[];
   connection: RecoveryConnectionState;
   lastWriteAt: Date | null;
+  llmStreams: {
+    active: LLMStreamState | null;
+    history: LLMStreamState[];
+    all: LLMStreamState[];
+  };
+  activeStageKey: string | null;
 }
 
 export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
   const [state, dispatch] = useReducer(recoveryReducer, INITIAL_STATE);
   const [connection, setConnection] = useState<RecoveryConnectionState>(initialConnectionState);
   const wsClientRef = useRef<ReturnType<typeof fastApiClient.streamProgress> | null>(null);
+  const streamBuffersRef = useRef<Map<number, { text: string; reasoning: string }>>(new Map());
+  const [llmStreams, setLlmStreams] = useState<Record<number, LLMStreamState>>({});
+  const [activeStreamId, setActiveStreamId] = useState<number | null>(null);
 
   const refreshPlan = useCallback(async () => {
     if (!planId) {
@@ -452,11 +514,14 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
   useEffect(() => {
     dispatch({ type: 'reset' });
     clearPreview();
-    setConnection((prev) => ({
+    setConnection({
       ...initialConnectionState,
       status: planId ? 'connecting' : 'closed',
       mode: planId ? 'websocket' : 'polling',
-    }));
+    });
+    setLlmStreams({});
+    setActiveStreamId(null);
+    streamBuffersRef.current.clear();
     if (wsClientRef.current) {
       wsClientRef.current.disconnect();
       wsClientRef.current = null;
@@ -483,6 +548,129 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
     }, 5000);
     return () => window.clearInterval(interval);
   }, [planId, refreshArtefacts]);
+
+  const handleLlmStreamMessage = useCallback(
+    (message: WebSocketLLMStreamMessage) => {
+      const sanitizedData = sanitizeStreamPayload(message.data);
+      const buffer = streamBuffersRef.current.get(message.interaction_id) ?? { text: '', reasoning: '' };
+
+      setLlmStreams((prev) => {
+        const existing = prev[message.interaction_id];
+        const promptPreview = typeof sanitizedData.prompt_preview === 'string' ? sanitizedData.prompt_preview : undefined;
+        const baseState: LLMStreamState = existing ?? {
+          interactionId: message.interaction_id,
+          planId: message.plan_id,
+          stage: message.stage,
+          status: 'running',
+          textDeltas: [],
+          reasoningDeltas: [],
+          textBuffer: buffer.text,
+          reasoningBuffer: buffer.reasoning,
+          lastUpdated: Date.now(),
+          promptPreview: promptPreview ?? null,
+          rawPayload: null,
+          events: [],
+        };
+
+        const updated: LLMStreamState = {
+          ...baseState,
+          lastUpdated: Date.now(),
+          promptPreview: baseState.promptPreview ?? promptPreview ?? null,
+          textBuffer: buffer.text,
+          reasoningBuffer: buffer.reasoning,
+          rawPayload: baseState.rawPayload ?? null,
+        };
+
+        switch (message.event) {
+          case 'start':
+            updated.status = 'running';
+            break;
+          case 'text_delta': {
+            const delta = typeof sanitizedData.delta === 'string' ? sanitizedData.delta : '';
+            if (delta) {
+              const next = [...updated.textDeltas, delta];
+              if (next.length > MAX_STREAM_DELTAS) {
+                next.splice(0, next.length - MAX_STREAM_DELTAS);
+              }
+              updated.textDeltas = next;
+              buffer.text = `${buffer.text}${delta}`;
+            }
+            break;
+          }
+          case 'reasoning_delta': {
+            const delta = typeof sanitizedData.delta === 'string' ? sanitizedData.delta : '';
+            if (delta) {
+              const next = [...updated.reasoningDeltas, delta];
+              if (next.length > MAX_STREAM_DELTAS) {
+                next.splice(0, next.length - MAX_STREAM_DELTAS);
+              }
+              updated.reasoningDeltas = next;
+              appendReasoningChunk(buffer, delta);
+            }
+            break;
+          }
+          case 'final': {
+            if (typeof sanitizedData.text === 'string') {
+              updated.finalText = sanitizedData.text;
+              buffer.text = sanitizedData.text;
+            }
+            if (typeof sanitizedData.reasoning === 'string') {
+              updated.finalReasoning = sanitizedData.reasoning;
+              buffer.reasoning = sanitizedData.reasoning;
+            }
+            if (sanitizedData.usage && typeof sanitizedData.usage === 'object' && !Array.isArray(sanitizedData.usage)) {
+              updated.usage = sanitizedData.usage as Record<string, unknown>;
+            }
+            const rawPayload = sanitizeStreamPayload((sanitizedData as Record<string, unknown>).raw_payload);
+            if (Object.keys(rawPayload).length > 0) {
+              updated.rawPayload = rawPayload;
+            }
+            break;
+          }
+          case 'end': {
+            const status = typeof sanitizedData.status === 'string' ? sanitizedData.status.toLowerCase() : 'completed';
+            updated.status = status === 'failed' ? 'failed' : 'completed';
+            updated.error = typeof sanitizedData.error === 'string' ? sanitizedData.error : undefined;
+            break;
+          }
+          default:
+            break;
+        }
+
+        streamBuffersRef.current.set(message.interaction_id, {
+          text: buffer.text,
+          reasoning: buffer.reasoning,
+        });
+
+        updated.textBuffer = buffer.text;
+        updated.reasoningBuffer = buffer.reasoning;
+
+        const eventRecord = {
+          sequence: typeof message.sequence === 'number' ? message.sequence : Date.now(),
+          event: message.event,
+          timestamp: message.timestamp,
+          payload: cloneEventPayload(sanitizedData),
+        };
+
+        const nextEvents = [...baseState.events, eventRecord];
+        if (nextEvents.length > MAX_STREAM_EVENTS) {
+          nextEvents.splice(0, nextEvents.length - MAX_STREAM_EVENTS);
+        }
+        updated.events = nextEvents;
+
+        return { ...prev, [message.interaction_id]: updated };
+      });
+
+      if (message.event === 'start') {
+        setActiveStreamId(message.interaction_id);
+      }
+
+      if (message.event === 'end') {
+        setActiveStreamId((current) => (current === message.interaction_id ? null : current));
+      }
+    },
+    [],
+  );
 
   // WebSocket connection for live updates
   useEffect(() => {
@@ -548,6 +736,12 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
           }));
           break;
         case 'llm_stream':
+          handleLlmStreamMessage(message as WebSocketLLMStreamMessage);
+          setConnection((prev) => ({
+            ...prev,
+            lastEventAt: timestamp,
+          }));
+          break;
         case 'log':
           setConnection((prev) => ({
             ...prev,
@@ -604,7 +798,7 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
       client.disconnect();
       wsClientRef.current = null;
     };
-  }, [planId]);
+  }, [planId, handleLlmStreamMessage]);
 
   // Preview loader
   useEffect(() => {
@@ -688,7 +882,35 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
     }));
   }, [state.artefacts]);
 
-  const statusDisplay = useMemo(() => (state.plan ? getStatusDisplay(state.plan.status) : null), [state.plan?.status]);
+  const statusDisplay = useMemo(() => (state.plan ? getStatusDisplay(state.plan.status) : null), [state.plan]);
+
+  const orderedStreams = useMemo(() => Object.values(llmStreams).sort((a, b) => b.lastUpdated - a.lastUpdated), [llmStreams]);
+  const derivedActiveStream = useMemo(() => {
+    if (activeStreamId !== null && llmStreams[activeStreamId]) {
+      return llmStreams[activeStreamId];
+    }
+    return orderedStreams.find((stream) => stream.status === 'running') ?? null;
+  }, [activeStreamId, llmStreams, orderedStreams]);
+
+  const streamHistory = useMemo(
+    () => orderedStreams.filter((stream) => !derivedActiveStream || stream.interactionId !== derivedActiveStream.interactionId),
+    [orderedStreams, derivedActiveStream],
+  );
+
+  const activeStageKey = useMemo(() => (derivedActiveStream ? normaliseStageKey(derivedActiveStream.stage) : null), [derivedActiveStream]);
+
+  const stageSummaryWithActive = useMemo(() => {
+    if (!activeStageKey) {
+      return stageSummary;
+    }
+    if (stageSummary.some((stage) => stage.key === activeStageKey)) {
+      return stageSummary;
+    }
+    return [
+      { key: activeStageKey, label: normaliseStageLabel(activeStageKey), count: 0 },
+      ...stageSummary,
+    ];
+  }, [stageSummary, activeStageKey]);
 
   return {
     plan: {
@@ -719,8 +941,14 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
       select: selectPreview,
       clear: clearPreview,
     },
-    stageSummary,
+    stageSummary: stageSummaryWithActive,
     connection,
     lastWriteAt: state.artefactLastUpdated,
+    llmStreams: {
+      active: derivedActiveStream,
+      history: streamHistory,
+      all: orderedStreams,
+    },
+    activeStageKey,
   };
 };

@@ -17,7 +17,7 @@ The Terminal component (`components/monitoring/Terminal.tsx`) already has a comp
 
 ## Reference Implementation: Terminal.tsx Streaming Reasoning
 
-The Terminal component demonstrates the correct pattern for LLM stream display:
+The Terminal component demonstrates the correct pattern for LLM raw stream display:
 
 ### Data Structure (Terminal.tsx:46-63)
 ```typescript
@@ -40,7 +40,7 @@ interface LLMStreamState {
   events: StreamEventRecord[];    // Full event stream for audit
 }
 ```
-
+WHERE ARE WE USING the terminal component?????  
 ### Message Handling (Terminal.tsx:126-250)
 The Terminal handles WebSocket `llm_stream` messages with events:
 - `start`: Initialize new stream
@@ -61,15 +61,6 @@ The Terminal renders LLM streams as:
 
 **This is the proven pattern.** The recovery page must adopt this same approach.
 
-## Inspiration: ARC-Explainer UI (Screenshot Reference)
-
-The provided screenshot shows a superior information-dense layout:
-
-
-- **Monitoring Table**: Status, phase, progress, images, log lines
-- **Work Table**: Phase-by-phase breakdown with messages and timestamps
-- **Puzzle Info**: Metadata about current task
-- **Total phases counter**: Clear progress indicator
 
 - **AI Reasoning Output**: Large, prominent panel showing real-time reasoning
 - **Token counters**: Input/Output/Reasoning/Total clearly displayed
@@ -104,235 +95,6 @@ The provided screenshot shows a superior information-dense layout:
 4. **Poor information scent** - Users can't see what the AI is thinking RIGHT NOW
 5. **Wasted vertical space** - Mini HUD repeats header info
 6. **Wasted horizontal space** - Margins and padding are excessive
-7. **
-
-
-## Proposed Layout Redesign
-
-**Purpose**: Quick-glance status and metrics
-
-Components:
-1. **Pipeline Status Card**
-   - Current phase (e.g., "contextual_analysis")
-   - Progress bar (12/61 tasks)
-   - Status badge (running/completed/failed)
-   - Elapsed time
-
-2. **Stage Progress List**
-   - Compact list of all 10 stages
-   - Checkmarks for completed stages
-   - Spinner for active stage
-   - Task counts per stage (e.g., "WBS: 8/8 tasks")
-
-3. **Live Metrics Card**
-   - **Token usage aggregates** (critical for cost monitoring)
-     - Total input tokens across all interactions
-     - Total output tokens
-     - Total reasoning tokens
-     - Running cost estimate
-   - **Interaction count** (how many LLM calls so far)
-   - **Current stage interaction** (e.g., "3rd call for this stage")
-
-4. **Recent Log Lines** (mini terminal)
-   - Last 5-10 log lines
-   - Color-coded by level (info/warn/error)
-   - Click to expand full terminal
-
-**Purpose**: PRIMARY FOCUS - Live LLM reasoning and execution visibility
-
-Components:
-1. **Active LLM Stream Display** (top priority)
-   - **Large, prominent panel** for current streaming interaction
-   - Two-column layout: Model Output | Reasoning Trace
-   - Stage indicator (which task is executing)
-   - Status badge (running with animation, completed, failed)
-   - Prompt preview (truncated, click to expand)
-   - Token usage for THIS interaction
-   - Auto-scroll as deltas arrive
-   - **This is where users spend 80% of their time**
-
-2. **Stream History** (collapsible accordion below active stream)
-   - Previous completed interactions
-   - Collapsed by default (show stage name + token count)
-   - Expand to see full output/reasoning
-   - Search/filter by stage or keyword
-
-3. **Terminal / Raw Logs** (collapsible panel at bottom)
-   - Full Luigi pipeline logs
-   - WebSocket connection status
-   - System messages
-   - Defaults to collapsed (show first 3 lines)
-   - Expand to see full terminal view
-
-
-
-Components:
-1. **Canonical HTML Report** (top priority)
-   - Totally bugged and non-functional.  Needs to be removed.
-   - "View Report" button (opens modal or new tab)
-   - Report generation status
-   - Last updated timestamp
-
-2. **Fallback Report** (if canonical fails)
-   - Totally bugged and non-functional.  Needs to be removed.
-   - "View Fallback Report" button
-   - Explanation of why fallback is shown
-
-3. **Artefacts** (compact, collapsed by default)  NO IDEA WHAT THIS EVEN IS OR WHY THE USER CARES???
-   - **Collapsed state**: "5 artefacts available - Click to expand"
-   - **Expanded state**:
-     - Grouped by stage (accordion)
-     - File name + size
-     - Click to preview in modal
-   - **Why collapsed?**: Artefacts are secondary during live execution
-   - **Empty state**: "No artefacts yet - pipeline is running"
-
-4. **Preview Pane** (optional, if file selected)
-   - Shows selected artefact content  WHY???
-   - Syntax highlighting for code
-   - Rendered HTML for reports
-
-## Implementation Requirements
-
-### 1. Data Flow - Streaming Reasoning Integration
-
-**Add to `useRecoveryPlan.ts`**:
-```typescript
-interface RecoveryState {
-  // ... existing fields ...
-
-  // NEW: LLM streaming state
-  llmStreams: Record<number, LLMStreamState>;  // keyed by interaction_id
-  activeStreamId: number | null;  // which stream is currently running
-}
-```
-
-**WebSocket message handler update**:
-```typescript
-// In useRecoveryPlan.ts WebSocket effect
-case 'llm_stream':
-  handleLlmStreamMessage(message as WebSocketLLMStreamMessage);
-  break;
-
-// New handler function (copy from Terminal.tsx:126-250)
-const handleLlmStreamMessage = useCallback((message: WebSocketLLMStreamMessage) => {
-  // Buffer management
-  const buffer = streamBuffersRef.current.get(message.interaction_id) ?? { text: '', reasoning: '' };
-
-  // Update state based on event type
-  switch (message.event) {
-    case 'start': /* initialize stream */
-    case 'text_delta': /* append to text buffer */
-    case 'reasoning_delta': /* append to reasoning buffer */
-    case 'final': /* capture final output + usage */
-    case 'end': /* mark completed/failed */
-  }
-
-  // Update llmStreams state
-  dispatch({ type: 'llm_stream:update', payload: { interactionId, data } });
-}, []);
-```
-
-### 2. Component Architecture
-
-**New components to create**:
-
-1. `app/recovery/components/LiveStreamPanel.tsx`
-   - Displays active LLM stream
-   - Two-column layout (output | reasoning)
-   - Status indicators, token usage
-   - Auto-scroll, copy buttons
-   - **Directly port from Terminal.tsx:638-720**
-
-2. `app/recovery/components/StreamHistory.tsx`
-   - Accordion of completed streams
-   - Collapsed by default
-   - Search/filter functionality
-   - Stage grouping
-
-3. `app/recovery/components/PipelineMetrics.tsx`
-   - Aggregate token usage
-   - Stage progress list
-   - Cost estimates
-   - Interaction counts
-
-4. `app/recovery/components/CompactArtefactList.tsx`
-   - Collapsed by default
-   - Stage-grouped accordion
-   - Click to preview
-   - Smart empty states
-
-**Components to refactor**:
-
-1. `RecoveryHeader.tsx` - Simplify to single-line header
-2. `RecoveryMiniHud.tsx` - Remove (info moves to left sidebar)
-3. `ArtefactPreview.tsx` - Move to modal instead of inline pane
-
-### 3. Layout Implementation
-
-**New layout grid** (`app/recovery/page.tsx`):
-```typescript
-<div className="grid grid-cols-12 gap-4 h-screen">
-  {/* Left Sidebar */}
-  <aside className="col-span-3 overflow-y-auto">
-    <PipelineStatusCard />
-    <StageProgressList />
-    <PipelineMetrics />
-    <RecentLogs />
-  </aside>
-
-  {/* Center Panel - PRIMARY FOCUS */}
-  <main className="col-span-6 flex flex-col overflow-hidden">
-    <LiveStreamPanel
-      activeStream={llmStreams[activeStreamId]}
-      status={connection.status}
-    />
-
-    <StreamHistory
-      streams={Object.values(llmStreams).filter(s => s.status !== 'running')}
-      className="flex-shrink-0"
-    />
-
-    <TerminalPanel
-      logs={logs}
-      className="flex-shrink-0"
-      defaultCollapsed
-    />
-  </main>
-
-  {/* Right Sidebar */}
-  <aside className="col-span-3 overflow-y-auto">
-    <ReportLinks plan={plan.data} />
-    <CompactArtefactList artefacts={artefacts} />
-    {previewFile && <ArtefactPreviewModal />}
-  </aside>
-</div>
-```
-
-### 4. State Management Updates
-
-**Add to `useRecoveryPlan` return value**:
-```typescript
-return {
-  // ... existing ...
-
-  // NEW: LLM streaming
-  llmStreams: {
-    active: state.llmStreams[state.activeStreamId],
-    history: Object.values(state.llmStreams).filter(s => s.status !== 'running'),
-    all: state.llmStreams,
-  },
-
-  // NEW: Aggregate metrics
-  metrics: {
-    totalInputTokens: calculateTotalInputTokens(state.llmStreams),
-    totalOutputTokens: calculateTotalOutputTokens(state.llmStreams),
-    totalReasoningTokens: calculateTotalReasoningTokens(state.llmStreams),
-    interactionCount: Object.keys(state.llmStreams).length,
-    estimatedCost: calculateCost(tokens, modelId),
-  },
-};
-```
 
 ## Key UX Improvements
 
@@ -344,6 +106,27 @@ return {
 - ✅ Pipeline progress is clear and unambiguous
 - ✅ Artefacts don't dominate the UI when empty
 - ✅ Layout density!!!!  No wasted pixels!!!
+
+## Implementation Status (2025-10-24)
+
+### ✅ Streaming data plumbing
+- `useRecoveryPlan` now mirrors the Terminal websocket handler so the recovery workspace receives live `textBuffer`, `reasoningBuffer`, deltas, usage, and event metadata per interaction.
+- Active stream metadata is exposed alongside a sorted history list, plus the active stage key so we can spotlight the corresponding recovery stage.
+
+### ✅ UI panels wired to real buffers
+- **LiveStreamPanel** displays the in-flight interaction exactly like the Terminal (reply on the left, reasoning on the right, status badge, prompt preview, usage/error callouts).
+- **StreamHistoryPanel** lists completed/failed interactions with expandable reasoning + output blocks for instant review.
+- Stage timeline now highlights the active stage so it's obvious where Luigi is currently working.
+
+### ✅ Recovery layout priorities
+- Live stream and history panels sit at the top of the right column, pushing logs/reports/artefacts below the reasoning-first experience.
+- Artefact and report panels remain accessible but no longer hog the prime viewport when nothing important is in them.
+
+## Remaining Follow-Ups
+
+1. **Usage telemetry formatting** – Convert the ad‑hoc usage key/value display into the standardized token counters once cost reporting lands (optional, low priority).
+2. **Prompt inspection modal** – Add a quick action to expand the full prompt when the preview truncates too aggressively.
+3. **Testing** – Add RTL coverage for LiveStreamPanel + StreamHistoryPanel to guard against regression when the websocket schema shifts.
 
 ### Technical
 - ✅ Reuses Terminal.tsx streaming logic (DRY principle)

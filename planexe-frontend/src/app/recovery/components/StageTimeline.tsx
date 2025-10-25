@@ -18,6 +18,7 @@ interface StageTimelineProps {
   stages: StageSummary[];
   isLoading: boolean;
   connection: RecoveryConnectionState;
+  activeStageKey?: string | null;
 }
 
 const resolveConnectionLabel = (connection: RecoveryConnectionState): { label: string; tone: 'live' | 'polling' | 'error' | 'idle'; detail: string } => {
@@ -50,7 +51,7 @@ const resolveConnectionLabel = (connection: RecoveryConnectionState): { label: s
   };
 };
 
-export const StageTimeline: React.FC<StageTimelineProps> = ({ stages, isLoading, connection }) => {
+export const StageTimeline: React.FC<StageTimelineProps> = ({ stages, isLoading, connection, activeStageKey = null }) => {
   const connectionMeta = resolveConnectionLabel(connection);
 
   return (
@@ -87,14 +88,21 @@ export const StageTimeline: React.FC<StageTimelineProps> = ({ stages, isLoading,
         ) : (
           stages.map((stage) => {
             const isComplete = stage.count > 0;
+            const isActive = activeStageKey && stage.key === activeStageKey;
             return (
               <div
                 key={stage.key}
-                className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2"
+                className={`flex items-center justify-between rounded-md border px-3 py-2 transition-colors ${
+                  isActive
+                    ? 'border-emerald-400 bg-emerald-50/60'
+                    : 'border-slate-200 bg-white'
+                }`}
               >
                 <div className="flex items-center gap-3">
                   <span
-                    className={`h-2.5 w-2.5 rounded-full ${isComplete ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      isActive ? 'bg-emerald-600 animate-pulse' : isComplete ? 'bg-emerald-500' : 'bg-slate-300'
+                    }`}
                     aria-hidden="true"
                   />
                   <span className="text-sm font-medium text-slate-700">{stage.label}</span>
