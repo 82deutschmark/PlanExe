@@ -1,5 +1,8 @@
 # Changelog - Use Proper Semantic Versioning and follow the Keep a Changelog standard
 
+## [0.9.2] - 2025-10-26
+- Fast mode now trims the Luigi pipeline to core planning tasks and generates a compact report so `FAST_BUT_SKIP_DETAILS` truly skips the detail-heavy stages.
+
 ## [0.8.9] - 2025-10-26
 - **Vibrant Color Scheme**: Replaced entire grey/slate color scheme with warm amber/orange/yellow palette
 - **Main Background**: Changed to warm gradient `from-amber-50 via-orange-50 to-yellow-50`
