@@ -9,12 +9,18 @@ https://en.wikipedia.org/wiki/Work_breakdown_structure
 """
 import json
 import time
+import logging
 from math import ceil
 from uuid import uuid4
 from dataclasses import dataclass
 from typing import Any
 
 from pydantic import BaseModel, Field
+
+from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole, StructuredLLMResponse
+from planexe.llm_util.schema_registry import register_schema
+
+logger = logging.getLogger(__name__)
 
 class WBSLevel1(BaseModel):
     """
@@ -52,28 +58,63 @@ class CreateWBSLevel1:
     final_deliverable: str
 
     @classmethod
-    def execute(cls, llm: Any, query: str) -> 'CreateWBSLevel1':
+    def execute(cls, llm: Any, query: str, *, fast_mode: bool = False) -> 'CreateWBSLevel1':
         """
         Invoke LLM to create a work breakdown structure level 1.
         """
-        if not hasattr(llm, "complete") or not hasattr(llm, "metadata"):
-            raise ValueError("Invalid LLM instance: missing complete() or metadata attributes.")
+        if not hasattr(llm, "as_structured_llm") or not hasattr(llm, "metadata"):
+            raise ValueError("Invalid LLM instance: missing as_structured_llm() or metadata attributes.")
         if not isinstance(query, str):
             raise ValueError("Invalid query.")
 
-        start_time = time.perf_counter()
+        system_prompt = (
+            "You generate concise Work Breakdown Structure level 1 summaries. "
+            "Return valid JSON with snake_case keys: project_title and final_deliverable. "
+            "Both values must be short strings (3-10 words)."
+        )
 
-        response = llm.complete(QUERY_PREAMBLE + query)
-        raw_text = response.text if hasattr(response, "text") else str(response)
-        json_response = json.loads(raw_text)
+        register_schema(WBSLevel1)
+
+        chat_messages = [
+            SimpleChatMessage(role=SimpleMessageRole.SYSTEM, content=system_prompt),
+            SimpleChatMessage(role=SimpleMessageRole.USER, content=f"{QUERY_PREAMBLE.strip()}\n\n{query}"),
+        ]
+
+        sllm = llm.as_structured_llm(WBSLevel1)
+        reasoning_effort = "low" if fast_mode else "medium"
+        start_time = time.perf_counter()
+        fallback_used = False
+        try:
+            structured_response: StructuredLLMResponse = sllm.chat(
+                chat_messages,
+                reasoning_effort=reasoning_effort,
+            )
+            parsed = structured_response.raw
+            raw_text = structured_response.text
+            usage = getattr(structured_response, "token_usage", None)
+        except Exception as exc:
+            fallback_used = True
+            raw_text = json.dumps({
+                "project_title": "tbd",
+                "final_deliverable": "tbd"
+            })
+            parsed = WBSLevel1(project_title="tbd", final_deliverable="tbd")
+            usage = None
+            logger.warning("CreateWBSLevel1 fallback triggered due to error: %s", exc)
 
         end_time = time.perf_counter()
         duration = int(ceil(end_time - start_time))
 
-        metadata = dict(llm.metadata)
+        metadata = dict(getattr(llm, "metadata", {}))
         metadata["duration"] = duration
+        metadata["fallback_used"] = fallback_used
+        metadata["reasoning_effort"] = reasoning_effort
+        if usage:
+            metadata["token_usage"] = usage
 
         project_id = str(uuid4())
+        json_response = parsed.model_dump()
+
         result = CreateWBSLevel1(
             query=query,
             response=json_response,

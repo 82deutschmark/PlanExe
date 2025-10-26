@@ -12,6 +12,7 @@ Focus is not on the "product style".
 """
 import json
 import time
+import logging
 from math import ceil
 from uuid import uuid4
 from dataclasses import dataclass
@@ -21,6 +22,10 @@ from pydantic import BaseModel, Field
 
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
 from planexe.llm_factory import get_llm
+from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole, StructuredLLMResponse
+from planexe.llm_util.schema_registry import register_schema
+
+logger = logging.getLogger(__name__)
 
 class SubtaskDetails(BaseModel):
     subtask_wbs_number: str = Field(
@@ -97,7 +102,7 @@ WBS Level 1:
         return query
     
     @classmethod
-    def execute(cls, llm: Any, query: str) -> 'CreateWBSLevel2':
+    def execute(cls, llm: Any, query: str, *, fast_mode: bool = False) -> 'CreateWBSLevel2':
         """
         Invoke LLM to create a Work Breakdown Structure (WBS) from a json representation of a project plan.
         """
@@ -106,24 +111,56 @@ WBS Level 1:
         if not isinstance(query, str):
             raise ValueError("Invalid query.")
 
-        start_time = time.perf_counter()
+        register_schema(WorkBreakdownStructure)
+
+        system_prompt = (
+            "You expand project plans into Work Breakdown Structure level 2. "
+            "Return JSON with snake_case keys matching the provided schema."
+        )
+
+        if fast_mode and len(query) > 8000:
+            query = query[:8000] + "\n\n... [truncated for FAST_BUT_SKIP_DETAILS]"
+
+        chat_messages = [
+            SimpleChatMessage(role=SimpleMessageRole.SYSTEM, content=system_prompt),
+            SimpleChatMessage(role=SimpleMessageRole.USER, content=QUERY_PREAMBLE + query),
+        ]
 
         sllm = llm.as_structured_llm(WorkBreakdownStructure)
-        response = sllm.complete(QUERY_PREAMBLE + query)
-        json_response = json.loads(response.text)
+        reasoning_effort = "low" if fast_mode else "medium"
+        start_time = time.perf_counter()
+        fallback_used = False
+        try:
+            structured_response: StructuredLLMResponse = sllm.chat(
+                chat_messages,
+                reasoning_effort=reasoning_effort,
+            )
+            parsed = structured_response.raw
+            response_text = structured_response.text
+            usage = getattr(structured_response, "token_usage", None)
+        except Exception as exc:
+            fallback_used = True
+            parsed = WorkBreakdownStructure(major_phase_details=[])
+            response_text = json.dumps(parsed.model_dump())
+            usage = None
+            logger.warning("CreateWBSLevel2 fallback triggered due to error: %s", exc)
 
         end_time = time.perf_counter()
         duration = int(ceil(end_time - start_time))
 
-        metadata = dict(llm.metadata)
-        metadata["llm_classname"] = llm.class_name()
+        metadata = dict(getattr(llm, "metadata", {}))
         metadata["duration"] = duration
+        metadata["fallback_used"] = fallback_used
+        metadata["reasoning_effort"] = reasoning_effort
+        if usage:
+            metadata["token_usage"] = usage
 
         # Cleanup the json response from the LLM model, assign unique ids to each activity.
         result_major_phases_with_subtasks = []
         result_major_phases_uuids = []
         result_task_uuids = []
-        for major_phase_detail in json_response['major_phase_details']:
+        json_response = parsed.model_dump()
+        for major_phase_detail in json_response.get('major_phase_details', []):
             subtask_list = []
             for subtask in major_phase_detail['subtasks']:
                 subtask_title = subtask['subtask_title']
