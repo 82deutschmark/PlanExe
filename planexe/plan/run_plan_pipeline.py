@@ -5186,14 +5186,15 @@ class ReviewPlanTask(PlanTask):
                     db_service.update_llm_interaction(interaction_id, {"status": "failed", "error_message": str(e), "completed_at": datetime.utcnow()})
                 except Exception:
                     pass
-            if db_service and progress_record:
-                failure_payload = {
-                    "status": "failed",
-                    "timestamp": datetime.utcnow().isoformat() + "Z",
-                    "error": str(e)
-                }
-                progress_record.content = json.dumps(failure_payload)
-                progress_record.content_size_bytes = len(progress_record.content.encode('utf-8'))
+            raise
+        finally:
+            if db_service:
+                db_service.close()
+
+
+class ExecutiveSummaryTask(PlanTask):
+    """
+    Create an executive summary of the plan.    
     """
     def output(self):
         return {
