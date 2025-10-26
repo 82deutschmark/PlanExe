@@ -17,6 +17,12 @@
 - Stage picker for resume: users can choose which missing stages to resume before launching a targeted run.
 - New report viewer page at `/plan/{planId}`: shows final HTML when available, otherwise embeds the database-assembled fallback report with explicit missing-section reasons.
 
+## [0.9.1] - 2025-10-26
+- Resume Picker Modal and Per-task Selection
+- Added inline modal to replace prompt-based selection. Users can pick individual missing artefacts (checkbox list grouped by stage), set model, and choose speed.
+- Recovery header button now opens the modal; confirmation launches a resume run targeting only selected files.
+- Keeps DB-first behavior, relying on pipeline to skip previously completed content.
+
 ## [0.8.8] - 2025-10-26
 - **Recovery Page Redesign**: Transformed recovery page into dense, info-rich assembly workspace
 - **Removed Duplications**: Eliminated PipelineDetails (3 tabs), RecoveryArtefactPanel (file manager), and ArtefactPreview (modal)

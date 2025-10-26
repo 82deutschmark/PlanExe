@@ -8,7 +8,7 @@
  */
 'use client';
 
-import React, { Suspense, useCallback, useMemo } from 'react';
+import React, { Suspense, useCallback, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Home } from 'lucide-react';
@@ -24,6 +24,8 @@ import { RecoveryReportPanel } from './components/ReportPanel';
 import { LiveStreamPanel } from './components/LiveStreamPanel';
 import { StreamHistoryPanel } from './components/StreamHistoryPanel';
 import { useRecoveryPlan } from './useRecoveryPlan';
+import { ResumeDialog } from './components/ResumeDialog';
+import type { MissingSectionResponse } from '@/lib/api/fastapi-client';
 
 const MissingPlanMessage: React.FC = () => (
   <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
@@ -80,84 +82,36 @@ const RecoveryPageContent: React.FC = () => {
 
     try {
       // 1) Inspect what’s missing to make relaunch targeted
-      let missingFilenames: string[] = [];
+      let missing: MissingSectionResponse[] = [];
       try {
         const fallback = await fastApiClient.getFallbackReport(planId);
-        missingFilenames = (fallback?.missing_sections ?? []).map((m) => m.filename);
+        missing = fallback?.missing_sections ?? [];
       } catch (e) {
         // If fallback not available, proceed but inform via console; backend may still resume via DB-first logic.
         console.warn('Fallback report unavailable; proceeding with best-effort resume.', e);
       }
 
-      if (missingFilenames.length === 0 && plan.data.status === 'completed') {
+      if ((missing?.length ?? 0) === 0 && plan.data.status === 'completed') {
         // Nothing to resume; take user to the final report page instead of relaunching everything.
         router.replace(`/plan/${encodeURIComponent(planId)}?from=recovery`);
         return;
       }
 
-      // Offer a simple stage picker when we have missing artefacts
-      let selectedMissing = missingFilenames;
-      if (missingFilenames.length > 0) {
-        const stageSet = new Set<string>();
-        for (const fn of missingFilenames) {
-          const match = fn.match(/^(\d{3})-([a-zA-Z0-9_\-]+)/);
-          if (match) {
-            stageSet.add(match[2]);
-          }
-        }
-        const stages = Array.from(stageSet);
-        if (stages.length > 0 && typeof window !== 'undefined') {
-          const suggestion = stages.join(',');
-          const input = window.prompt(
-            `Select stages to resume (comma-separated).\nAvailable: ${stages.join(', ')}\nLeave blank to resume all listed.`,
-            suggestion,
-          );
-          const chosen = (input ?? '').trim();
-          if (chosen) {
-            const chosenSet = new Set(
-              chosen
-                .split(',')
-                .map((s) => s.trim())
-                .filter(Boolean),
-            );
-            if (chosenSet.size > 0) {
-              selectedMissing = missingFilenames.filter((fn) => {
-                const m = fn.match(/^(\d{3})-([a-zA-Z0-9_\-]+)/);
-                const stage = m ? m[2] : '';
-                return chosenSet.has(stage);
-              });
-            }
-          }
-        }
+      // If we have missing items, open modal for per-task selection
+      if ((missing?.length ?? 0) > 0) {
+        setResumeMissing(missing);
+        setResumeOpen(true);
+        return;
       }
 
-      const speedDefault: CreatePlanRequest['speed_vs_detail'] = 'balanced_speed_and_detail';
-      const llmModel = typeof window !== 'undefined'
-        ? window.prompt('Model for resume (leave blank for default):', '') ?? ''
-        : '';
-      const speedInput = typeof window !== 'undefined'
-        ? window.prompt(
-            'Speed vs detail (fast_but_skip_details | balanced_speed_and_detail | all_details_but_slow):',
-            speedDefault,
-          ) ?? speedDefault
-        : speedDefault;
-      const allowedSpeeds: CreatePlanRequest['speed_vs_detail'][] = [
-        'fast_but_skip_details',
-        'balanced_speed_and_detail',
-        'all_details_but_slow',
-      ];
-      const normalisedSpeed = (speedInput || speedDefault).trim() as CreatePlanRequest['speed_vs_detail'];
-      const speed_vs_detail = allowedSpeeds.includes(normalisedSpeed) ? normalisedSpeed : speedDefault;
-
-      // 2) Request a resume-only run by embedding intent in enriched_intake.
-      //    Pipeline is DB-first; tasks should skip already-completed outputs.
+      // No missing list available (e.g., fallback 404). Proceed best-effort with defaults.
+      const speed_vs_detail: CreatePlanRequest['speed_vs_detail'] = 'balanced_speed_and_detail';
       const newPlan = await fastApiClient.createPlan({
         prompt: plan.data.prompt,
-        llm_model: llmModel.trim() || undefined,
         speed_vs_detail,
         enriched_intake: {
           project_title: 'Plan Resume',
-          refined_objective: 'Resume only missing sections to complete the plan.',
+          refined_objective: 'Resume to complete the plan without explicit missing list.',
           original_prompt: plan.data.prompt,
           scale: 'personal',
           risk_tolerance: 'moderate',
@@ -165,12 +119,8 @@ const RecoveryPageContent: React.FC = () => {
           budget: {},
           timeline: {},
           geography: { is_digital_only: true },
-          conversation_summary: selectedMissing.length > 0
-            ? `Resume request targeting ${selectedMissing.length} missing artefacts.`
-            : 'Resume request without explicit missing artefacts (fallback unavailable).',
-          confidence_score: 0.75,
-          // Surface target filenames so pipeline/components can pick up selective execution if supported
-          areas_needing_clarification: selectedMissing,
+          conversation_summary: 'Resume request without explicit missing artefacts (fallback unavailable).',
+          confidence_score: 0.7,
         },
       });
 
@@ -193,6 +143,39 @@ const RecoveryPageContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
+      <ResumeDialog
+        open={resumeOpen}
+        onOpenChange={setResumeOpen}
+        missing={resumeMissing}
+        onConfirm={async ({ selectedFilenames, llmModel, speedVsDetail }) => {
+          if (!plan.data) return;
+          try {
+            const newPlan = await fastApiClient.createPlan({
+              prompt: plan.data.prompt,
+              llm_model: llmModel ?? undefined,
+              speed_vs_detail: speedVsDetail,
+              enriched_intake: {
+                project_title: 'Plan Resume',
+                refined_objective: 'Resume only selected missing sections to complete the plan.',
+                original_prompt: plan.data.prompt,
+                scale: 'personal',
+                risk_tolerance: 'moderate',
+                domain: 'general',
+                budget: {},
+                timeline: {},
+                geography: { is_digital_only: true },
+                conversation_summary: `Resume targeting ${selectedFilenames.length} artefacts`,
+                confidence_score: 0.8,
+                areas_needing_clarification: selectedFilenames,
+              },
+            });
+            setResumeOpen(false);
+            router.replace(`/recovery?planId=${encodeURIComponent(newPlan.plan_id)}`);
+          } catch (e) {
+            console.error('Targeted resume failed', e);
+          }
+        }}
+      />
       <RecoveryHeader
         planId={planId}
         plan={plan.data}
@@ -256,3 +239,5 @@ const RecoveryPage: React.FC = () => (
 );
 
 export default RecoveryPage;
+  const [resumeOpen, setResumeOpen] = useState(false);
+  const [resumeMissing, setResumeMissing] = useState<MissingSectionResponse[]>([]);
