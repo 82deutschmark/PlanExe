@@ -1,5 +1,33 @@
 # Changelog - Use Proper Semantic Versioning and follow the Keep a Changelog standard
 
+## [0.9.4] - 2025-10-26
+- Fixed the pipeline execution service fast-mode normalisation to avoid referencing a non-existent
+  `SpeedVsDetailEnum` member, ensuring plan launches succeed when coercing legacy aliases such as
+  "balanced". The Luigi subprocess now starts correctly for both fast and detailed requests.
+
+## [0.9.3] - 2025-10-26
+- Normalised speed vs detail inputs in the pipeline execution service so legacy/uppercase "fast" selections coerce to Luigi's
+  fast mode, including debug logs that surface the resolved value before launching the subprocess. This keeps fast-mode runs in
+  sync with the lightweight Q&A placeholders and prevents accidental full-detail executions.
+
+## [0.9.2] - 2025-10-26
+- Honour fast-mode expectations by emitting lightweight placeholder artefacts for Questions & Answers, avoiding the long-running
+  LLM calls when users select "Fast" on the frontend. Pipeline runs now skip the deep Q&A loop while still producing well-formed
+  outputs for downstream tasks.
+
+## [0.9.1] - 2025-10-26
+- Resume Picker Modal and Per-task Selection
+- Added inline modal to replace prompt-based selection. Users can pick individual missing artefacts (checkbox list grouped by stage), set model, and choose speed.
+- Recovery header button now opens the modal; confirmation launches a resume run targeting only selected files.
+- Keeps DB-first behavior, relying on pipeline to skip previously completed content.
+
+## [0.9.0] - 2025-10-26
+- Recovery UX polish and targeted resume
+- Added auto-redirect to report page when a plan completes (from recovery to `/plan/{planId}`) with a friendly banner.
+- Reworked "Relaunch" action to "Resume Missing Sections". It inspects missing artefacts from `/api/plans/{id}/fallback-report` and only resumes gaps.
+- Stage picker for resume: users can choose which missing stages to resume before launching a targeted run.
+- New report viewer page at `/plan/{planId}`: shows final HTML when available, otherwise embeds the database-assembled fallback report with explicit missing-section reasons.
+
 ## [0.8.9] - 2025-10-26
 - **Vibrant Color Scheme**: Replaced entire grey/slate color scheme with warm amber/orange/yellow palette
 - **Main Background**: Changed to warm gradient `from-amber-50 via-orange-50 to-yellow-50`
@@ -9,19 +37,6 @@
 - **RecoveryReportPanel**: Amber borders and amber button with hover effects
 - **RecoveryHeader**: Renamed to "Plan Assembly Workspace" with amber-900 headings and amber-700 text
 - **Improved Readability**: All text now uses high-contrast colors (amber-900, gray-900) instead of unreadable grey
-
-## [0.9.0] - 2025-10-26
-- Recovery UX polish and targeted resume
-- Added auto-redirect to report page when a plan completes (from recovery to `/plan/{planId}`) with a friendly banner.
-- Reworked "Relaunch" action to "Resume Missing Sections". It inspects missing artefacts from `/api/plans/{id}/fallback-report` and only resumes gaps.
-- Stage picker for resume: users can choose which missing stages to resume before launching a targeted run.
-- New report viewer page at `/plan/{planId}`: shows final HTML when available, otherwise embeds the database-assembled fallback report with explicit missing-section reasons.
-
-## [0.9.1] - 2025-10-26
-- Resume Picker Modal and Per-task Selection
-- Added inline modal to replace prompt-based selection. Users can pick individual missing artefacts (checkbox list grouped by stage), set model, and choose speed.
-- Recovery header button now opens the modal; confirmation launches a resume run targeting only selected files.
-- Keeps DB-first behavior, relying on pipeline to skip previously completed content.
 
 ## [0.8.8] - 2025-10-26
 - **Recovery Page Redesign**: Transformed recovery page into dense, info-rich assembly workspace

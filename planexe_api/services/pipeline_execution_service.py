@@ -29,6 +29,7 @@ from planexe_api.models import CreatePlanRequest, PlanStatus
 from planexe_api.database import DatabaseService, PlanFile as DBPlanFile
 from planexe_api.websocket_manager import websocket_manager
 from planexe.plan.pipeline_environment import PipelineEnvironmentEnum
+from planexe.plan.speedvsdetail import SpeedVsDetailEnum
 from planexe.plan.filenames import FilenameEnum
 from planexe.plan.start_time import StartTime
 from planexe.plan.plan_file import PlanFile
@@ -77,6 +78,38 @@ class PipelineExecutionService:
 
     def __init__(self, planexe_project_root: Path):
         self.planexe_project_root = planexe_project_root
+
+    @staticmethod
+    def _normalise_speed_vs_detail(value: Optional[str]) -> str:
+        """Coerce legacy or aliased speed/detail inputs to Luigi-compatible values."""
+
+        if isinstance(value, SpeedVsDetailEnum):
+            return value.value
+
+        if value is None:
+            return SpeedVsDetailEnum.ALL_DETAILS_BUT_SLOW.value
+
+        token = str(value).strip()
+        if not token:
+            return SpeedVsDetailEnum.ALL_DETAILS_BUT_SLOW.value
+
+        canonical_key = token.lower().replace("-", "_").replace(" ", "_")
+
+        alias_map = {
+            SpeedVsDetailEnum.ALL_DETAILS_BUT_SLOW.value: SpeedVsDetailEnum.ALL_DETAILS_BUT_SLOW.value,
+            "all_details": SpeedVsDetailEnum.ALL_DETAILS_BUT_SLOW.value,
+            "detailed": SpeedVsDetailEnum.ALL_DETAILS_BUT_SLOW.value,
+            "slow": SpeedVsDetailEnum.ALL_DETAILS_BUT_SLOW.value,
+            "balanced": SpeedVsDetailEnum.ALL_DETAILS_BUT_SLOW.value,
+            "balanced_speed": SpeedVsDetailEnum.ALL_DETAILS_BUT_SLOW.value,
+            "balanced_speed_and_detail": SpeedVsDetailEnum.ALL_DETAILS_BUT_SLOW.value,
+            SpeedVsDetailEnum.FAST_BUT_SKIP_DETAILS.value: SpeedVsDetailEnum.FAST_BUT_SKIP_DETAILS.value,
+            "fast": SpeedVsDetailEnum.FAST_BUT_SKIP_DETAILS.value,
+            "fast_mode": SpeedVsDetailEnum.FAST_BUT_SKIP_DETAILS.value,
+            "fastmode": SpeedVsDetailEnum.FAST_BUT_SKIP_DETAILS.value,
+        }
+
+        return alias_map.get(canonical_key, SpeedVsDetailEnum.ALL_DETAILS_BUT_SLOW.value)
 
     async def execute_plan(self, plan_id: str, request: CreatePlanRequest, db_service: DatabaseService) -> None:
         """
@@ -220,15 +253,16 @@ class PipelineExecutionService:
         # Map API enum values to Luigi pipeline enum values (Source of Truth: planexe/plan/speedvsdetail.py)
         # Luigi only has 2 values: "all_details_but_slow" and "fast_but_skip_details"
         # API's "balanced_speed_and_detail" maps to "all_details_but_slow" per models.py line 25
-        speed_vs_detail_mapping = {
-            "all_details_but_slow": "all_details_but_slow",
-            "balanced_speed_and_detail": "all_details_but_slow",  # Maps balanced to detailed mode
-            "fast_but_skip_details": "fast_but_skip_details"
-        }
+        requested_speed = getattr(request.speed_vs_detail, "value", request.speed_vs_detail)
+        normalised_speed = self._normalise_speed_vs_detail(requested_speed)
+        if str(requested_speed).lower() != normalised_speed:
+            print(
+                f"DEBUG ENV: Normalised speed_vs_detail '{requested_speed}' -> '{normalised_speed}' for Luigi"
+            )
+        else:
+            print(f"DEBUG ENV: speed_vs_detail resolved to '{normalised_speed}'")
 
-        environment[PipelineEnvironmentEnum.SPEED_VS_DETAIL.value] = speed_vs_detail_mapping.get(
-            request.speed_vs_detail.value, "all_details_but_slow"  # Default to detailed mode
-        )
+        environment[PipelineEnvironmentEnum.SPEED_VS_DETAIL.value] = normalised_speed
         # Set reasoning effort from request (fallback to minimal if not specified)
         environment[PipelineEnvironmentEnum.REASONING_EFFORT.value] = getattr(request, 'reasoning_effort', 'minimal')
         # Only set LLM_MODEL if it's not None (subprocess environment requires all values to be strings)
