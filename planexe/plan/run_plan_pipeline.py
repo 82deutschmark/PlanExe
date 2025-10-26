@@ -5344,7 +5344,7 @@ class QuestionsAndAnswersTask(PlanTask):
             'markdown': self.local_target(FilenameEnum.QUESTIONS_AND_ANSWERS_MARKDOWN),
             'html': self.local_target(FilenameEnum.QUESTIONS_AND_ANSWERS_HTML)
         }
-    
+
     def requires(self):
         return {
             'strategic_decisions_markdown': self.clone(StrategicDecisionsMarkdownTask),
@@ -5362,12 +5362,77 @@ class QuestionsAndAnswersTask(PlanTask):
             'project_plan': self.clone(ProjectPlanTask),
             'review_plan': self.clone(ReviewPlanTask),
         }
-    
+
     def run_with_llm(self, llm: LLM) -> None:
         db_service = None
         plan_id = self.get_plan_id()
         try:
             db_service = self.get_database_service()
+            if self.speedvsdetail == SpeedVsDetailEnum.FAST_BUT_SKIP_DETAILS:
+                logger.info("FAST_BUT_SKIP_DETAILS mode - emitting stubbed Questions & Answers artefacts")
+                placeholder_payload = {
+                    "status": "skipped_for_fast_mode",
+                    "note": "Detailed question and answer generation is omitted in fast mode to prioritise quick turnaround.",
+                    "generated_at": datetime.utcnow().isoformat() + "Z",
+                    "questions": [
+                        {
+                            "question": "What are the highest risk areas to monitor next?",
+                            "answer": "Fast mode omits deep Q&A analysis. Prioritise revisiting this section once a detailed run completes.",
+                        }
+                    ],
+                }
+
+                raw_json = json.dumps(placeholder_payload, indent=2)
+                raw_path = self.output()['raw'].path
+                with open(raw_path, "w", encoding="utf-8") as f:
+                    f.write(raw_json)
+                db_service.create_plan_content({
+                    "plan_id": plan_id,
+                    "filename": FilenameEnum.QUESTIONS_AND_ANSWERS_RAW.value,
+                    "stage": "questions_answers",
+                    "content_type": "json",
+                    "content": raw_json,
+                    "content_size_bytes": len(raw_json.encode('utf-8')),
+                })
+
+                markdown_summary = (
+                    "## Questions & Answers (Fast Mode Placeholder)\n\n"
+                    "Detailed stakeholder questions are skipped in fast mode. "
+                    "Run a full pipeline to generate the comprehensive discussion."
+                )
+                markdown_path = self.output()['markdown'].path
+                with open(markdown_path, "w", encoding="utf-8") as f:
+                    f.write(markdown_summary)
+                db_service.create_plan_content({
+                    "plan_id": plan_id,
+                    "filename": FilenameEnum.QUESTIONS_AND_ANSWERS_MARKDOWN.value,
+                    "stage": "questions_answers",
+                    "content_type": "markdown",
+                    "content": markdown_summary,
+                    "content_size_bytes": len(markdown_summary.encode('utf-8')),
+                })
+
+                html_summary = (
+                    "<section>"
+                    "<h2>Questions &amp; Answers (Fast Mode Placeholder)</h2>"
+                    "<p>Detailed Q&amp;A generation is skipped in fast mode to keep the turnaround minimal. "
+                    "Re-run the pipeline in balanced or detailed mode for a full dialogue.</p>"
+                    "</section>"
+                )
+                html_path = self.output()['html'].path
+                with open(html_path, "w", encoding="utf-8") as f:
+                    f.write(html_summary)
+                db_service.create_plan_content({
+                    "plan_id": plan_id,
+                    "filename": FilenameEnum.QUESTIONS_AND_ANSWERS_HTML.value,
+                    "stage": "questions_answers",
+                    "content_type": "html",
+                    "content": html_summary,
+                    "content_size_bytes": len(html_summary.encode('utf-8')),
+                })
+
+                return
+
             with self.input()['strategic_decisions_markdown']['markdown'].open("r") as f:
                 strategic_decisions_markdown = f.read()
             with self.input()['scenarios_markdown']['markdown'].open("r") as f:
