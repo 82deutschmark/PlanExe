@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Home } from 'lucide-react';
 
-import { PipelineDetails, PipelineLogsPanel } from '@/components/PipelineDetails';
+import { PipelineLogsPanel } from '@/components/PipelineDetails';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { fastApiClient, CreatePlanRequest } from '@/lib/api/fastapi-client';
@@ -21,8 +21,6 @@ import { fastApiClient, CreatePlanRequest } from '@/lib/api/fastapi-client';
 import { RecoveryHeader } from './components/RecoveryHeader';
 import { StageTimeline } from './components/StageTimeline';
 import { RecoveryReportPanel } from './components/ReportPanel';
-import { RecoveryArtefactPanel } from './components/ArtefactList';
-import { ArtefactPreview } from './components/ArtefactPreview';
 import { LiveStreamPanel } from './components/LiveStreamPanel';
 import { StreamHistoryPanel } from './components/StreamHistoryPanel';
 import { useRecoveryPlan } from './useRecoveryPlan';
@@ -70,14 +68,12 @@ const RecoveryPageContent: React.FC = () => {
     plan,
     reports,
     artefacts,
-    preview,
     stageSummary,
     connection,
     lastWriteAt,
     llmStreams,
     activeStageKey,
   } = recovery;
-  const { clear: clearPreview, select: selectPreview, file: previewFile } = preview;
 
   const handleRelaunch = useCallback(async () => {
     if (!plan.data) {
@@ -110,12 +106,11 @@ const RecoveryPageContent: React.FC = () => {
         speedVsDetail: speed_vs_detail,
       });
 
-      clearPreview();
       router.replace(`/recovery?planId=${encodeURIComponent(newPlan.plan_id)}`);
     } catch (error) {
       console.error('Failed to relaunch plan from recovery workspace', error);
     }
-  }, [plan.data, clearPreview, router]);
+  }, [plan.data, router]);
 
   if (!planId) {
     return <MissingPlanMessage />;
@@ -134,19 +129,18 @@ const RecoveryPageContent: React.FC = () => {
         onRefreshPlan={plan.refresh}
         onRelaunch={handleRelaunch}
       />
-      <main className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4">
-        <PipelineLogsPanel planId={planId} className="h-fit" />
-        <div className="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)] xl:grid-cols-[380px_minmax(0,1fr)]">
-          <div className="flex flex-col gap-4">
+      <main className="mx-auto flex max-w-7xl flex-col gap-2 px-2 py-2">
+        <div className="grid gap-2 lg:grid-cols-[320px_minmax(0,1fr)]">
+          <div className="flex flex-col gap-2">
             <StageTimeline
               stages={stageSummary}
               isLoading={artefacts.loading && stageSummary.length === 0}
               connection={connection}
               activeStageKey={activeStageKey}
             />
-            <PipelineDetails planId={planId} className="h-fit" />
+            <PipelineLogsPanel planId={planId} className="h-[400px]" />
           </div>
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
             <LiveStreamPanel stream={llmStreams.active} />
             <StreamHistoryPanel
               streams={llmStreams.history}
@@ -163,46 +157,15 @@ const RecoveryPageContent: React.FC = () => {
               }}
               lastUpdated={lastWriteAt}
             />
-            <RecoveryArtefactPanel
-              planId={planId}
-              artefacts={artefacts.items}
-              isLoading={artefacts.loading}
-              error={artefacts.error}
-              lastUpdated={artefacts.lastUpdated}
-              onRefresh={artefacts.refresh}
-              onPreview={selectPreview}
-            />
-            <ArtefactPreview
-              planId={planId}
-              preview={{
-                file: previewFile,
-                data: preview.data,
-                loading: preview.loading,
-                error: preview.error,
-                clear: clearPreview,
-              }}
-              onDownload={async () => {
-                if (!previewFile) {
-                  return;
-                }
-                try {
-                  const blob = await fastApiClient.downloadFile(planId, previewFile.filename);
-                  fastApiClient.downloadBlob(blob, previewFile.filename);
-                } catch (err) {
-                  console.error('Download from preview failed', err);
-                }
-              }}
-            />
           </div>
         </div>
         {plan.data?.prompt && (
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Initial Plan Request</CardTitle>
-              <p className="text-xs text-slate-500">Original prompt captured when the plan was created.</p>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-sm">Initial Plan Request</CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="whitespace-pre-wrap text-sm text-slate-600">{plan.data.prompt}</p>
+            <CardContent className="pt-2">
+              <p className="whitespace-pre-wrap text-xs text-slate-600">{plan.data.prompt}</p>
             </CardContent>
           </Card>
         )}

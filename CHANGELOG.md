@@ -1,5 +1,14 @@
 # Changelog - Use Proper Semantic Versioning and follow the Keep a Changelog standard
 
+## [0.8.8] - 2025-10-26
+- **Recovery Page Redesign**: Transformed recovery page into dense, info-rich assembly workspace
+- **Removed Duplications**: Eliminated PipelineDetails (3 tabs), RecoveryArtefactPanel (file manager), and ArtefactPreview (modal)
+- **Reorganized Layout**: Moved logs to left sidebar alongside stage timeline for always-visible monitoring
+- **Dense Styling**: Reduced padding/margins throughout (gap-4→gap-2, p-4→p-2) for maximum information density
+- **Simplified Reports**: Removed tabs from RecoveryReportPanel - now shows canonical HTML or fallback automatically
+- **Compact Components**: Applied dense styling to StageTimeline, LiveStreamPanel, and StreamHistoryPanel
+- **Better Focus**: Page now emphasizes live streaming, logs, and assembled plan content without file management overhead
+
 ## [0.8.7] - 2025-10-26
 - Added real-time progress monitoring to pipeline execution service, broadcasting incremental progress updates (1-99%) based on completed task counts from the `plan_content` table.
 - Fixed recovery page header progress display that was stuck at 0% throughout execution by implementing periodic database polling every 3 seconds.

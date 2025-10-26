@@ -88,21 +88,18 @@ export const StreamHistoryPanel: FC<StreamHistoryPanelProps> = ({ streams, activ
 
   return (
     <Card className="border-slate-700 bg-slate-900/70">
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-1 px-3 pt-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-sm text-slate-50">
-            <History className="h-4 w-4" />
+          <CardTitle className="flex items-center gap-1.5 text-xs text-slate-50">
+            <History className="h-3.5 w-3.5" />
             Stream History
           </CardTitle>
-          <span className="text-xs text-slate-500">{streams.length} interaction{streams.length === 1 ? '' : 's'}</span>
+          <span className="text-[10px] text-slate-500">{streams.length}</span>
         </div>
-        <p className="text-xs text-slate-400">
-          Completed or failed interactions are listed below. Expand any card to inspect its final reply and reasoning.
-        </p>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-1.5 px-3 pb-3">
         {streams.length === 0 ? (
-          <div className="rounded-lg border border-slate-700 bg-slate-950/60 p-4 text-sm text-slate-300">{EMPTY_MESSAGE}</div>
+          <div className="rounded border border-slate-700 bg-slate-950/60 p-2 text-xs text-slate-300">{EMPTY_MESSAGE}</div>
         ) : (
           streams.map((stream) => {
             const isActive = activeStreamId != null && stream.interactionId === activeStreamId;
@@ -114,7 +111,7 @@ export const StreamHistoryPanel: FC<StreamHistoryPanelProps> = ({ streams, activ
             return (
               <div
                 key={stream.interactionId}
-                className={`rounded-lg border px-3 py-2 transition-colors ${
+                className={`rounded border px-2 py-1.5 transition-colors ${
                   isActive
                     ? 'border-emerald-400 bg-emerald-500/10'
                     : 'border-slate-700 bg-slate-950/60'
@@ -123,44 +120,44 @@ export const StreamHistoryPanel: FC<StreamHistoryPanelProps> = ({ streams, activ
                 <button
                   type="button"
                   onClick={() => toggle(stream.interactionId)}
-                  className="flex w-full items-center justify-between text-left text-sm text-slate-100"
+                  className="flex w-full items-center justify-between text-left text-xs text-slate-100"
                 >
-                  <div className="flex flex-col gap-1">
+                  <div className="flex flex-col gap-0.5">
                     <span className="font-semibold text-slate-50">{stream.stage}</span>
-                    <span className="text-[11px] text-slate-400">
-                      Interaction #{stream.interactionId} · {stream.status}
+                    <span className="text-[10px] text-slate-400">
+                      #{stream.interactionId} · {stream.status}
                     </span>
                   </div>
-                  {isExpanded ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
+                  {isExpanded ? <ChevronUp className="h-3.5 w-3.5 text-slate-400" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400" />}
                 </button>
 
                 {isExpanded && (
-                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <div className="mt-2 grid gap-2 md:grid-cols-2">
                     <div>
-                      <p className="text-[11px] uppercase tracking-wide text-sky-200">Model Output</p>
-                      <div className="bg-slate-950/80 border border-sky-800/70 rounded p-2 text-xs text-sky-100 whitespace-pre-wrap max-h-40 overflow-y-auto">
+                      <p className="text-[10px] uppercase tracking-wide text-sky-200">Output</p>
+                      <div className="bg-slate-950/80 border border-sky-800/70 rounded p-1.5 text-[11px] text-sky-100 whitespace-pre-wrap max-h-32 overflow-y-auto">
                         {assembledText || '—'}
                       </div>
                     </div>
                     <div>
-                      <p className="text-[11px] uppercase tracking-wide text-rose-200">Reasoning</p>
-                      <div className="bg-slate-950/80 border border-rose-800/70 rounded p-2 text-xs text-rose-100 whitespace-pre-wrap max-h-40 overflow-y-auto">
+                      <p className="text-[10px] uppercase tracking-wide text-rose-200">Reasoning</p>
+                      <div className="bg-slate-950/80 border border-rose-800/70 rounded p-1.5 text-[11px] text-rose-100 whitespace-pre-wrap max-h-32 overflow-y-auto">
                         {assembledReasoning || '—'}
                       </div>
                     </div>
                     {stream.error && (
-                      <div className="md:col-span-2 text-[11px] text-rose-300">Error: {stream.error}</div>
+                      <div className="md:col-span-2 text-[10px] text-rose-300">Error: {stream.error}</div>
                     )}
                     {stream.usage && (
                       <div className="md:col-span-2">
-                        <p className="text-[11px] uppercase tracking-wide text-slate-300">Usage</p>
-                        <div className="mt-1 space-y-2">
+                        <p className="text-[10px] uppercase tracking-wide text-slate-300">Usage</p>
+                        <div className="mt-1 space-y-1">
                           {(Object.entries(stream.usage) as Array<[string, unknown]>).map(([key, value]) => {
                             const usageContent = renderUsageValue(value);
                             return (
-                              <div key={key} className="rounded border border-slate-700/70 bg-slate-900/60 p-2">
-                                <p className="text-[11px] font-semibold text-slate-50 uppercase tracking-wide">{key}</p>
-                                <div className="mt-1 text-slate-100">{usageContent}</div>
+                              <div key={key} className="rounded border border-slate-700/70 bg-slate-900/60 p-1.5">
+                                <p className="text-[10px] font-semibold text-slate-50 uppercase tracking-wide">{key}</p>
+                                <div className="mt-0.5 text-slate-100">{usageContent}</div>
                               </div>
                             );
                           })}
