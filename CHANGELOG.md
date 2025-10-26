@@ -1,5 +1,10 @@
 # Changelog - Use Proper Semantic Versioning and follow the Keep a Changelog standard
 
+## [0.9.5] - 2025-10-26
+- Fixed the Railway static export by replacing the dynamic `/plan/[planId]` route with a query-string driven `/plan` page so Next.js no longer requires `generateStaticParams()`.
+- Moved the report viewer client component to the new `/plan` entry point and updated recovery redirects/download actions to use `?planId=` links.
+- Verified `npm run build` completes with `output: 'export'`, unblocking single-service deployments.
+
 ## [0.9.4] - 2025-10-26
 - Fixed the pipeline execution service fast-mode normalisation to avoid referencing a non-existent
   `SpeedVsDetailEnum` member, ensuring plan launches succeed when coercing legacy aliases such as
