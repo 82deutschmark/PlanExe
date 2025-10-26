@@ -122,7 +122,7 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
             </Button>
             <Button variant="default" size="sm" onClick={() => void onRelaunch()} disabled={!plan || planLoading}>
               <RotateCcw className="mr-2 h-4 w-4" aria-hidden="true" />
-              Relaunch Plan
+              Resume Missing Sections
             </Button>
           </div>
         </div>

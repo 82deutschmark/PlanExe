@@ -76,23 +76,71 @@ const RecoveryPageContent: React.FC = () => {
   } = recovery;
 
   const handleRelaunch = useCallback(async () => {
-    if (!plan.data) {
-      return;
-    }
+    if (!plan.data) return;
 
     try {
+      // 1) Inspect what’s missing to make relaunch targeted
+      let missingFilenames: string[] = [];
+      try {
+        const fallback = await fastApiClient.getFallbackReport(planId);
+        missingFilenames = (fallback?.missing_sections ?? []).map((m) => m.filename);
+      } catch (e) {
+        // If fallback not available, proceed but inform via console; backend may still resume via DB-first logic.
+        console.warn('Fallback report unavailable; proceeding with best-effort resume.', e);
+      }
+
+      if (missingFilenames.length === 0 && plan.data.status === 'completed') {
+        // Nothing to resume; take user to the final report page instead of relaunching everything.
+        router.replace(`/plan/${encodeURIComponent(planId)}?from=recovery`);
+        return;
+      }
+
+      // Offer a simple stage picker when we have missing artefacts
+      let selectedMissing = missingFilenames;
+      if (missingFilenames.length > 0) {
+        const stageSet = new Set<string>();
+        for (const fn of missingFilenames) {
+          const match = fn.match(/^(\d{3})-([a-zA-Z0-9_\-]+)/);
+          if (match) {
+            stageSet.add(match[2]);
+          }
+        }
+        const stages = Array.from(stageSet);
+        if (stages.length > 0 && typeof window !== 'undefined') {
+          const suggestion = stages.join(',');
+          const input = window.prompt(
+            `Select stages to resume (comma-separated).\nAvailable: ${stages.join(', ')}\nLeave blank to resume all listed.`,
+            suggestion,
+          );
+          const chosen = (input ?? '').trim();
+          if (chosen) {
+            const chosenSet = new Set(
+              chosen
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean),
+            );
+            if (chosenSet.size > 0) {
+              selectedMissing = missingFilenames.filter((fn) => {
+                const m = fn.match(/^(\d{3})-([a-zA-Z0-9_\-]+)/);
+                const stage = m ? m[2] : '';
+                return chosenSet.has(stage);
+              });
+            }
+          }
+        }
+      }
+
       const speedDefault: CreatePlanRequest['speed_vs_detail'] = 'balanced_speed_and_detail';
-      const llmModel =
-        typeof window !== 'undefined'
-          ? window.prompt('Enter LLM model ID for relaunch (leave blank for default):', '') ?? ''
-          : '';
-      const speedInput =
-        typeof window !== 'undefined'
-          ? window.prompt(
-              'Speed vs detail (fast_but_skip_details | balanced_speed_and_detail | all_details_but_slow):',
-              speedDefault,
-            ) ?? speedDefault
-          : speedDefault;
+      const llmModel = typeof window !== 'undefined'
+        ? window.prompt('Model for resume (leave blank for default):', '') ?? ''
+        : '';
+      const speedInput = typeof window !== 'undefined'
+        ? window.prompt(
+            'Speed vs detail (fast_but_skip_details | balanced_speed_and_detail | all_details_but_slow):',
+            speedDefault,
+          ) ?? speedDefault
+        : speedDefault;
       const allowedSpeeds: CreatePlanRequest['speed_vs_detail'][] = [
         'fast_but_skip_details',
         'balanced_speed_and_detail',
@@ -101,16 +149,43 @@ const RecoveryPageContent: React.FC = () => {
       const normalisedSpeed = (speedInput || speedDefault).trim() as CreatePlanRequest['speed_vs_detail'];
       const speed_vs_detail = allowedSpeeds.includes(normalisedSpeed) ? normalisedSpeed : speedDefault;
 
-      const newPlan = await fastApiClient.relaunchPlan(plan.data, {
-        llmModel: llmModel.trim() || undefined,
-        speedVsDetail: speed_vs_detail,
+      // 2) Request a resume-only run by embedding intent in enriched_intake.
+      //    Pipeline is DB-first; tasks should skip already-completed outputs.
+      const newPlan = await fastApiClient.createPlan({
+        prompt: plan.data.prompt,
+        llm_model: llmModel.trim() || undefined,
+        speed_vs_detail,
+        enriched_intake: {
+          project_title: 'Plan Resume',
+          refined_objective: 'Resume only missing sections to complete the plan.',
+          original_prompt: plan.data.prompt,
+          scale: 'personal',
+          risk_tolerance: 'moderate',
+          domain: 'general',
+          budget: {},
+          timeline: {},
+          geography: { is_digital_only: true },
+          conversation_summary: selectedMissing.length > 0
+            ? `Resume request targeting ${selectedMissing.length} missing artefacts.`
+            : 'Resume request without explicit missing artefacts (fallback unavailable).',
+          confidence_score: 0.75,
+          // Surface target filenames so pipeline/components can pick up selective execution if supported
+          areas_needing_clarification: selectedMissing,
+        },
       });
 
       router.replace(`/recovery?planId=${encodeURIComponent(newPlan.plan_id)}`);
     } catch (error) {
-      console.error('Failed to relaunch plan from recovery workspace', error);
+      console.error('Failed to relaunch (resume) from recovery workspace', error);
     }
-  }, [plan.data, router]);
+  }, [plan.data, planId, router]);
+
+  // Redirect to a dedicated report page on completion to improve UX
+  React.useEffect(() => {
+    if (plan.data?.status === 'completed') {
+      router.replace(`/plan/${encodeURIComponent(planId)}?from=recovery`);
+    }
+  }, [plan.data?.status, planId, router]);
 
   if (!planId) {
     return <MissingPlanMessage />;

@@ -10,6 +10,13 @@
 - **RecoveryHeader**: Renamed to "Plan Assembly Workspace" with amber-900 headings and amber-700 text
 - **Improved Readability**: All text now uses high-contrast colors (amber-900, gray-900) instead of unreadable grey
 
+## [0.9.0] - 2025-10-26
+- Recovery UX polish and targeted resume
+- Added auto-redirect to report page when a plan completes (from recovery to `/plan/{planId}`) with a friendly banner.
+- Reworked "Relaunch" action to "Resume Missing Sections". It inspects missing artefacts from `/api/plans/{id}/fallback-report` and only resumes gaps.
+- Stage picker for resume: users can choose which missing stages to resume before launching a targeted run.
+- New report viewer page at `/plan/{planId}`: shows final HTML when available, otherwise embeds the database-assembled fallback report with explicit missing-section reasons.
+
 ## [0.8.8] - 2025-10-26
 - **Recovery Page Redesign**: Transformed recovery page into dense, info-rich assembly workspace
 - **Removed Duplications**: Eliminated PipelineDetails (3 tabs), RecoveryArtefactPanel (file manager), and ArtefactPreview (modal)
