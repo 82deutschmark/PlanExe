@@ -465,14 +465,65 @@ class PipelineExecutionService:
 
                 process.stdout.close()
 
+        async def monitor_progress():
+            """Periodically calculate and broadcast progress based on completed tasks"""
+            TOTAL_TASKS = 61  # Total number of Luigi tasks in the pipeline (from CLAUDE.md)
+            UPDATE_INTERVAL = 3.0  # Update progress every 3 seconds
+            last_progress = 0
+
+            while process.poll() is None:  # While process is still running
+                try:
+                    await asyncio.sleep(UPDATE_INTERVAL)
+
+                    # Query database to count completed tasks
+                    # Each task writes to plan_content, so count unique task entries
+                    completed_count = db_service.count_plan_content_entries(plan_id)
+
+                    # Calculate progress percentage, capping at 99% until final completion
+                    # (Final 100% is set in _finalize_plan_status)
+                    progress_percentage = min(int((completed_count / TOTAL_TASKS) * 100), 99)
+
+                    # Only broadcast if progress has changed
+                    if progress_percentage != last_progress:
+                        last_progress = progress_percentage
+
+                        # Update database
+                        db_service.update_plan(plan_id, {
+                            "progress_percentage": progress_percentage,
+                            "progress_message": f"Processing... {completed_count}/{TOTAL_TASKS} tasks completed"
+                        })
+
+                        # Broadcast progress update via WebSocket
+                        progress_data = {
+                            "type": "status",
+                            "status": "running",
+                            "message": f"Processing... {completed_count}/{TOTAL_TASKS} tasks completed",
+                            "progress_percentage": progress_percentage,
+                            "timestamp": _utcnow_iso()
+                        }
+                        await websocket_manager.broadcast_to_plan(plan_id, progress_data)
+                        print(f"[PROGRESS] Plan {plan_id}: {progress_percentage}% ({completed_count}/{TOTAL_TASKS} tasks)")
+
+                except Exception as e:
+                    print(f"Progress monitoring error for plan {plan_id}: {e}")
+                    # Continue monitoring even if there's an error
+
         # stderr is merged into stdout, so only need one monitoring task
-        # Start monitoring task
+        # Start monitoring tasks
         stdout_task = asyncio.create_task(read_stdout())
+        progress_task = asyncio.create_task(monitor_progress())
 
         # Wait for process completion in executor (blocking operation)
         loop = asyncio.get_event_loop()
         return_code = await loop.run_in_executor(None, process.wait)
         print(f"DEBUG: Luigi process completed with return code: {return_code}")
+
+        # Cancel progress monitoring since process completed
+        progress_task.cancel()
+        try:
+            await progress_task
+        except asyncio.CancelledError:
+            pass
 
         # Wait for monitoring task to complete
         try:

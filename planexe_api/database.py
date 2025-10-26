@@ -368,6 +368,12 @@ class DatabaseService:
             PlanContent.filename == filename
         ).first()
 
+    def count_plan_content_entries(self, plan_id: str) -> int:
+        """Count total plan content entries for progress calculation"""
+        return self.db.query(PlanContent).filter(
+            PlanContent.plan_id == plan_id
+        ).count()
+
     def close(self):
         """Close database session"""
         self.db.close()
