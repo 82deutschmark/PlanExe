@@ -6,6 +6,9 @@
 - Captured the remaining migration work and runbook in `docs/pipeline_handoff_notes.md` so the next pass can finish replacing legacy message helpers and signature annotations.
 - Known gap: most pipeline tasks still accept `llm: LLM` and need to migrate to `Any` + `SimpleChatMessage` helpers before the adapter can run end-to-end.
 - Swapped early assumption, governance, expert, and team enrichment modules to accept raw adapters, replace llama_index `ChatMessage` usage with `SimpleChatMessage`, and harden metadata access so SimpleOpenAILLM can flow through Luigi without type errors.
+- Hardened WBS Level 1/2 and ReviewTeam tasks with structured fallbacks, fast-mode query trimming, early progress writes, and per-task completion metadata persisted into `plan_content`.
+- Fortified `ReviewPlanTask` & schema logic: every question now performs structured Responses API calls with graceful fallbacks, captures token usage, and survives FAST mode without crashing downstream stages.
+- Progress snapshots (`*.progress`) now record start/completion/failure states for all WBS and plan review tasks so operators can diagnose partial runs directly from the database.
 
 ## [0.8.5] - 2025-10-25
 
