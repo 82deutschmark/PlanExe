@@ -66,11 +66,6 @@ export const ResumeDialog: React.FC<ResumeDialogProps> = ({
     return Array.from(byStage.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [missing]);
 
-  const allChecked = useMemo(() => {
-    const keys = Object.keys(selected);
-    return keys.length > 0 && keys.every((k) => selected[k]);
-  }, [selected]);
-
   const selectedCount = useMemo(() => Object.values(selected).filter(Boolean).length, [selected]);
 
   const toggleAll = (value: boolean) => {

@@ -64,6 +64,8 @@ const RecoveryPageContent: React.FC = () => {
   const searchParams = useSearchParams();
   const rawPlanId = searchParams?.get('planId') ?? '';
   const planId = useMemo(() => rawPlanId.replace(/\s+/g, '').trim(), [rawPlanId]);
+  const [resumeOpen, setResumeOpen] = useState(false);
+  const [resumeMissing, setResumeMissing] = useState<MissingSectionResponse[]>([]);
 
   const recovery = useRecoveryPlan(planId);
   const {
@@ -206,7 +208,6 @@ const RecoveryPageContent: React.FC = () => {
             />
             <RecoveryReportPanel
               canonicalHtml={reports.canonicalHtml}
-              canonicalError={reports.canonicalError}
               fallbackPlanId={planId}
               isRefreshing={reports.loading || artefacts.loading}
               onRefresh={() => {
@@ -239,5 +240,3 @@ const RecoveryPage: React.FC = () => (
 );
 
 export default RecoveryPage;
-  const [resumeOpen, setResumeOpen] = useState(false);
-  const [resumeMissing, setResumeMissing] = useState<MissingSectionResponse[]>([]);

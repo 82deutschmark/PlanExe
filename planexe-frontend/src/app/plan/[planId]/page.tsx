@@ -10,7 +10,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { Home, Download } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,6 @@ import { ReportTaskFallback } from '@/components/files/ReportTaskFallback';
 
 const ReportPage: React.FC = () => {
   const params = useParams();
-  const router = useRouter();
   const planId = useMemo(() => String(params?.planId ?? '').trim(), [params]);
   const search = useSearchParams();
   const fromRecovery = (search?.get('from') ?? '') === 'recovery';
