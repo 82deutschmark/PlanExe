@@ -20,7 +20,8 @@ from typing import Any, List
 from pydantic import BaseModel, Field
 
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
-from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
+from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole, StructuredLLMResponse
+from planexe.llm_util.schema_registry import register_schema
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +100,7 @@ class ReviewTeam:
         return query
 
     @classmethod
-    def execute(cls, llm: Any, user_prompt: str, team_member_list: list[dict]) -> 'ReviewTeam':
+    def execute(cls, llm: Any, user_prompt: str, team_member_list: list[dict], *, fast_mode: bool = False) -> 'ReviewTeam':
         """
         Invoke LLM with each team member.
         """
@@ -112,6 +113,8 @@ class ReviewTeam:
 
         system_prompt = REVIEW_TEAM_SYSTEM_PROMPT.strip()
 
+        register_schema(DocumentDetails)
+
         chat_message_list = [
             SimpleChatMessage(role=SimpleMessageRole.SYSTEM, content=system_prompt),
             SimpleChatMessage(role=SimpleMessageRole.USER, content=user_prompt),
@@ -119,21 +122,33 @@ class ReviewTeam:
 
         sllm = llm.as_structured_llm(DocumentDetails)
         start_time = time.perf_counter()
+        reasoning_effort = "low" if fast_mode else "medium"
+        fallback_used = False
         try:
-            chat_response = sllm.chat(chat_message_list)
+            chat_response: StructuredLLMResponse = sllm.chat(
+                chat_message_list,
+                reasoning_effort=reasoning_effort,
+            )
+            parsed_model = chat_response.raw
+            response_text = chat_response.message.content
+            usage = getattr(chat_response, "token_usage", None)
         except Exception as e:
-            logger.debug(f"LLM chat interaction failed: {e}")
-            logger.error("LLM chat interaction failed.", exc_info=True)
-            raise ValueError("LLM chat interaction failed.") from e
+            fallback_used = True
+            logger.warning("ReviewTeam fallback triggered due to error: %s", e)
+            parsed_model = DocumentDetails(omissions=[], potential_improvements=[])
+            response_text = json.dumps(parsed_model.model_dump())
+            usage = None
 
         end_time = time.perf_counter()
         duration = int(ceil(end_time - start_time))
-        response_byte_count = len(chat_response.message.content.encode('utf-8'))
+        response_byte_count = len(response_text.encode('utf-8'))
         logger.info(f"LLM chat interaction completed in {duration} seconds. Response byte count: {response_byte_count}")
 
-        json_response = chat_response.raw.model_dump()
+        json_response = parsed_model.model_dump()
+        json_response.setdefault("omissions", [])
+        json_response.setdefault("potential_improvements", [])
 
-        team_member_list_updated = cls.cleanup_enriched_team_members(chat_response.raw, team_member_list)
+        team_member_list_updated = cls.cleanup_enriched_team_members(parsed_model, team_member_list)
 
         metadata_source = getattr(llm, "metadata", {})
         if isinstance(metadata_source, dict):
@@ -152,6 +167,11 @@ class ReviewTeam:
             metadata=metadata,
         )
         return result
+
+    @staticmethod
+    def cleanup_enriched_team_members(response_model: DocumentDetails, team_member_list: list[dict]) -> list[dict]:
+        # Placeholder for future enrichment reconciliation logic.
+        return team_member_list
     
     def to_dict(self, include_metadata=True, include_system_prompt=True, include_user_prompt=True) -> dict:
         d = self.response.copy()

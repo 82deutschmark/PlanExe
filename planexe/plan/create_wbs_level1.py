@@ -22,6 +22,11 @@ from pydantic import BaseModel, Field, ValidationError
 
 logger = logging.getLogger(__name__)
 
+from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole, StructuredLLMResponse
+from planexe.llm_util.schema_registry import register_schema
+
+logger = logging.getLogger(__name__)
+
 class WBSLevel1(BaseModel):
     """
     Represents the top-level details of a Work Breakdown Structure (WBS)
@@ -58,16 +63,20 @@ class CreateWBSLevel1:
     final_deliverable: str
 
     @classmethod
-    def execute(cls, llm: Any, query: str) -> 'CreateWBSLevel1':
+    def execute(cls, llm: Any, query: str, *, fast_mode: bool = False) -> 'CreateWBSLevel1':
         """
         Invoke LLM to create a work breakdown structure level 1.
         """
-        if not hasattr(llm, "complete") or not hasattr(llm, "metadata"):
-            raise ValueError("Invalid LLM instance: missing complete() or metadata attributes.")
+        if not hasattr(llm, "as_structured_llm") or not hasattr(llm, "metadata"):
+            raise ValueError("Invalid LLM instance: missing as_structured_llm() or metadata attributes.")
         if not isinstance(query, str):
             raise ValueError("Invalid query.")
 
-        start_time = time.perf_counter()
+        system_prompt = (
+            "You generate concise Work Breakdown Structure level 1 summaries. "
+            "Return valid JSON with snake_case keys: project_title and final_deliverable. "
+            "Both values must be short strings (3-10 words)."
+        )
 
         response = llm.complete(QUERY_PREAMBLE + query)
         raw_text = response.text if hasattr(response, "text") else str(response)
@@ -87,6 +96,8 @@ class CreateWBSLevel1:
             metadata["normalization_warnings"] = warnings
 
         project_id = str(uuid4())
+        json_response = parsed.model_dump()
+
         result = CreateWBSLevel1(
             query=query,
             response=json_response,

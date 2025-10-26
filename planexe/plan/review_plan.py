@@ -128,6 +128,9 @@ class ReviewPlan:
         durations = []
         response_byte_counts = []
 
+        fallback_questions = 0
+        reasoning_effort = "low" if speed_vs_detail == SpeedVsDetailEnum.FAST_BUT_SKIP_DETAILS else "medium"
+
         previous_response_id: str | None = None
 
         for index, title_question in enumerate(title_question_list, start=1):
@@ -135,10 +138,19 @@ class ReviewPlan:
             logger.debug(f"Question {index} of {len(title_question_list)}: {question}")
             chat_message_list.append(SimpleChatMessage(role=SimpleMessageRole.USER, content=question))
 
+            parsed_model: DocumentDetails | None = None
+            response_text = ""
+            metadata_entry: dict[str, Any] = {}
+            start_time = time.perf_counter()
+
             def execute_function(llm: Any) -> ReviewPlanRunResult:
                 sllm = llm.as_structured_llm(DocumentDetails)
                 # Pass previous_response_id for chaining; reasoning_effort remains from config
-                chat_response = sllm.chat(chat_message_list, previous_response_id=previous_response_id)
+                chat_response = sllm.chat(
+                    chat_message_list,
+                    previous_response_id=previous_response_id,
+                    reasoning_effort=reasoning_effort,
+                )
                 metadata = dict(getattr(llm, "metadata", {}))
                 metadata.setdefault("model", getattr(llm, "model", None))
                 metadata.setdefault("provider", getattr(llm, "provider", None))
@@ -162,37 +174,79 @@ class ReviewPlan:
                 # Re-raise PipelineStopRequested without wrapping it
                 raise
             except Exception as e:
-                logger.debug(f"Question {index} of {len(title_question_list)}. LLM chat interaction failed: {e}")
-                logger.error(f"Question {index} of {len(title_question_list)}. LLM chat interaction failed.", exc_info=True)
-                raise ValueError("LLM chat interaction failed.") from e
-            if not isinstance(review_plan_run_result, ReviewPlanRunResult):
-                raise ValueError(f"Expected a ReviewPlanRunResult instance. {review_plan_run_result!r}")
+                fallback_questions += 1
+                error_message = str(e)
+                logger.debug(
+                    "Question %s of %s. LLM chat interaction failed: %s",
+                    index,
+                    len(title_question_list),
+                    error_message,
+                )
+                logger.error(
+                    "Question %s of %s. LLM chat interaction failed.",
+                    index,
+                    len(title_question_list),
+                    exc_info=True,
+                )
+                parsed_model = DocumentDetails(
+                    bullet_points=[
+                        "**Manual review required.** Automated analysis failed; please inspect the source materials for this question.",
+                        "**Document unresolved issues.** Capture outstanding risks, assumptions, and data gaps for Version 2.",
+                        "**Assign follow-up actions.** Schedule a human reviewer to provide the missing insights before finalizing the plan.",
+                    ]
+                )
+                response_text = json.dumps(parsed_model.model_dump())
+                metadata_entry = {
+                    "fallback_used": True,
+                    "error": error_message,
+                    "reasoning_effort": reasoning_effort,
+                }
+                previous_response_id = None
+            else:
+                if not isinstance(review_plan_run_result, ReviewPlanRunResult):
+                    raise ValueError(f"Expected a ReviewPlanRunResult instance. {review_plan_run_result!r}")
+                parsed_model = review_plan_run_result.chat_response.raw
+                response_text = review_plan_run_result.chat_response.message.content
+                usage = getattr(review_plan_run_result.chat_response, "token_usage", None)
+                metadata_entry = dict(review_plan_run_result.metadata)
+                metadata_entry["fallback_used"] = False
+                metadata_entry["reasoning_effort"] = reasoning_effort
+                if usage:
+                    usage_payload = usage.model_dump() if hasattr(usage, "model_dump") else usage
+                    metadata_entry["token_usage"] = usage_payload
+                previous_response_id = review_plan_run_result.previous_response_id
 
             end_time = time.perf_counter()
             duration = int(ceil(end_time - start_time))
             durations.append(duration)
-            response_byte_count = len(review_plan_run_result.chat_response.message.content.encode('utf-8'))
+            response_byte_count = len(response_text.encode('utf-8'))
             response_byte_counts.append(response_byte_count)
-            logger.info(f"Question {index} of {len(title_question_list)}. LLM chat interaction completed in {duration} seconds. Response byte count: {response_byte_count}")
+            logger.info(
+                "Question %s of %s. Interaction completed in %s seconds. Response byte count: %s",
+                index,
+                len(title_question_list),
+                duration,
+                response_byte_count,
+            )
 
-            json_response = review_plan_run_result.chat_response.raw.model_dump()
-            logger.debug(json.dumps(json_response, indent=2))
+            metadata_entry.setdefault("fallback_used", True)
+            metadata_entry["duration"] = duration
+            metadata_entry["response_byte_count"] = response_byte_count
+            metadata_list.append(metadata_entry)
 
+            answers = parsed_model.bullet_points if parsed_model else []
             question_answers_list.append({
                 "title": title,
                 "question": question,
-                "answers": review_plan_run_result.chat_response.raw.bullet_points,
+                "answers": answers,
             })
 
-            metadata_list.append(review_plan_run_result.metadata)
-
-            # Update previous_response_id for chaining to the next question
-            previous_response_id = review_plan_run_result.previous_response_id
-
-            chat_message_list.append(SimpleChatMessage(
-                role=SimpleMessageRole.ASSISTANT,
-                content=review_plan_run_result.chat_response.message.content,
-            ))
+            chat_message_list.append(
+                SimpleChatMessage(
+                    role=SimpleMessageRole.ASSISTANT,
+                    content=response_text,
+                )
+            )
 
         response_byte_count_total = sum(response_byte_counts)
         response_byte_count_average = response_byte_count_total / len(title_question_list)
@@ -213,6 +267,9 @@ class ReviewPlan:
         metadata["response_byte_count_max"] = response_byte_count_max
         metadata["response_byte_count_min"] = response_byte_count_min
         metadata["metadata_list"] = metadata_list
+        metadata["questions_total"] = len(title_question_list)
+        metadata["questions_with_fallback"] = fallback_questions
+
         markdown = cls.convert_to_markdown(question_answers_list)
 
         result = ReviewPlan(

@@ -86,7 +86,6 @@ Verify exact routes in `planexe_api/api.py` if unsure.
 ## Development rules
 General
 - Prefer editing existing files; avoid creating new files unless necessary.
-- Commit early/often with descriptive messages (“sudden death” assumption).
 - Add rationale and task lists in `/docs` when you change behavior or architecture.
 - Keep responses and changes concise; discuss tradeoffs with the product owner before large changes.
 

@@ -3542,12 +3542,116 @@ class ReviewTeamTask(PlanTask):
             query = (f"File 'initial-plan.txt':\n{plan_prompt}\n\nFile 'strategic_decisions.md':\n{strategic_decisions_markdown}\n\nFile 'scenarios.md':\n{scenarios_markdown}\n\nFile 'assumptions.md':\n{consolidate_assumptions_markdown}\n\nFile 'pre-project-assessment.json':\n{format_json_for_use_in_query(pre_project_assessment_dict)}\n\nFile 'project-plan.md':\n{project_plan_markdown}\n\nFile 'team-members.md':\n{team_document_markdown}\n\nFile 'related-resources.md':\n{related_resources_markdown}")
             interaction_id = db_service.create_llm_interaction({"plan_id": plan_id, "llm_model": str(self.llm_models[0]) if self.llm_models else "unknown", "stage": "review_team", "prompt_text": query[:10000], "status": "pending"}).id
             start_time = time.time()
-            review_team = ReviewTeam.execute(llm, query)
+            progress_record = None
+            progress_filename = f"{FilenameEnum.REVIEW_TEAM_RAW.value}.progress"
+            progress_payload = {
+                "status": "started",
+                "timestamp": datetime.utcnow().isoformat() + "Z"
+            }
+            progress_content = json.dumps(progress_payload)
+            progress_record = db_service.create_plan_content({
+                "plan_id": plan_id,
+                "filename": progress_filename,
+                "stage": "review_team",
+                "content_type": "json",
+                "content": progress_content,
+                "content_size_bytes": len(progress_content.encode('utf-8'))
+            })
+
+            review_team = ReviewTeam.execute(
+                llm,
+                query,
+                team_member_list,
+                fast_mode=self.speedvsdetail == SpeedVsDetailEnum.FAST_BUT_SKIP_DETAILS,
+            )
             duration_seconds = time.time() - start_time
             raw_dict = review_team.to_dict()
             db_service.update_llm_interaction(interaction_id, {"status": "completed", "response_text": json.dumps(raw_dict), "completed_at": datetime.utcnow(), "duration_seconds": duration_seconds})
             raw_content = json.dumps(raw_dict, indent=2)
             db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.REVIEW_TEAM_RAW.value, "stage": "review_team", "content_type": "json", "content": raw_content, "content_size_bytes": len(raw_content.encode('utf-8'))})
+            with self.output().open("w") as f:
+                json.dump(raw_dict, f, indent=2)
+            if progress_record:
+                progress_payload.update({
+                    "status": "completed",
+                    "duration_seconds": duration_seconds,
+                    "fallback_used": bool(review_team.metadata.get("fallback_used"))
+                })
+                progress_record.content = json.dumps(progress_payload)
+                progress_record.content_size_bytes = len(progress_record.content.encode('utf-8'))
+                db_service.db.commit()
+        except Exception as e:
+            if db_service and 'interaction_id' in locals():
+                try:
+                    db_service.update_llm_interaction(interaction_id, {"status": "failed", "error_message": str(e), "completed_at": datetime.utcnow()})
+                except Exception:
+                    pass
+            if db_service and progress_record:
+                failure_payload = {
+                    "status": "failed",
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "error": str(e)
+                }
+                progress_record.content = json.dumps(failure_payload)
+                progress_record.content_size_bytes = len(progress_record.content.encode('utf-8'))
+                try:
+                    db_service.db.commit()
+                except Exception:
+                    pass
+            raise
+        finally:
+            if db_service:
+                db_service.close()
+
+class ReviewPlanTask(PlanTask):
+    def requires(self):
+        return {
+            'setup': self.clone(SetupTask),
+            'strategic_decisions_markdown': self.clone(StrategicDecisionsMarkdownTask),
+            'scenarios_markdown': self.clone(ScenariosMarkdownTask),
+            'consolidate_assumptions_markdown': self.clone(ConsolidateAssumptionsMarkdownTask),
+            'preproject': self.clone(PreProjectAssessmentTask),
+            'project_plan': self.clone(ProjectPlanTask),
+            'enrich_team_members_with_environment_info': self.clone(EnrichTeamMembersWithEnvironmentInfoTask),
+            'review_team': self.clone(ReviewTeamTask),
+            'related_resources': self.clone(RelatedResourcesTask)
+        }
+
+    def output(self):
+        return self.local_target(FilenameEnum.REVIEW_PLAN_RAW)
+
+    def run_with_llm(self, llm: LLM) -> None:
+        db_service = None
+        plan_id = self.get_plan_id()
+        try:
+            db_service = self.get_database_service()
+            with self.input()['setup'].open("r") as f:
+                plan_prompt = f.read()
+            with self.input()['strategic_decisions_markdown']['markdown'].open("r") as f:
+                strategic_decisions_markdown = f.read()
+            with self.input()['scenarios_markdown']['markdown'].open("r") as f:
+                scenarios_markdown = f.read()
+            with self.input()['consolidate_assumptions_markdown']['short'].open("r") as f:
+                consolidate_assumptions_markdown = f.read()
+            with self.input()['preproject']['clean'].open("r") as f:
+                pre_project_assessment_dict = json.load(f)
+            with self.input()['project_plan']['markdown'].open("r") as f:
+                project_plan_markdown = f.read()
+            with self.input()['enrich_team_members_with_environment_info']['clean'].open("r") as f:
+                team_member_list = json.load(f)
+            with self.input()['review_team'].open("r") as f:
+                review_team_json = json.load(f)
+            with self.input()['related_resources']['markdown'].open("r") as f:
+                related_resources_markdown = f.read()
+            query = (f"File 'initial-plan.txt':\n{plan_prompt}\n\nFile 'strategic_decisions.md':\n{strategic_decisions_markdown}\n\nFile 'scenarios.md':\n{scenarios_markdown}\n\nFile 'assumptions.md':\n{consolidate_assumptions_markdown}\n\nFile 'pre-project-assessment.json':\n{format_json_for_use_in_query(pre_project_assessment_dict)}\n\nFile 'project-plan.md':\n{project_plan_markdown}\n\nFile 'team-members-that-needs-to-be-enriched.json':\n{format_json_for_use_in_query(team_member_list)}\n\nFile 'review-team.json':\n{json.dumps(review_team_json)}\n\nFile 'related-resources.md':\n{related_resources_markdown}")
+            interaction_id = db_service.create_llm_interaction({"plan_id": plan_id, "llm_model": str(self.llm_models[0]) if self.llm_models else "unknown", "stage": "review_plan", "prompt_text": query[:10000], "status": "pending"}).id
+            start_time = time.time()
+            review_plan = ReviewPlan.execute(llm, query, team_member_list, review_team_json)
+            duration_seconds = time.time() - start_time
+            raw_dict = review_plan.to_dict()
+            db_service.update_llm_interaction(interaction_id, {"status": "completed", "response_text": json.dumps(raw_dict), "completed_at": datetime.utcnow(), "duration_seconds": duration_seconds})
+            raw_content = json.dumps(raw_dict, indent=2)
+            db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.REVIEW_PLAN_RAW.value, "stage": "review_plan", "content_type": "json", "content": raw_content, "content_size_bytes": len(raw_content.encode('utf-8'))})
             with self.output().open("w") as f:
                 json.dump(raw_dict, f, indent=2)
         except Exception as e:
@@ -4332,7 +4436,23 @@ class CreateWBSLevel1Task(PlanTask):
             query = format_json_for_use_in_query(project_plan_dict)
             interaction_id = db_service.create_llm_interaction({"plan_id": plan_id, "llm_model": str(self.llm_models[0]) if self.llm_models else "unknown", "stage": "wbs_level1", "prompt_text": query[:10000], "status": "pending"}).id
             start_time = time.time()
-            create_wbs_level1 = CreateWBSLevel1.execute(llm, query)
+            progress_record = None
+            progress_filename = f"{FilenameEnum.WBS_LEVEL1_RAW.value}.progress"
+            progress_payload = {
+                "status": "started",
+                "timestamp": datetime.utcnow().isoformat() + "Z"
+            }
+            progress_content = json.dumps(progress_payload)
+            progress_record = db_service.create_plan_content({
+                "plan_id": plan_id,
+                "filename": progress_filename,
+                "stage": "wbs_level1",
+                "content_type": "json",
+                "content": progress_content,
+                "content_size_bytes": len(progress_content.encode('utf-8'))
+            })
+
+            create_wbs_level1 = CreateWBSLevel1.execute(llm, query, fast_mode=self.speedvsdetail == SpeedVsDetailEnum.FAST_BUT_SKIP_DETAILS)
             duration_seconds = time.time() - start_time
             wbs_level1_raw_dict = create_wbs_level1.raw_response_dict()
             db_service.update_llm_interaction(interaction_id, {"status": "completed", "response_text": json.dumps(wbs_level1_raw_dict), "completed_at": datetime.utcnow(), "duration_seconds": duration_seconds})
@@ -4349,10 +4469,31 @@ class CreateWBSLevel1Task(PlanTask):
                 json.dump(wbs_level1_result_json, f, indent=2)
             with self.output()['project_title'].open("w") as f:
                 f.write(project_title)
+            if progress_record:
+                progress_payload.update({
+                    "status": "completed",
+                    "duration_seconds": duration_seconds,
+                    "fallback_used": bool(create_wbs_level1.metadata.get("fallback_used"))
+                })
+                progress_record.content = json.dumps(progress_payload)
+                progress_record.content_size_bytes = len(progress_record.content.encode('utf-8'))
+                db_service.db.commit()
         except Exception as e:
             if db_service and 'interaction_id' in locals():
                 try:
                     db_service.update_llm_interaction(interaction_id, {"status": "failed", "error_message": str(e), "completed_at": datetime.utcnow()})
+                except Exception:
+                    pass
+            if db_service and 'progress_record' in locals() and progress_record:
+                failure_payload = {
+                    "status": "failed",
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "error": str(e)
+                }
+                progress_record.content = json.dumps(failure_payload)
+                progress_record.content_size_bytes = len(progress_record.content.encode('utf-8'))
+                try:
+                    db_service.db.commit()
                 except Exception:
                     pass
             raise
@@ -4403,7 +4544,23 @@ class CreateWBSLevel2Task(PlanTask):
             query = (f"File 'strategic_decisions.md':\n{strategic_decisions_markdown}\n\nFile 'scenarios.md':\n{scenarios_markdown}\n\nFile 'project_plan.md':\n{project_plan_markdown}\n\nFile 'WBS Level 1.json':\n{format_json_for_use_in_query(wbs_level1_result_json)}\n\nFile 'data_collection.md':\n{data_collection_markdown}")
             interaction_id = db_service.create_llm_interaction({"plan_id": plan_id, "llm_model": str(self.llm_models[0]) if self.llm_models else "unknown", "stage": "wbs_level2", "prompt_text": query[:10000], "status": "pending"}).id
             start_time = time.time()
-            create_wbs_level2 = CreateWBSLevel2.execute(llm, query)
+            progress_record = None
+            progress_filename = f"{FilenameEnum.WBS_LEVEL2_RAW.value}.progress"
+            progress_payload = {
+                "status": "started",
+                "timestamp": datetime.utcnow().isoformat() + "Z"
+            }
+            progress_content = json.dumps(progress_payload)
+            progress_record = db_service.create_plan_content({
+                "plan_id": plan_id,
+                "filename": progress_filename,
+                "stage": "wbs_level2",
+                "content_type": "json",
+                "content": progress_content,
+                "content_size_bytes": len(progress_content.encode('utf-8'))
+            })
+
+            create_wbs_level2 = CreateWBSLevel2.execute(llm, query, fast_mode=self.speedvsdetail == SpeedVsDetailEnum.FAST_BUT_SKIP_DETAILS)
             duration_seconds = time.time() - start_time
             wbs_level2_raw_dict = create_wbs_level2.raw_response_dict()
             db_service.update_llm_interaction(interaction_id, {"status": "completed", "response_text": json.dumps(wbs_level2_raw_dict), "completed_at": datetime.utcnow(), "duration_seconds": duration_seconds})
@@ -4415,10 +4572,31 @@ class CreateWBSLevel2Task(PlanTask):
                 json.dump(wbs_level2_raw_dict, f, indent=2)
             with self.output()['clean'].open("w") as f:
                 json.dump(create_wbs_level2.major_phases_with_subtasks, f, indent=2)
+            if progress_record:
+                progress_payload.update({
+                    "status": "completed",
+                    "duration_seconds": duration_seconds,
+                    "fallback_used": bool(create_wbs_level2.metadata.get("fallback_used"))
+                })
+                progress_record.content = json.dumps(progress_payload)
+                progress_record.content_size_bytes = len(progress_record.content.encode('utf-8'))
+                db_service.db.commit()
         except Exception as e:
             if db_service and 'interaction_id' in locals():
                 try:
                     db_service.update_llm_interaction(interaction_id, {"status": "failed", "error_message": str(e), "completed_at": datetime.utcnow()})
+                except Exception:
+                    pass
+            if db_service and 'progress_record' in locals() and progress_record:
+                failure_payload = {
+                    "status": "failed",
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "error": str(e)
+                }
+                progress_record.content = json.dumps(failure_payload)
+                progress_record.content_size_bytes = len(progress_record.content.encode('utf-8'))
+                try:
+                    db_service.db.commit()
                 except Exception:
                     pass
             raise
@@ -5024,6 +5202,21 @@ class ReviewPlanTask(PlanTask):
             query = (f"File 'strategic_decisions.md':\n{strategic_decisions_markdown}\n\n" f"File 'scenarios.md':\n{scenarios_markdown}\n\n" f"File 'assumptions.md':\n{assumptions_markdown}\n\n" f"File 'project-plan.md':\n{project_plan_markdown}\n\n" f"File 'data-collection.md':\n{data_collection_markdown}\n\n" f"File 'related-resources.md':\n{related_resources_markdown}\n\n" f"File 'swot-analysis.md':\n{swot_analysis_markdown}\n\n" f"File 'team.md':\n{team_markdown}\n\n" f"File 'pitch.md':\n{pitch_markdown}\n\n" f"File 'expert-review.md':\n{expert_review}\n\n" f"File 'work-breakdown-structure.csv':\n{wbs_project_csv}")
             interaction_id = db_service.create_llm_interaction({"plan_id": plan_id, "llm_model": str(self.llm_models[0]) if self.llm_models else "unknown", "stage": "review_plan", "prompt_text": query[:10000], "status": "pending"}).id
             start_time = time.time()
+            progress_record = None
+            progress_filename = f"{FilenameEnum.REVIEW_PLAN_RAW.value}.progress"
+            progress_payload = {
+                "status": "started",
+                "timestamp": datetime.utcnow().isoformat() + "Z"
+            }
+            progress_content = json.dumps(progress_payload)
+            progress_record = db_service.create_plan_content({
+                "plan_id": plan_id,
+                "filename": progress_filename,
+                "stage": "review_plan",
+                "content_type": "json",
+                "content": progress_content,
+                "content_size_bytes": len(progress_content.encode('utf-8'))
+            })
             review_plan = ReviewPlan.execute(llm_executor=llm_executor, document=query, speed_vs_detail=self.speedvsdetail)
             duration_seconds = time.time() - start_time
             last_attempt = llm_executor.get_last_attempt()
@@ -5039,6 +5232,16 @@ class ReviewPlanTask(PlanTask):
             with open(markdown_path, "r") as f:
                 markdown_content = f.read()
             db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.REVIEW_PLAN_MARKDOWN.value, "stage": "review_plan", "content_type": "markdown", "content": markdown_content, "content_size_bytes": len(markdown_content.encode('utf-8'))})
+            if progress_record:
+                progress_payload.update({
+                    "status": "completed",
+                    "duration_seconds": duration_seconds,
+                    "fallback_questions": review_plan.metadata.get("questions_with_fallback"),
+                    "questions_total": review_plan.metadata.get("questions_total"),
+                })
+                progress_record.content = json.dumps(progress_payload)
+                progress_record.content_size_bytes = len(progress_record.content.encode('utf-8'))
+                db_service.db.commit()
         except Exception as e:
             if db_service and 'interaction_id' in locals():
                 try:

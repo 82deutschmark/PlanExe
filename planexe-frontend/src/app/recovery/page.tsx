@@ -8,12 +8,12 @@
  */
 'use client';
 
-import React, { Suspense, useCallback, useMemo } from 'react';
+import React, { Suspense, useCallback, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Home } from 'lucide-react';
 
-import { PipelineDetails, PipelineLogsPanel } from '@/components/PipelineDetails';
+import { PipelineLogsPanel } from '@/components/PipelineDetails';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { fastApiClient, CreatePlanRequest } from '@/lib/api/fastapi-client';
@@ -21,17 +21,17 @@ import { fastApiClient, CreatePlanRequest } from '@/lib/api/fastapi-client';
 import { RecoveryHeader } from './components/RecoveryHeader';
 import { StageTimeline } from './components/StageTimeline';
 import { RecoveryReportPanel } from './components/ReportPanel';
-import { RecoveryArtefactPanel } from './components/ArtefactList';
-import { ArtefactPreview } from './components/ArtefactPreview';
 import { LiveStreamPanel } from './components/LiveStreamPanel';
 import { StreamHistoryPanel } from './components/StreamHistoryPanel';
 import { useRecoveryPlan } from './useRecoveryPlan';
+import { ResumeDialog } from './components/ResumeDialog';
+import type { MissingSectionResponse } from '@/lib/api/fastapi-client';
 
 const MissingPlanMessage: React.FC = () => (
-  <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
-    <header className="border-b border-slate-200 bg-white/90 backdrop-blur px-4 py-3">
+  <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
+    <header className="border-b border-amber-200 bg-white/90 backdrop-blur px-4 py-3">
       <div className="mx-auto flex max-w-7xl items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-800">Plan Recovery Workspace</h1>
+        <h1 className="text-2xl font-semibold text-amber-900">Plan Recovery Workspace</h1>
         <Button asChild variant="outline" size="sm">
           <Link href="/">
             <Home className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -41,13 +41,13 @@ const MissingPlanMessage: React.FC = () => (
       </div>
     </header>
     <main className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6">
-      <Card className="border-amber-200 bg-amber-50">
+      <Card className="border-orange-300 bg-orange-50">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-amber-800">
+          <CardTitle className="flex items-center gap-2 text-orange-900">
             Missing planId
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm text-amber-900">
+        <CardContent className="space-y-3 text-sm text-gray-900">
           <p>This workspace needs a valid `planId` query parameter.</p>
           <p>
             Append <span className="font-mono">?planId=YourPlanId</span> to the URL or relaunch a plan from
@@ -70,59 +70,112 @@ const RecoveryPageContent: React.FC = () => {
     plan,
     reports,
     artefacts,
-    preview,
     stageSummary,
     connection,
     lastWriteAt,
     llmStreams,
     activeStageKey,
   } = recovery;
-  const { clear: clearPreview, select: selectPreview, file: previewFile } = preview;
 
   const handleRelaunch = useCallback(async () => {
-    if (!plan.data) {
-      return;
-    }
+    if (!plan.data) return;
 
     try {
-      const speedDefault: CreatePlanRequest['speed_vs_detail'] = 'balanced_speed_and_detail';
-      const llmModel =
-        typeof window !== 'undefined'
-          ? window.prompt('Enter LLM model ID for relaunch (leave blank for default):', '') ?? ''
-          : '';
-      const speedInput =
-        typeof window !== 'undefined'
-          ? window.prompt(
-              'Speed vs detail (fast_but_skip_details | balanced_speed_and_detail | all_details_but_slow):',
-              speedDefault,
-            ) ?? speedDefault
-          : speedDefault;
-      const allowedSpeeds: CreatePlanRequest['speed_vs_detail'][] = [
-        'fast_but_skip_details',
-        'balanced_speed_and_detail',
-        'all_details_but_slow',
-      ];
-      const normalisedSpeed = (speedInput || speedDefault).trim() as CreatePlanRequest['speed_vs_detail'];
-      const speed_vs_detail = allowedSpeeds.includes(normalisedSpeed) ? normalisedSpeed : speedDefault;
+      // 1) Inspect what’s missing to make relaunch targeted
+      let missing: MissingSectionResponse[] = [];
+      try {
+        const fallback = await fastApiClient.getFallbackReport(planId);
+        missing = fallback?.missing_sections ?? [];
+      } catch (e) {
+        // If fallback not available, proceed but inform via console; backend may still resume via DB-first logic.
+        console.warn('Fallback report unavailable; proceeding with best-effort resume.', e);
+      }
 
-      const newPlan = await fastApiClient.relaunchPlan(plan.data, {
-        llmModel: llmModel.trim() || undefined,
-        speedVsDetail: speed_vs_detail,
+      if ((missing?.length ?? 0) === 0 && plan.data.status === 'completed') {
+        // Nothing to resume; take user to the final report page instead of relaunching everything.
+        router.replace(`/plan/${encodeURIComponent(planId)}?from=recovery`);
+        return;
+      }
+
+      // If we have missing items, open modal for per-task selection
+      if ((missing?.length ?? 0) > 0) {
+        setResumeMissing(missing);
+        setResumeOpen(true);
+        return;
+      }
+
+      // No missing list available (e.g., fallback 404). Proceed best-effort with defaults.
+      const speed_vs_detail: CreatePlanRequest['speed_vs_detail'] = 'balanced_speed_and_detail';
+      const newPlan = await fastApiClient.createPlan({
+        prompt: plan.data.prompt,
+        speed_vs_detail,
+        enriched_intake: {
+          project_title: 'Plan Resume',
+          refined_objective: 'Resume to complete the plan without explicit missing list.',
+          original_prompt: plan.data.prompt,
+          scale: 'personal',
+          risk_tolerance: 'moderate',
+          domain: 'general',
+          budget: {},
+          timeline: {},
+          geography: { is_digital_only: true },
+          conversation_summary: 'Resume request without explicit missing artefacts (fallback unavailable).',
+          confidence_score: 0.7,
+        },
       });
 
-      clearPreview();
       router.replace(`/recovery?planId=${encodeURIComponent(newPlan.plan_id)}`);
     } catch (error) {
-      console.error('Failed to relaunch plan from recovery workspace', error);
+      console.error('Failed to relaunch (resume) from recovery workspace', error);
     }
-  }, [plan.data, clearPreview, router]);
+  }, [plan.data, planId, router]);
+
+  // Redirect to a dedicated report page on completion to improve UX
+  React.useEffect(() => {
+    if (plan.data?.status === 'completed') {
+      router.replace(`/plan/${encodeURIComponent(planId)}?from=recovery`);
+    }
+  }, [plan.data?.status, planId, router]);
 
   if (!planId) {
     return <MissingPlanMessage />;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
+      <ResumeDialog
+        open={resumeOpen}
+        onOpenChange={setResumeOpen}
+        missing={resumeMissing}
+        onConfirm={async ({ selectedFilenames, llmModel, speedVsDetail }) => {
+          if (!plan.data) return;
+          try {
+            const newPlan = await fastApiClient.createPlan({
+              prompt: plan.data.prompt,
+              llm_model: llmModel ?? undefined,
+              speed_vs_detail: speedVsDetail,
+              enriched_intake: {
+                project_title: 'Plan Resume',
+                refined_objective: 'Resume only selected missing sections to complete the plan.',
+                original_prompt: plan.data.prompt,
+                scale: 'personal',
+                risk_tolerance: 'moderate',
+                domain: 'general',
+                budget: {},
+                timeline: {},
+                geography: { is_digital_only: true },
+                conversation_summary: `Resume targeting ${selectedFilenames.length} artefacts`,
+                confidence_score: 0.8,
+                areas_needing_clarification: selectedFilenames,
+              },
+            });
+            setResumeOpen(false);
+            router.replace(`/recovery?planId=${encodeURIComponent(newPlan.plan_id)}`);
+          } catch (e) {
+            console.error('Targeted resume failed', e);
+          }
+        }}
+      />
       <RecoveryHeader
         planId={planId}
         plan={plan.data}
@@ -134,19 +187,18 @@ const RecoveryPageContent: React.FC = () => {
         onRefreshPlan={plan.refresh}
         onRelaunch={handleRelaunch}
       />
-      <main className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4">
+      <main className="mx-auto flex max-w-7xl flex-col gap-2 px-2 py-2">
         <PipelineLogsPanel planId={planId} className="h-fit" />
-        <div className="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)] xl:grid-cols-[380px_minmax(0,1fr)]">
-          <div className="flex flex-col gap-4">
+        <div className="grid gap-2 lg:grid-cols-[320px_minmax(0,1fr)]">
+          <div className="flex flex-col gap-2">
             <StageTimeline
               stages={stageSummary}
               isLoading={artefacts.loading && stageSummary.length === 0}
               connection={connection}
               activeStageKey={activeStageKey}
             />
-            <PipelineDetails planId={planId} className="h-fit" />
           </div>
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
             <LiveStreamPanel stream={llmStreams.active} />
             <StreamHistoryPanel
               streams={llmStreams.history}
@@ -163,46 +215,15 @@ const RecoveryPageContent: React.FC = () => {
               }}
               lastUpdated={lastWriteAt}
             />
-            <RecoveryArtefactPanel
-              planId={planId}
-              artefacts={artefacts.items}
-              isLoading={artefacts.loading}
-              error={artefacts.error}
-              lastUpdated={artefacts.lastUpdated}
-              onRefresh={artefacts.refresh}
-              onPreview={selectPreview}
-            />
-            <ArtefactPreview
-              planId={planId}
-              preview={{
-                file: previewFile,
-                data: preview.data,
-                loading: preview.loading,
-                error: preview.error,
-                clear: clearPreview,
-              }}
-              onDownload={async () => {
-                if (!previewFile) {
-                  return;
-                }
-                try {
-                  const blob = await fastApiClient.downloadFile(planId, previewFile.filename);
-                  fastApiClient.downloadBlob(blob, previewFile.filename);
-                } catch (err) {
-                  console.error('Download from preview failed', err);
-                }
-              }}
-            />
           </div>
         </div>
         {plan.data?.prompt && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Initial Plan Request</CardTitle>
-              <p className="text-xs text-slate-500">Original prompt captured when the plan was created.</p>
+          <Card className="border-amber-200">
+            <CardHeader className="pb-1">
+              <CardTitle className="text-sm text-amber-900">Initial Plan Request</CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="whitespace-pre-wrap text-sm text-slate-600">{plan.data.prompt}</p>
+            <CardContent className="pt-2">
+              <p className="whitespace-pre-wrap text-xs text-gray-900">{plan.data.prompt}</p>
             </CardContent>
           </Card>
         )}
@@ -212,9 +233,11 @@ const RecoveryPageContent: React.FC = () => {
 };
 
 const RecoveryPage: React.FC = () => (
-  <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-600">Loading plan workspace...</div>}>
+  <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-amber-50 text-amber-900">Loading plan workspace...</div>}>
     <RecoveryPageContent />
   </Suspense>
 );
 
 export default RecoveryPage;
+  const [resumeOpen, setResumeOpen] = useState(false);
+  const [resumeMissing, setResumeMissing] = useState<MissingSectionResponse[]>([]);
