@@ -5584,7 +5584,7 @@ class ReportTask(PlanTask):
         return PlanContentTarget(plan_id=self.get_plan_id(), filename=FilenameEnum.REPORT.value)
     
     def requires(self):
-        return {
+        requirements = {
             'setup': self.clone(SetupTask),
             'redline_gate': self.clone(RedlineGateTask),
             'premise_attack': self.clone(PremiseAttackTask),
@@ -5608,35 +5608,79 @@ class ReportTask(PlanTask):
             'questions_and_answers': self.clone(QuestionsAndAnswersTask),
             'premortem': self.clone(PremortemTask)
         }
+
+        if self.speedvsdetail == SpeedVsDetailEnum.FAST_BUT_SKIP_DETAILS:
+            fast_subset = [
+                'setup',
+                'redline_gate',
+                'premise_attack',
+                'strategic_decisions_markdown',
+                'scenarios_markdown',
+                'consolidate_assumptions_markdown',
+                'project_plan',
+                'wbs_level1',
+            ]
+            return {key: requirements[key] for key in fast_subset}
+
+        return requirements
     
     def run_inner(self):
         db_service = None
         plan_id = self.get_plan_id()
         try:
             db_service = self.get_database_service()
-            with self.input()['wbs_level1']['project_title'].open("r") as f:
-                title = f.read()
+            inputs = self.input()
+            title = "PlanExe Report"
+            if 'wbs_level1' in inputs and 'project_title' in inputs['wbs_level1']:
+                with inputs['wbs_level1']['project_title'].open("r") as f:
+                    title = f.read()
             rg = ReportGenerator()
-            rg.append_markdown('Executive Summary', self.input()['executive_summary']['markdown'].path)
-            rg.append_html('Gantt Overview', self.input()['create_schedule']['mermaid_html'].path)
-            rg.append_html('Gantt Interactive', self.input()['create_schedule']['dhtmlx_html'].path)
-            rg.append_markdown('Pitch', self.input()['pitch_markdown']['markdown'].path)
-            rg.append_markdown('Project Plan', self.input()['project_plan']['markdown'].path)
-            rg.append_markdown('Strategic Decisions', self.input()['strategic_decisions_markdown']['markdown'].path)
-            rg.append_markdown('Scenarios', self.input()['scenarios_markdown']['markdown'].path)
-            rg.append_markdown('Assumptions', self.input()['consolidate_assumptions_markdown']['full'].path)
-            rg.append_markdown('Governance', self.input()['consolidate_governance'].path)
-            rg.append_markdown('Related Resources', self.input()['related_resources']['markdown'].path)
-            rg.append_markdown('Data Collection', self.input()['data_collection']['markdown'].path)
-            rg.append_markdown('Documents to Create and Find', self.input()['documents_to_create_and_find'].path)
-            rg.append_markdown('SWOT Analysis', self.input()['swot_analysis']['markdown'].path)
-            rg.append_markdown('Team', self.input()['team_markdown'].path)
-            rg.append_markdown('Expert Criticism', self.input()['expert_review'].path)
-            rg.append_csv('Work Breakdown Structure', self.input()['wbs_project123']['csv'].path)
-            rg.append_markdown('Review Plan', self.input()['review_plan']['markdown'].path)
-            rg.append_html('Questions & Answers', self.input()['questions_and_answers']['html'].path)
-            rg.append_markdown_with_tables('Premortem', self.input()['premortem']['markdown'].path)
-            rg.append_initial_prompt_vetted(document_title='Initial Prompt Vetted', initial_prompt_file_path=self.input()['setup'].path, redline_gate_markdown_file_path=self.input()['redline_gate']['markdown'].path, premise_attack_markdown_file_path=self.input()['premise_attack']['markdown'].path)
+            if 'executive_summary' in inputs:
+                rg.append_markdown('Executive Summary', inputs['executive_summary']['markdown'].path)
+            if 'create_schedule' in inputs:
+                rg.append_html('Gantt Overview', inputs['create_schedule']['mermaid_html'].path)
+                rg.append_html('Gantt Interactive', inputs['create_schedule']['dhtmlx_html'].path)
+            if 'pitch_markdown' in inputs:
+                rg.append_markdown('Pitch', inputs['pitch_markdown']['markdown'].path)
+            if 'project_plan' in inputs:
+                rg.append_markdown('Project Plan', inputs['project_plan']['markdown'].path)
+            if 'strategic_decisions_markdown' in inputs:
+                rg.append_markdown('Strategic Decisions', inputs['strategic_decisions_markdown']['markdown'].path)
+            if 'scenarios_markdown' in inputs:
+                rg.append_markdown('Scenarios', inputs['scenarios_markdown']['markdown'].path)
+            if 'consolidate_assumptions_markdown' in inputs:
+                rg.append_markdown('Assumptions', inputs['consolidate_assumptions_markdown']['full'].path)
+            if 'consolidate_governance' in inputs:
+                rg.append_markdown('Governance', inputs['consolidate_governance'].path)
+            if 'related_resources' in inputs:
+                rg.append_markdown('Related Resources', inputs['related_resources']['markdown'].path)
+            if 'data_collection' in inputs:
+                rg.append_markdown('Data Collection', inputs['data_collection']['markdown'].path)
+            if 'documents_to_create_and_find' in inputs:
+                rg.append_markdown('Documents to Create and Find', inputs['documents_to_create_and_find'].path)
+            if 'swot_analysis' in inputs:
+                rg.append_markdown('SWOT Analysis', inputs['swot_analysis']['markdown'].path)
+            if 'team_markdown' in inputs:
+                rg.append_markdown('Team', inputs['team_markdown'].path)
+            if 'expert_review' in inputs:
+                rg.append_markdown('Expert Criticism', inputs['expert_review'].path)
+            if 'wbs_project123' in inputs:
+                rg.append_csv('Work Breakdown Structure', inputs['wbs_project123']['csv'].path)
+            elif 'wbs_level1' in inputs:
+                rg.append_markdown('Work Breakdown Structure (Level 1)', inputs['wbs_level1']['clean'].path)
+            if 'review_plan' in inputs:
+                rg.append_markdown('Review Plan', inputs['review_plan']['markdown'].path)
+            if 'questions_and_answers' in inputs:
+                rg.append_html('Questions & Answers', inputs['questions_and_answers']['html'].path)
+            if 'premortem' in inputs:
+                rg.append_markdown_with_tables('Premortem', inputs['premortem']['markdown'].path)
+            if all(key in inputs for key in ('setup', 'redline_gate', 'premise_attack')):
+                rg.append_initial_prompt_vetted(
+                    document_title='Initial Prompt Vetted',
+                    initial_prompt_file_path=inputs['setup'].path,
+                    redline_gate_markdown_file_path=inputs['redline_gate']['markdown'].path,
+                    premise_attack_markdown_file_path=inputs['premise_attack']['markdown'].path,
+                )
             report_html = rg.generate_html_report(
                 title=title,
                 execute_plan_section_hidden=REPORT_EXECUTE_PLAN_SECTION_HIDDEN,
@@ -5663,7 +5707,7 @@ class ReportTask(PlanTask):
 
 class FullPlanPipeline(PlanTask):
     def requires(self):
-        return {
+        tasks = {
             'start_time': self.clone(StartTimeTask),
             'setup': self.clone(SetupTask),
             'redline_gate': self.clone(RedlineGateTask),
@@ -5726,6 +5770,35 @@ class FullPlanPipeline(PlanTask):
             'premortem': self.clone(PremortemTask),
             'report': self.clone(ReportTask),
         }
+
+        if self.speedvsdetail == SpeedVsDetailEnum.FAST_BUT_SKIP_DETAILS:
+            fast_task_keys = [
+                'start_time',
+                'setup',
+                'redline_gate',
+                'premise_attack',
+                'identify_purpose',
+                'plan_type',
+                'potential_levers',
+                'deduplicate_levers',
+                'enriched_levers',
+                'focus_on_vital_few_levers',
+                'strategic_decisions_markdown',
+                'candidate_scenarios',
+                'select_scenario',
+                'scenarios_markdown',
+                'make_assumptions',
+                'assumptions',
+                'review_assumptions',
+                'consolidate_assumptions_markdown',
+                'pre_project_assessment',
+                'project_plan',
+                'wbs_level1',
+                'report',
+            ]
+            return {key: tasks[key] for key in fast_task_keys}
+
+        return tasks
 
     def output(self):
         return self.local_target(FilenameEnum.PIPELINE_COMPLETE)

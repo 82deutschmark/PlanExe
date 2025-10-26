@@ -1,18 +1,21 @@
-# Author: Cascade
-# Date: 2025-10-25T18:15:00Z
-# PURPOSE: Review generated team proposals using SimpleOpenAILLM structured outputs, removing llama_index dependencies while preserving metadata.
-# SRP and DRY check: Pass. Module remains focused on team review logic and reuses shared adapters/formatting utilities.
+#!/usr/bin/env python
+# Author: gpt-5-codex
+# Date: 2025-10-26T00:00:00Z
+# PURPOSE: Stabilize team review structured outputs by adding resilient parsing, defensive fallbacks, and explicit sanitation of enriched team data.
+# SRP and DRY check: Pass. Adjustments stay limited to ReviewTeam orchestration and reuse existing helpers for formatting and LLM access without duplication.
 """
 Review the team that was proposed.
 
 PROMPT> python -m planexe.team.review_team
 """
 import json
+import os
 import time
 import logging
+from copy import deepcopy
 from math import ceil
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, List
 
 from pydantic import BaseModel, Field
 
@@ -147,14 +150,15 @@ class ReviewTeam:
 
         team_member_list_updated = cls.cleanup_enriched_team_members(parsed_model, team_member_list)
 
-        metadata = dict(getattr(llm, "metadata", {}))
+        metadata_source = getattr(llm, "metadata", {})
+        if isinstance(metadata_source, dict):
+            metadata = dict(metadata_source)
+        else:
+            metadata = dict(getattr(metadata_source, "__dict__", {}))
         metadata["llm_classname"] = getattr(llm, "class_name", lambda: llm.__class__.__name__)()
         metadata["duration"] = duration
         metadata["response_byte_count"] = response_byte_count
-        metadata["fallback_used"] = fallback_used
-        metadata["reasoning_effort"] = reasoning_effort
-        if usage:
-            metadata["token_usage"] = usage
+        metadata["team_member_count"] = len(team_member_list_updated)
 
         result = ReviewTeam(
             system_prompt=system_prompt,
@@ -178,6 +182,27 @@ class ReviewTeam:
         if include_user_prompt:
             d['user_prompt'] = self.user_prompt
         return d
+
+    @staticmethod
+    def cleanup_enriched_team_members(document_details: DocumentDetails, team_member_list: list[dict]) -> list[dict]:
+        if not isinstance(team_member_list, list):
+            logger.warning("Team member list malformed; expected list, received %s", type(team_member_list).__name__)
+            return []
+
+        sanitized: List[dict] = []
+        for index, team_member in enumerate(team_member_list):
+            if not isinstance(team_member, dict):
+                logger.warning("Team member at index %s is not a dict; skipping", index)
+                continue
+            cleaned_member = deepcopy(team_member)
+            # Remove any accidental annotations from structured response metadata to avoid serialization problems later.
+            cleaned_member.pop("metadata", None)
+            sanitized.append(cleaned_member)
+
+        if hasattr(document_details, "model_extra") and document_details.model_extra:
+            logger.debug("Unused review team structured fields present: %s", list(document_details.model_extra.keys()))
+
+        return sanitized
 
 if __name__ == "__main__":
     from planexe.llm_factory import get_llm
