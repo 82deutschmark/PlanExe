@@ -80,16 +80,16 @@ export const LiveStreamPanel: FC<LiveStreamPanelProps> = ({ stream }) => {
     stream?.finalReasoning ?? stream?.reasoningBuffer ?? stream?.reasoningDeltas.join('\n');
 
   return (
-    <Card className="border-slate-600 bg-slate-900/95 text-slate-50 shadow-inner">
-      <CardHeader className="pb-1 px-3 pt-3">
-        <CardTitle className="text-sm text-slate-50">Live LLM Stream</CardTitle>
+    <Card className="border-amber-500 bg-slate-900/95 text-slate-50 shadow-lg">
+      <CardHeader className="pb-1 px-3 pt-3 border-b border-amber-500/30">
+        <CardTitle className="text-sm text-amber-400">Live LLM Stream</CardTitle>
       </CardHeader>
       <CardContent className="px-3 pb-3">
         {stream ? (
           <div className="grid gap-2 md:grid-cols-2">
             <div>
               <div className="flex items-center justify-between text-xs text-slate-200">
-                <span className="font-semibold text-slate-50">{stream.stage}</span>
+                <span className="font-semibold text-amber-300">{stream.stage}</span>
                 <span
                   className={`px-1.5 py-0.5 rounded-full uppercase tracking-wide text-[10px] ${STATUS_BADGE[stream.status]}`}
                 >
@@ -97,19 +97,19 @@ export const LiveStreamPanel: FC<LiveStreamPanelProps> = ({ stream }) => {
                 </span>
               </div>
               {stream.promptPreview && (
-                <p className="mt-0.5 text-[10px] text-slate-300 truncate">Prompt: {stream.promptPreview}</p>
+                <p className="mt-0.5 text-[10px] text-amber-200/70 truncate">Prompt: {stream.promptPreview}</p>
               )}
               <div className="mt-2 space-y-1">
-                <p className="text-[10px] uppercase tracking-wide text-sky-200">Model Output</p>
-                <div className="bg-slate-950/80 border border-sky-800/70 rounded p-1.5 text-[11px] text-sky-100 whitespace-pre-wrap max-h-40 overflow-y-auto">
+                <p className="text-[10px] uppercase tracking-wide text-amber-400">Model Output</p>
+                <div className="bg-slate-950/80 border border-amber-500/40 rounded p-1.5 text-[11px] text-amber-50 whitespace-pre-wrap max-h-40 overflow-y-auto">
                   {assembledText || 'Awaiting tokens…'}
                 </div>
               </div>
             </div>
-            <div className="space-y-1 md:border-l md:border-slate-700 md:pl-2">
+            <div className="space-y-1 md:border-l md:border-amber-500/30 md:pl-2">
               <div>
-                <p className="text-[10px] uppercase tracking-wide text-rose-200">Reasoning Trace</p>
-                <div className="bg-slate-950/80 border border-rose-800/70 rounded p-1.5 text-[11px] text-rose-100 whitespace-pre-wrap max-h-40 overflow-y-auto">
+                <p className="text-[10px] uppercase tracking-wide text-orange-400">Reasoning Trace</p>
+                <div className="bg-slate-950/80 border border-orange-500/40 rounded p-1.5 text-[11px] text-orange-50 whitespace-pre-wrap max-h-40 overflow-y-auto">
                   {assembledReasoning || 'Waiting for reasoning…'}
                 </div>
               </div>
@@ -132,11 +132,11 @@ export const LiveStreamPanel: FC<LiveStreamPanelProps> = ({ stream }) => {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center gap-2 rounded border border-slate-800 bg-slate-950/80 p-4 text-center text-sm text-slate-400">
-            <Badge variant="outline" className="border-slate-700 text-slate-300">
+          <div className="flex flex-col items-center justify-center gap-2 rounded border border-amber-500/30 bg-slate-950/80 p-4 text-center text-sm text-amber-400">
+            <Badge variant="outline" className="border-amber-500 text-amber-300">
               Idle
             </Badge>
-            <p className="text-xs">No active LLM stream. Waiting for Luigi to dispatch an interaction.</p>
+            <p className="text-xs text-amber-200/70">No active LLM stream. Waiting for Luigi to dispatch an interaction.</p>
           </div>
         )}
       </CardContent>
