@@ -1,9 +1,19 @@
 # Changelog - Use Proper Semantic Versioning and follow the Keep a Changelog standard
 
+## [0.8.9] - 2025-10-26
+- **Vibrant Color Scheme**: Replaced entire grey/slate color scheme with warm amber/orange/yellow palette
+- **Main Background**: Changed to warm gradient `from-amber-50 via-orange-50 to-yellow-50`
+- **Stage Timeline**: Amber borders, green completion dots, amber active states with shadow
+- **LiveStreamPanel**: Amber borders and accents on dark background (amber-500/orange-500)
+- **StreamHistoryPanel**: Amber borders (amber-600) with amber text on dark background
+- **RecoveryReportPanel**: Amber borders and amber button with hover effects
+- **RecoveryHeader**: Renamed to "Plan Assembly Workspace" with amber-900 headings and amber-700 text
+- **Improved Readability**: All text now uses high-contrast colors (amber-900, gray-900) instead of unreadable grey
+
 ## [0.8.8] - 2025-10-26
 - **Recovery Page Redesign**: Transformed recovery page into dense, info-rich assembly workspace
 - **Removed Duplications**: Eliminated PipelineDetails (3 tabs), RecoveryArtefactPanel (file manager), and ArtefactPreview (modal)
-- **Reorganized Layout**: Moved logs to left sidebar alongside stage timeline for always-visible monitoring
+- **Reorganized Layout**: Logs remain at top full-width, stage timeline in left sidebar
 - **Dense Styling**: Reduced padding/margins throughout (gap-4→gap-2, p-4→p-2) for maximum information density
 - **Simplified Reports**: Removed tabs from RecoveryReportPanel - now shows canonical HTML or fallback automatically
 - **Compact Components**: Applied dense styling to StageTimeline, LiveStreamPanel, and StreamHistoryPanel
