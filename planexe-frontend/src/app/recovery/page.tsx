@@ -130,6 +130,7 @@ const RecoveryPageContent: React.FC = () => {
         onRelaunch={handleRelaunch}
       />
       <main className="mx-auto flex max-w-7xl flex-col gap-2 px-2 py-2">
+        <PipelineLogsPanel planId={planId} className="h-fit" />
         <div className="grid gap-2 lg:grid-cols-[320px_minmax(0,1fr)]">
           <div className="flex flex-col gap-2">
             <StageTimeline
@@ -138,7 +139,6 @@ const RecoveryPageContent: React.FC = () => {
               connection={connection}
               activeStageKey={activeStageKey}
             />
-            <PipelineLogsPanel planId={planId} className="h-[400px]" />
           </div>
           <div className="flex flex-col gap-2">
             <LiveStreamPanel stream={llmStreams.active} />
