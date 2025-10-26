@@ -8,7 +8,7 @@
 'use client';
 
 import React, { Suspense } from 'react';
-import ReportPageClient from './[planId]/ReportPageClient';
+import ReportPageClient from './ReportPageClient';
 
 function PlanPageContent() {
   return <ReportPageClient />;
