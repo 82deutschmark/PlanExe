@@ -39,13 +39,13 @@ const MissingPlanMessage: React.FC = () => (
       </div>
     </header>
     <main className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6">
-      <Card className="border-amber-200 bg-amber-50">
+      <Card className="border-orange-300 bg-orange-50">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-amber-800">
+          <CardTitle className="flex items-center gap-2 text-orange-900">
             Missing planId
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm text-amber-900">
+        <CardContent className="space-y-3 text-sm text-gray-900">
           <p>This workspace needs a valid `planId` query parameter.</p>
           <p>
             Append <span className="font-mono">?planId=YourPlanId</span> to the URL or relaunch a plan from
@@ -117,7 +117,7 @@ const RecoveryPageContent: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
       <RecoveryHeader
         planId={planId}
         plan={plan.data}
@@ -160,12 +160,12 @@ const RecoveryPageContent: React.FC = () => {
           </div>
         </div>
         {plan.data?.prompt && (
-          <Card>
+          <Card className="border-amber-200">
             <CardHeader className="pb-1">
-              <CardTitle className="text-sm">Initial Plan Request</CardTitle>
+              <CardTitle className="text-sm text-amber-900">Initial Plan Request</CardTitle>
             </CardHeader>
             <CardContent className="pt-2">
-              <p className="whitespace-pre-wrap text-xs text-slate-600">{plan.data.prompt}</p>
+              <p className="whitespace-pre-wrap text-xs text-gray-900">{plan.data.prompt}</p>
             </CardContent>
           </Card>
         )}
@@ -175,7 +175,7 @@ const RecoveryPageContent: React.FC = () => {
 };
 
 const RecoveryPage: React.FC = () => (
-  <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-600">Loading plan workspace...</div>}>
+  <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-amber-50 text-amber-900">Loading plan workspace...</div>}>
     <RecoveryPageContent />
   </Suspense>
 );
