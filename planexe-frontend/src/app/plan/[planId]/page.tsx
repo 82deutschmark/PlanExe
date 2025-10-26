@@ -18,6 +18,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { fastApiClient } from '@/lib/api/fastapi-client';
 import { ReportTaskFallback } from '@/components/files/ReportTaskFallback';
 
+// Required for Next.js static export with dynamic routes
+export function generateStaticParams() {
+  return [];
+}
+
+// Opt into dynamic rendering for this client-side page
+export const dynamic = 'force-dynamic';
+
 const ReportPage: React.FC = () => {
   const params = useParams();
   const planId = useMemo(() => String(params?.planId ?? '').trim(), [params]);
