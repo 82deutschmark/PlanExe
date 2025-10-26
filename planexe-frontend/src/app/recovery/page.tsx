@@ -26,10 +26,10 @@ import { StreamHistoryPanel } from './components/StreamHistoryPanel';
 import { useRecoveryPlan } from './useRecoveryPlan';
 
 const MissingPlanMessage: React.FC = () => (
-  <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
-    <header className="border-b border-slate-200 bg-white/90 backdrop-blur px-4 py-3">
+  <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
+    <header className="border-b border-amber-200 bg-white/90 backdrop-blur px-4 py-3">
       <div className="mx-auto flex max-w-7xl items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-800">Plan Recovery Workspace</h1>
+        <h1 className="text-2xl font-semibold text-amber-900">Plan Recovery Workspace</h1>
         <Button asChild variant="outline" size="sm">
           <Link href="/">
             <Home className="mr-2 h-4 w-4" aria-hidden="true" />
