@@ -95,7 +95,7 @@ const RecoveryPageContent: React.FC = () => {
 
       if ((missing?.length ?? 0) === 0 && plan.data.status === 'completed') {
         // Nothing to resume; take user to the final report page instead of relaunching everything.
-        router.replace(`/plan/${encodeURIComponent(planId)}?from=recovery`);
+        router.replace(`/plan?planId=${encodeURIComponent(planId)}&from=recovery`);
         return;
       }
 
@@ -135,7 +135,7 @@ const RecoveryPageContent: React.FC = () => {
   // Redirect to a dedicated report page on completion to improve UX
   React.useEffect(() => {
     if (plan.data?.status === 'completed') {
-      router.replace(`/plan/${encodeURIComponent(planId)}?from=recovery`);
+      router.replace(`/plan?planId=${encodeURIComponent(planId)}&from=recovery`);
     }
   }, [plan.data?.status, planId, router]);
 

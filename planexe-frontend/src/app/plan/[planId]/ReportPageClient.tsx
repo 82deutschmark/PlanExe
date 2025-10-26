@@ -9,7 +9,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Home, Download } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -18,9 +18,8 @@ import { fastApiClient } from '@/lib/api/fastapi-client';
 import { ReportTaskFallback } from '@/components/files/ReportTaskFallback';
 
 const ReportPageClient: React.FC = () => {
-  const params = useParams();
-  const planId = useMemo(() => String(params?.planId ?? '').trim(), [params]);
   const search = useSearchParams();
+  const planId = useMemo(() => (search?.get('planId') ?? '').trim(), [search]);
   const fromRecovery = (search?.get('from') ?? '') === 'recovery';
   const [html, setHtml] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
