@@ -55,17 +55,17 @@ export const StageTimeline: React.FC<StageTimelineProps> = ({ stages, isLoading,
   const connectionMeta = resolveConnectionLabel(connection);
 
   return (
-    <Card className="h-fit">
+    <Card className="h-fit border-amber-300 bg-amber-50/30">
       <CardHeader className="pb-1 px-3 pt-3">
-        <CardTitle className="text-sm">Stage Progress</CardTitle>
-        <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
+        <CardTitle className="text-sm text-amber-900">Stage Progress</CardTitle>
+        <div className="mt-1 flex items-center justify-between text-xs text-amber-700">
           <span
             className={
               connectionMeta.tone === 'live'
-                ? 'text-emerald-600'
+                ? 'text-emerald-600 font-semibold'
                 : connectionMeta.tone === 'error'
-                ? 'text-amber-600'
-                : 'text-slate-500'
+                ? 'text-orange-600 font-semibold'
+                : 'text-amber-700'
             }
             aria-live="polite"
           >
@@ -78,7 +78,7 @@ export const StageTimeline: React.FC<StageTimelineProps> = ({ stages, isLoading,
           Array.from({ length: 5 }).map((_, index) => (
             <div
               key={index}
-              className="h-7 w-full animate-pulse rounded border border-slate-200 bg-slate-100"
+              className="h-7 w-full animate-pulse rounded border border-amber-200 bg-amber-100"
             />
           ))
         ) : (
@@ -90,20 +90,20 @@ export const StageTimeline: React.FC<StageTimelineProps> = ({ stages, isLoading,
                 key={stage.key}
                 className={`flex items-center justify-between rounded border px-2 py-1 transition-colors ${
                   isActive
-                    ? 'border-emerald-400 bg-emerald-50/60'
-                    : 'border-slate-200 bg-white'
+                    ? 'border-amber-500 bg-amber-100 shadow-sm'
+                    : 'border-amber-200 bg-white'
                 }`}
               >
                 <div className="flex items-center gap-2">
                   <span
                     className={`h-2 w-2 rounded-full ${
-                      isActive ? 'bg-emerald-600 animate-pulse' : isComplete ? 'bg-emerald-500' : 'bg-slate-300'
+                      isActive ? 'bg-amber-500 animate-pulse shadow-sm' : isComplete ? 'bg-green-500' : 'bg-amber-300'
                     }`}
                     aria-hidden="true"
                   />
-                  <span className="text-xs font-medium text-slate-700">{stage.label}</span>
+                  <span className="text-xs font-medium text-gray-900">{stage.label}</span>
                 </div>
-                <span className="text-xs text-slate-500">{stage.count}</span>
+                <span className="text-xs text-amber-700 font-semibold">{stage.count}</span>
               </div>
             );
           })
