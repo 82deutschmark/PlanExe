@@ -10,12 +10,10 @@ import React from 'react';
 import ReportPageClient from './ReportPageClient';
 
 // Required for Next.js static export with dynamic routes
+// Empty array means no paths are pre-rendered, page will be client-side only
 export function generateStaticParams() {
   return [];
 }
-
-// Opt into dynamic rendering for this client-side page
-export const dynamic = 'force-dynamic';
 
 export default function ReportPage() {
   return <ReportPageClient />;
