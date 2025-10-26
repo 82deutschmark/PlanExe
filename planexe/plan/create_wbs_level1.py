@@ -1,21 +1,26 @@
-# Author: Cascade
-# Date: 2025-10-25T17:30:00Z
-# PURPOSE: Generate WBS Level 1 using the centralized SimpleOpenAILLM adapter. Builds prompts from plan JSON, normalizes responses with UUIDs, and keeps CLI entry compatible with factory-driven configuration.
-# SRP and DRY check: Pass. Module remains scoped to WBS Level 1 creation while delegating shared concerns (LLM creation, formatting) to existing utilities without duplication.
+#!/usr/bin/env python
+# Author: gpt-5-codex
+# Date: 2025-10-26T00:00:00Z
+# PURPOSE: Harden WBS Level 1 generation by validating LLM output, normalizing fallback values, and preserving compatibility with the factory-driven configuration pipeline.
+# SRP and DRY check: Pass. Enhancements stay scoped to WBS Level 1 parsing while reusing shared utilities and avoiding duplicated logic already present elsewhere in the project.
 """
 WBS Level 1: Create a Work Breakdown Structure (WBS) from a project plan.
 
 https://en.wikipedia.org/wiki/Work_breakdown_structure
 """
 import json
-import time
 import logging
+import re
+import time
+from json import JSONDecodeError
 from math import ceil
 from uuid import uuid4
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Dict, Tuple
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
+
+logger = logging.getLogger(__name__)
 
 from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole, StructuredLLMResponse
 from planexe.llm_util.schema_registry import register_schema
@@ -73,44 +78,22 @@ class CreateWBSLevel1:
             "Both values must be short strings (3-10 words)."
         )
 
-        register_schema(WBSLevel1)
-
-        chat_messages = [
-            SimpleChatMessage(role=SimpleMessageRole.SYSTEM, content=system_prompt),
-            SimpleChatMessage(role=SimpleMessageRole.USER, content=f"{QUERY_PREAMBLE.strip()}\n\n{query}"),
-        ]
-
-        sllm = llm.as_structured_llm(WBSLevel1)
-        reasoning_effort = "low" if fast_mode else "medium"
-        start_time = time.perf_counter()
-        fallback_used = False
-        try:
-            structured_response: StructuredLLMResponse = sllm.chat(
-                chat_messages,
-                reasoning_effort=reasoning_effort,
-            )
-            parsed = structured_response.raw
-            raw_text = structured_response.text
-            usage = getattr(structured_response, "token_usage", None)
-        except Exception as exc:
-            fallback_used = True
-            raw_text = json.dumps({
-                "project_title": "tbd",
-                "final_deliverable": "tbd"
-            })
-            parsed = WBSLevel1(project_title="tbd", final_deliverable="tbd")
-            usage = None
-            logger.warning("CreateWBSLevel1 fallback triggered due to error: %s", exc)
+        response = llm.complete(QUERY_PREAMBLE + query)
+        raw_text = response.text if hasattr(response, "text") else str(response)
+        json_response, wbs_model, warnings = cls._parse_llm_response(raw_text)
 
         end_time = time.perf_counter()
         duration = int(ceil(end_time - start_time))
 
-        metadata = dict(getattr(llm, "metadata", {}))
+        metadata_source = getattr(llm, "metadata", {})
+        if isinstance(metadata_source, dict):
+            metadata = dict(metadata_source)
+        else:
+            metadata = dict(getattr(metadata_source, "__dict__", {}))
         metadata["duration"] = duration
-        metadata["fallback_used"] = fallback_used
-        metadata["reasoning_effort"] = reasoning_effort
-        if usage:
-            metadata["token_usage"] = usage
+        metadata["response_char_count"] = len(raw_text)
+        if warnings:
+            metadata["normalization_warnings"] = warnings
 
         project_id = str(uuid4())
         json_response = parsed.model_dump()
@@ -120,8 +103,8 @@ class CreateWBSLevel1:
             response=json_response,
             metadata=metadata,
             id=project_id,
-            project_title=json_response['project_title'],
-            final_deliverable=json_response['final_deliverable']
+            project_title=wbs_model.project_title,
+            final_deliverable=wbs_model.final_deliverable
         )
         return result
     
@@ -137,6 +120,72 @@ class CreateWBSLevel1:
             "project_title": self.project_title,
             "final_deliverable": self.final_deliverable
         }
+
+    @classmethod
+    def _parse_llm_response(cls, raw_text: str) -> Tuple[Dict[str, Any], WBSLevel1, list[str]]:
+        warnings: list[str] = []
+        payload = cls._load_json_payload(raw_text)
+        normalized_payload, normalization_notes = cls._normalize_payload(payload)
+        warnings.extend(normalization_notes)
+        try:
+            wbs_model = WBSLevel1.model_validate(normalized_payload)
+        except ValidationError as exc:
+            warnings.append("validation_error")
+            logger.warning("WBS Level 1 validation failed; applying fallback defaults.", exc_info=exc)
+            fallback_payload = {
+                "project_title": normalized_payload.get("project_title", "TBD Project") or "TBD Project",
+                "final_deliverable": normalized_payload.get("final_deliverable", "TBD Deliverable") or "TBD Deliverable",
+            }
+            wbs_model = WBSLevel1.model_validate(fallback_payload)
+            normalized_payload.update(wbs_model.model_dump())
+        else:
+            normalized_payload.update(wbs_model.model_dump())
+        return normalized_payload, wbs_model, warnings
+
+    @staticmethod
+    def _load_json_payload(raw_text: str) -> Dict[str, Any]:
+        try:
+            payload = json.loads(raw_text)
+        except JSONDecodeError:
+            match = re.search(r"\{.*\}", raw_text, re.DOTALL)
+            if not match:
+                snippet = raw_text.strip()
+                if len(snippet) > 200:
+                    snippet = f"{snippet[:197]}..."
+                raise ValueError(f"LLM response did not contain JSON: {snippet}")
+            try:
+                payload = json.loads(match.group(0))
+            except JSONDecodeError as exc:
+                snippet = match.group(0)
+                if len(snippet) > 200:
+                    snippet = f"{snippet[:197]}..."
+                raise ValueError(f"Unable to parse JSON from LLM response: {snippet}") from exc
+        if not isinstance(payload, dict):
+            raise ValueError("LLM response JSON must be an object.")
+        return payload
+
+    @staticmethod
+    def _normalize_payload(payload: Dict[str, Any]) -> Tuple[Dict[str, Any], list[str]]:
+        warnings: list[str] = []
+        normalized: Dict[str, Any] = dict(payload)
+
+        project_title = normalized.get("project_title") or normalized.get("title") or normalized.get("name")
+        if not isinstance(project_title, str) or not project_title.strip():
+            warnings.append("project_title_missing")
+            project_title = "TBD Project"
+        normalized["project_title"] = project_title.strip()
+
+        final_deliverable = (
+            normalized.get("final_deliverable")
+            or normalized.get("deliverable")
+            or normalized.get("primary_output")
+        )
+        if not isinstance(final_deliverable, str) or not final_deliverable.strip():
+            warnings.append("final_deliverable_missing")
+            final_deliverable = "TBD Deliverable"
+        normalized["final_deliverable"] = final_deliverable.strip()
+
+        return normalized, warnings
 
 if __name__ == "__main__":
     import os

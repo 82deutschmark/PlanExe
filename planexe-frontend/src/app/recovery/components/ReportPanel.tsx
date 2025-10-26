@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Author: ChatGPT using gpt-5-codex
  * Date: 2025-10-23T00:00:00Z
  * PURPOSE: Display plan report (canonical HTML or database-assembled fallback)
@@ -20,7 +20,6 @@ import { ReportTaskFallback } from '@/components/files/ReportTaskFallback';
 
 interface RecoveryReportPanelProps {
   canonicalHtml: string | null;
-  canonicalError: string | null;
   fallbackPlanId: string;
   isRefreshing: boolean;
   onRefresh: () => void;
@@ -29,7 +28,6 @@ interface RecoveryReportPanelProps {
 
 export const RecoveryReportPanel: React.FC<RecoveryReportPanelProps> = ({
   canonicalHtml,
-  canonicalError,
   fallbackPlanId,
   isRefreshing,
   onRefresh,
