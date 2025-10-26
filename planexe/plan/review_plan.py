@@ -166,6 +166,8 @@ class ReviewPlan:
                     metadata=metadata,
                     previous_response_id=last_id,
                 )
+
+            start_time = time.perf_counter()
             try:
                 review_plan_run_result = llm_executor.run(execute_function)
             except PipelineStopRequested:
