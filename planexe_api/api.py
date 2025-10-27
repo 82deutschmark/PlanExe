@@ -19,7 +19,7 @@ from html import escape
 from pathlib import Path
 from typing import Dict, Optional, List
 
-from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, Query
+from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -1376,12 +1376,33 @@ async def get_assembled_plan_document(plan_id: str, db: DatabaseService = Depend
 
 # File download endpoints
 @app.get("/api/plans/{plan_id}/report")
-async def download_plan_report(plan_id: str, db: DatabaseService = Depends(get_database)):
-    """Download the final HTML report for a plan"""
+async def download_plan_report(plan_id: str, request: Request, db: DatabaseService = Depends(get_database)):
+    """Download the final HTML report for a plan, or return JSON if requested"""
     try:
         plan = db.get_plan(plan_id)
         if not plan:
             raise HTTPException(status_code=404, detail="Plan not found")
+
+        # Check if JSON format is requested
+        if request.headers.get("accept") == "application/json":
+            plan_contents = db.get_plan_content(plan_id)
+            sections = []
+            for content in plan_contents:
+                sections.append({
+                    "id": content.filename,
+                    "title": content.filename.replace('.json', '').replace('-', ' ').title(),
+                    "stage": content.stage,
+                    "content": content.content,
+                    "content_type": content.content_type,
+                    "filename": content.filename
+                })
+            
+            return {
+                "plan_id": plan_id,
+                "generated_at": plan.updated_at or datetime.utcnow(),
+                "sections": sections,
+                "source": "database"
+            }
 
         try:
             report_record = db.get_plan_content_by_filename(plan_id, FilenameEnum.REPORT.value)

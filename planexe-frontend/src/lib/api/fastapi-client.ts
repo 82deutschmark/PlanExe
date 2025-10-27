@@ -144,6 +144,22 @@ export interface FallbackReportResponse {
   assembled_html: string;
 }
 
+export interface StructuredReportResponse {
+  plan_id: string;
+  generated_at: string;
+  sections: ReportSection[];
+  source: string;
+}
+
+export interface ReportSection {
+  id: string;
+  title: string;
+  stage: string | null;
+  content: string;
+  content_type: string;
+  filename: string;
+}
+
 export interface AssembledDocumentSection {
   id: string;
   task_name: string;
@@ -666,6 +682,21 @@ export class FastAPIClient {
       throw new Error(`HTTP ${response.status} downloading report: ${detail}`);
     }
     return response.blob();
+  }
+
+  // Get structured report data as JSON
+  async getStructuredReport(plan_id: string): Promise<StructuredReportResponse> {
+    const response = await fetch(`${this.baseURL}/api/plans/${plan_id}/report`, {
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    if (!response.ok) {
+      const bodyText = await response.text().catch(() => '');
+      const detail = bodyText.trim() || response.statusText || 'Unknown error';
+      throw new Error(`HTTP ${response.status} getting structured report: ${detail}`);
+    }
+    return response.json();
   }
 
   // Cancel plan

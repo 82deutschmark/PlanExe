@@ -1,8 +1,8 @@
 /**
- * Author: ChatGPT using gpt-5-codex
- * Date: 2025-10-26T00:00:00Z
- * PURPOSE: Client-side plan report viewer component. Loads and displays final report HTML
- *          or renders fallback assembly if report is unavailable.
+ * Author: Cascade
+ * Date: 2025-10-27
+ * PURPOSE: Client-side plan report viewer component. Loads and displays structured report data
+ *          from the database or falls back to HTML assembly if needed.
  * SRP and DRY check: Pass - dedicated client component for report viewing logic.
  */
 'use client';
@@ -10,18 +10,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Home, Download } from 'lucide-react';
+import { Home, Download, FileText } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { fastApiClient } from '@/lib/api/fastapi-client';
+import { fastApiClient, StructuredReportResponse, ReportSection } from '@/lib/api/fastapi-client';
 import { ReportTaskFallback } from '@/components/files/ReportTaskFallback';
 
 const ReportPageClient: React.FC = () => {
   const search = useSearchParams();
   const planId = useMemo(() => (search?.get('planId') ?? '').trim(), [search]);
   const fromRecovery = (search?.get('from') ?? '') === 'recovery';
-  const [html, setHtml] = useState<string | null>(null);
+  const [reportData, setReportData] = useState<StructuredReportResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,12 +31,11 @@ const ReportPageClient: React.FC = () => {
       if (!planId) return;
       setLoading(true);
       setError(null);
-      setHtml(null);
+      setReportData(null);
       try {
-        const blob = await fastApiClient.downloadReport(planId);
+        const data = await fastApiClient.getStructuredReport(planId);
         if (cancelled) return;
-        const text = await blob.text();
-        if (!cancelled) setHtml(text);
+        setReportData(data);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Unable to load report.');
       } finally {
@@ -48,6 +47,39 @@ const ReportPageClient: React.FC = () => {
       cancelled = true;
     };
   }, [planId]);
+
+  const renderSection = (section: ReportSection) => {
+    let content = section.content;
+    
+    // Try to parse JSON content for better formatting
+    try {
+      const parsed = JSON.parse(content);
+      if (typeof parsed === 'object') {
+        content = JSON.stringify(parsed, null, 2);
+      }
+    } catch {
+      // Keep as-is if not JSON
+    }
+
+    return (
+      <Card key={section.id} className="mb-4">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <FileText className="h-5 w-5" />
+            {section.title}
+          </CardTitle>
+          {section.stage && (
+            <div className="text-sm text-gray-500">Stage: {section.stage}</div>
+          )}
+        </CardHeader>
+        <CardContent>
+          <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded overflow-auto">
+            {content}
+          </pre>
+        </CardContent>
+      </Card>
+    );
+  };
 
   if (!planId) {
     return (
@@ -94,19 +126,17 @@ const ReportPageClient: React.FC = () => {
                 Dashboard
               </Link>
             </Button>
-            {html && (
-              <Button
+            <Button
                 variant="default"
                 size="sm"
                 onClick={async () => {
-                  const blob = new Blob([html], { type: 'text/html' });
+                  const blob = await fastApiClient.downloadReport(planId);
                   fastApiClient.downloadBlob(blob, `${planId}-report.html`);
                 }}
               >
                 <Download className="mr-2 h-4 w-4" aria-hidden="true" />
-                Download
+                Download HTML
               </Button>
-            )}
           </div>
         </div>
       </header>
@@ -117,16 +147,20 @@ const ReportPageClient: React.FC = () => {
           </div>
         )}
         {loading && (
-          <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Loading report…</div>
+          <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Loading report data…</div>
         )}
-        {!loading && html && (
-          <Card className="border-amber-300">
-            <CardContent>
-              <div className="prose max-w-none p-3 text-gray-900 text-sm" dangerouslySetInnerHTML={{ __html: html }} />
-            </CardContent>
-          </Card>
+        {!loading && reportData && (
+          <div>
+            <div className="mb-4 text-sm text-gray-600">
+              Showing {reportData.sections.length} sections from {reportData.source}
+              {reportData.generated_at && (
+                <span> • Generated {new Date(reportData.generated_at).toLocaleString()}</span>
+              )}
+            </div>
+            {reportData.sections.map(renderSection)}
+          </div>
         )}
-        {!loading && (!html || error) && (
+        {!loading && (!reportData || error) && (
           <ReportTaskFallback planId={planId} variant="standalone" />
         )}
       </main>
