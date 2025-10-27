@@ -1582,7 +1582,7 @@ class PhysicalLocationsTask(PlanTask):
                 # Execute LLM call with timing
                 import time
                 start_time = time.time()
-                physical_locations = PhysicalLocations.execute(llm, query)
+                physical_locations = PhysicalLocations.execute(llm, query, reasoning_effort=self.reasoning_effort)
                 duration_seconds = time.time() - start_time
 
                 # Update LLM interaction COMPLETE
