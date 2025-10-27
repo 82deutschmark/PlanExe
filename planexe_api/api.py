@@ -1076,9 +1076,15 @@ def _render_section_html(section: ReportSection) -> str:
 
     title_text = escape(section.stage or section.filename)
     filename_text = escape(section.filename)
+    
+    # Create a safe anchor ID from the title
+    import re
+    anchor_id = re.sub(r'[^a-zA-Z0-9\s-]', '', title_text).strip()
+    anchor_id = re.sub(r'[-\s]+', '-', anchor_id).lower()
+    anchor_id = f"section-{anchor_id}" if anchor_id else f"section-{section.filename}"
 
     return (
-        "<section class='plan-section'>"
+        f"<section id='{anchor_id}' class='plan-section'>"
         f"<h2>{title_text}</h2>"
         f"<p class='filename'>{filename_text}</p>"
         f"{body_html}"
@@ -1133,6 +1139,21 @@ def _build_fallback_html(
     )
 
     missing_html = _render_missing_sections_html(missing_sections)
+    
+    # Generate table of contents for fallback report
+    toc_html = ""
+    if sections:
+        toc_html = "<nav class='table-of-contents'><h3>Table of Contents</h3><ul>"
+        for section in sections:
+            title_text = escape(section.stage or section.filename)
+            # Create a safe anchor ID from the title
+            import re
+            anchor_id = re.sub(r'[^a-zA-Z0-9\s-]', '', title_text).strip()
+            anchor_id = re.sub(r'[-\s]+', '-', anchor_id).lower()
+            anchor_id = f"section-{anchor_id}" if anchor_id else f"section-{section.filename}"
+            toc_html += f"<li><a href='#{anchor_id}'>{title_text}</a></li>"
+        toc_html += "</ul></nav>"
+    
     sections_html = "".join(_render_section_html(section) for section in sections)
 
     return f"""<!DOCTYPE html>
@@ -1155,10 +1176,18 @@ pre.content-block {{ background: #f1f5f9; padding: 1rem; border-radius: 8px; ove
 pre.content-block.markdown {{ background: #eef2ff; }}
 pre.content-block.json {{ background: #ecfeff; }}
 pre.content-block.csv {{ background: #fef9c3; }}
+.table-of-contents {{ background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; }}
+.table-of-contents h3 {{ margin: 0 0 1rem 0; color: #1e293b; font-size: 1.2rem; }}
+.table-of-contents ul {{ list-style: none; padding: 0; margin: 0; }}
+.table-of-contents li {{ margin-bottom: 0.5rem; }}
+.table-of-contents a {{ color: #3b82f6; text-decoration: none; padding: 0.25rem 0.5rem; border-radius: 4px; transition: background-color 0.2s ease; }}
+.table-of-contents a:hover {{ background-color: #eff6ff; text-decoration: underline; }}
+section.plan-section {{ scroll-margin-top: 2rem; }}
 </style>
 </head>
 <body>
 {header_html}
+{toc_html}
 {missing_html}
 {sections_html}
 </body>

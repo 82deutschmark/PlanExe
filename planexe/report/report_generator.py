@@ -237,11 +237,22 @@ class ReportGenerator:
         <p class="planexe-report-info">Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} with PlanExe. <a href="https://neoneye.github.io/PlanExe-web/discord.html">Discord</a>, <a href="https://github.com/neoneye/PlanExe">GitHub</a></p>
         """)
 
+        # Generate table of contents
+        toc_items = []
+        
         def add_section(title: str, content: str, css_classes: list[str]):
-            resolved_css_classes = ['section'] + css_classes
+            # Create a safe anchor ID from the title
+            anchor_id = re.sub(r'[^a-zA-Z0-9\s-]', '', title).strip()
+            anchor_id = re.sub(r'[-\s]+', '-', anchor_id).lower()
+            anchor_id = f"section-{anchor_id}" if anchor_id else f"section-{len(toc_items)}"
+            
+            # Add to table of contents
+            toc_items.append((title, anchor_id))
+            
+            resolved_css_classes = ['section', 'section-anchor'] + css_classes
             css_classes_str = ' '.join(resolved_css_classes)
             html_parts.append(f"""
-            <div class="{css_classes_str}">
+            <div id="{anchor_id}" class="{css_classes_str}">
                 <button class="collapsible">{title}</button>
                 <div class="content">        
                     {content}
@@ -251,6 +262,16 @@ class ReportGenerator:
 
         for item in self.report_item_list:
             add_section(item.document_title, item.document_html_content, item.css_classes)
+
+        # Add table of contents after the header
+        if toc_items:
+            toc_html = '<div class="table-of-contents"><h3>Table of Contents</h3><ul>'
+            for title, anchor_id in toc_items:
+                toc_html += f'<li><a href="#{anchor_id}">{title}</a></li>'
+            toc_html += '</ul></div>'
+            
+            # Insert TOC after the header paragraph
+            html_parts.insert(2, toc_html)
 
         html_content = '\n'.join(html_parts)
 
