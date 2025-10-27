@@ -1,7 +1,10 @@
 # Changelog - Use Proper Semantic Versioning and follow the Keep a Changelog standard
 
 ## [0.9.6] - 2025-10-26
-- **Reasoning Effort UI**: Added visible reasoning effort selector to `PlanForm` component with four levels (minimal, low, medium, high) and helpful badges indicating speed/thoroughness trade-offs.
+- **Reasoning Effort UI**: Added visible reasoning effort selector to multiple entry points:
+  - Landing page (`app/page.tsx`): Four-button selector with inline descriptions below Speed vs Detail section
+  - `PlanForm` component: Dropdown selector with badges indicating speed/thoroughness trade-offs
+  - Both components default to "medium" and include reasoning_effort in plan creation payloads
 - **Conversation Modal**: Extended `ConversationModal` to accept and display the user-selected reasoning effort, passing it through to the conversation API instead of always using backend defaults.
 - **Resume Dialog**: Added reasoning effort selector to `ResumeDialog` so resumed plans can optionally override the original setting, with the previous value pre-selected by default.
 - **Recovery Flow**: Updated recovery page to preserve reasoning effort when resuming plans, passing it through to both fallback and targeted resume operations.

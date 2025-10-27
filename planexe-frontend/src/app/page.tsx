@@ -42,6 +42,7 @@ const HomePage: React.FC = () => {
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<string>(PRIMARY_FALLBACK_MODEL_ID);
   const [speedVsDetail, setSpeedVsDetail] = useState<CreatePlanRequest['speed_vs_detail']>('balanced_speed_and_detail');
+  const [reasoningEffort, setReasoningEffort] = useState<CreatePlanRequest['reasoning_effort']>('medium');
 
   const availableModels = useMemo(() => {
     const deduped = new Map<string, { id: string; label: string }>();
@@ -129,6 +130,7 @@ const HomePage: React.FC = () => {
       prompt,
       llm_model: modelForRequest,
       speed_vs_detail: speedVsDetail,
+      reasoning_effort: reasoningEffort,
     };
 
     setIsCreating(true);
@@ -300,6 +302,39 @@ const HomePage: React.FC = () => {
                       {speedVsDetail === 'fast_but_skip_details' && 'Fast, fewer details (~10-20 min)'}
                       {speedVsDetail === 'balanced_speed_and_detail' && 'Balanced depth and speed (~20-40 min)'}
                       {speedVsDetail === 'all_details_but_slow' && 'Comprehensive plan (~45-90 min)'}
+                    </div>
+                  </div>
+                  <div className="mt-3 space-y-2 text-xs text-slate-300">
+                    <span className="text-[11px] uppercase tracking-[0.2em] text-slate-200">
+                      Reasoning Effort
+                    </span>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[
+                        { value: 'minimal', label: 'Minimal' },
+                        { value: 'low', label: 'Low' },
+                        { value: 'medium', label: 'Medium' },
+                        { value: 'high', label: 'High' },
+                      ].map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setReasoningEffort(option.value as CreatePlanRequest['reasoning_effort'])}
+                          className={`rounded-md border px-2 py-1.5 text-[11px] font-medium transition ${
+                            reasoningEffort === (option.value as CreatePlanRequest['reasoning_effort'])
+                              ? 'border-indigo-400/60 bg-indigo-400/10 text-indigo-100'
+                              : 'border-white/15 bg-white/5 text-slate-200 hover:border-white/25'
+                          }`}
+                          aria-pressed={reasoningEffort === (option.value as CreatePlanRequest['reasoning_effort'])}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="text-[11px] text-slate-400">
+                      {reasoningEffort === 'minimal' && 'Fastest processing, basic analysis'}
+                      {reasoningEffort === 'low' && 'Quick reasoning, focused output'}
+                      {reasoningEffort === 'medium' && 'Balanced thoroughness (default)'}
+                      {reasoningEffort === 'high' && 'Deep analysis, most comprehensive'}
                     </div>
                   </div>
                 </CardHeader>
