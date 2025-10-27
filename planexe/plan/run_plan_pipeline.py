@@ -2433,7 +2433,7 @@ class ConsolidateAssumptionsMarkdownTask(PlanTask):
 
                 # IDEA: If the chunk file already exist, then there is no need to run the LLM again.
                 def execute_shorten_markdown(llm: LLM) -> ShortenMarkdown:
-                    return ShortenMarkdown.execute(llm, markdown_chunk)
+                    return ShortenMarkdown.execute(llm, markdown_chunk, reasoning_effort=self.reasoning_effort)
 
                 try:
                     shorten_markdown = llm_executor.run(execute_shorten_markdown)
