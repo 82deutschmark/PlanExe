@@ -268,13 +268,21 @@ class SimpleOpenAILLM(LLM):
                 logger.warning("Unable to parse OpenAI SDK version %r: %s", sdk_version_text, exc)
                 sdk_version = None
             else:
-                min_supported = packaging_version.parse("2.5.0")
-                if sdk_version < min_supported:
+                # Support both v1.x and v2.x+ OpenAI SDK versions
+                min_supported_v1 = packaging_version.parse("1.100.0")
+                min_supported_v2 = packaging_version.parse("2.5.0")
+                
+                if sdk_version < min_supported_v1:
                     raise RuntimeError(
-                        f"OpenAI SDK {sdk_version_text} detected; PlanExe requires >=2.5.0 for Responses API support."
+                        f"OpenAI SDK {sdk_version_text} detected; PlanExe requires >=1.100.0 (v1.x) or >=2.5.0 (v2.x) for Responses API support."
+                    )
+                
+                if sdk_version >= packaging_version.parse("2.0.0") and sdk_version < min_supported_v2:
+                    raise RuntimeError(
+                        f"OpenAI SDK {sdk_version_text} detected; PlanExe requires >=2.5.0 for v2.x Responses API support."
                     )
         else:
-            logger.warning("OpenAI SDK version could not be determined; ensure openai>=2.5.0 is installed.")
+            logger.warning("OpenAI SDK version could not be determined; ensure openai>=1.100.0 (v1.x) or openai>=2.5.0 (v2.x) is installed.")
 
         super().__init__(model=model, provider=provider, **kwargs)
 
