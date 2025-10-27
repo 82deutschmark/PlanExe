@@ -78,6 +78,7 @@ class CreateWBSLevel1:
             "Both values must be short strings (3-10 words)."
         )
 
+        start_time = time.perf_counter()
         response = llm.complete(QUERY_PREAMBLE + query)
         raw_text = response.text if hasattr(response, "text") else str(response)
         json_response, wbs_model, warnings = cls._parse_llm_response(raw_text)
@@ -96,7 +97,6 @@ class CreateWBSLevel1:
             metadata["normalization_warnings"] = warnings
 
         project_id = str(uuid4())
-        json_response = parsed.model_dump()
 
         result = CreateWBSLevel1(
             query=query,
