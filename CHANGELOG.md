@@ -6,7 +6,21 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
-Current version: **0.9.8** (Pre-release - features may change)
+Current version: **0.9.9** (Pre-release - features may change)
+
+## [0.9.9] - 2025-10-27
+
+### Fixed
+- **Recovery Header Progress Display**: Fixed recovery page header stuck at "Progress: 0%" throughout pipeline execution
+  - **Root Cause**: Plan data (containing `progress_percentage` and `progress_message`) was only fetched once on initial page load, then relied entirely on WebSocket for updates. If WebSocket had any connection issues, progress would never update in the UI.
+  - **Impact**: Users saw "Progress: 0%, Starting plan generation..." for the entire pipeline run, providing no visibility into actual progress (0% → 99%).
+  - **Files Modified**:
+    - `planexe-frontend/src/app/recovery/useRecoveryPlan.ts`: Added plan progress polling mechanism (every 3 seconds) alongside existing artefact polling
+  - **Fix Applied**:
+    - Added new `useEffect` hook that polls the plan endpoint every 3 seconds while plan status is 'running'
+    - Provides resilient fallback to WebSocket updates, ensuring progress displays even if WebSocket disconnects
+    - Automatically stops polling when plan completes or fails
+  - **Result**: Recovery header now displays live progress updates (0% → 15% → 30% → ...) and accurate task completion messages ("Processing... 15/61 tasks completed") regardless of WebSocket reliability
 
 ## [0.9.8] - 2025-10-27
 
