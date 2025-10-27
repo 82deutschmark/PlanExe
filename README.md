@@ -21,6 +21,37 @@ Key principles:
 2. **Thread-safe orchestration** – WebSocket manager and ProcessRegistry use locks to avoid race conditions.
 3. **Deterministic response chaining** – response IDs from the Responses API are stored and reused to maintain context.
 
+## 🔴 CRITICAL: OpenAI SDK Version Compatibility
+
+**DO NOT UPGRADE OpenAI SDK versions without reading this section.**
+
+| Component | Current Version | Upgrade Risk | Critical Dependencies |
+|-----------|-----------------|--------------|----------------------|
+| **Backend (Python)** | OpenAI SDK v1.109.1 | 🔴 **HIGH RISK** - DO NOT UPGRADE beyond v1.x | `client.responses.create()`, streaming interface, Pydantic model responses |
+| **Frontend (Node.js)** | OpenAI SDK v6.7.0 | ✅ **SAFE** - Can use latest | Separate from backend, no shared dependencies |
+
+### Why Backend Must Stay on v1.109.1
+Upgrading the Python backend beyond v1.x will **BREAK** the Responses API integration due to:
+
+- **Client instantiation changes**: v1.x uses module-level patterns → v2.x+ requires explicit client instantiation
+- **Response object changes**: v1.x returns dictionaries → v2.x+ returns Pydantic models  
+- **API path changes**: `client.responses` may be different or moved in newer versions
+- **Streaming interface evolution**: Streaming patterns and response handling changed significantly
+
+### Current Working Setup
+- ✅ `client.responses` available (primary path)
+- ✅ `openai.resources.responses.Responses` available (fallback path) 
+- ✅ All PlanExe imports and streaming functionality working
+- ✅ Database-first pipeline integration stable
+
+### If You Must Upgrade Backend (Not Recommended)
+1. Test incrementally: v1.x → v2.x → v3.x → etc.
+2. Use `openai migrate` tool for automated code transformation
+3. Extensive testing of Responses API integration required
+4. May require code changes in `planexe/llm_util/simple_openai_llm.py`
+
+**Recommendation**: Maintain backend on v1.109.1 indefinitely. The frontend can use the latest Node.js SDK since it's a separate codebase.
+
 ## Quick links
 - [API reference (`/docs`)](README_API.md)
 - [`docs/run_plan_pipeline_documentation.md`](docs/run_plan_pipeline_documentation.md) – Luigi task breakdown
@@ -135,6 +166,8 @@ PlanExe/
 | Plan stuck with no progress | Inspect `plan_content` entries for the plan ID; the highest task name hints at the failure point. |
 | Structured task errors | Confirm schema registered in `planexe/llm_util/schema_registry.py` and that the OpenAI model supports Responses API strict mode. |
 | No artefacts returned | Ensure database credentials are correct and `planexe_api/database.py` migrations ran. |
+| **🔴 OpenAI SDK import errors** | **CRITICAL**: Verify Python backend is using OpenAI SDK v1.109.1. Newer versions will break `client.responses` integration. Check with: `python -c "import openai; print(openai.__version__)"` |
+| **Responses API failures** | Ensure backend hasn't been accidentally upgraded beyond OpenAI SDK v1.x. The `simple_openai_llm.py` module requires v1.x APIs. |
 
 ## Further reading
 - `docs/pipeline_handoff_notes.md` – remaining migration tasks for the SimpleOpenAILLM refactor
