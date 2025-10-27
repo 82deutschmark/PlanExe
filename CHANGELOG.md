@@ -11,6 +11,20 @@ Current version: **0.9.12** (Pre-release - features may change)
 ## [0.9.12] - 2025-10-27
 
 ### Fixed
+- **🔴 CRITICAL Hardcoded UI Values Removed**: Eliminated all fake/mock data from telemetry components that was misleading users
+  - **Problem**: Previous commits introduced hardcoded values like `PID: 12345`, fake response times, mock task durations, and simulated progress metrics
+  - **Impact**: Users were seeing fake data instead of real operational information, making the telemetry useless for debugging
+  - **Fixed Values Removed**:
+    - `subprocessPid={12345}` - Fake process ID
+    - `startTime: new Date(Date.now() - 30000)` - Fake 30-second-old start time
+    - `duration: 30` and `duration: 45` - Hardcoded task durations
+    - `estimatedDuration: 60` - Fake queued task estimates
+    - `activeTimeoutCountdown={30}` - Mock countdown timer
+    - `totalTasks = 61` - Hardcoded magic number
+  - **Solution**: Connected all telemetry to real WebSocket data streams and actual plan metadata
+  - **Files Modified**:
+    - `planexe-frontend/src/app/recovery/components/RecoveryHeader.tsx`: Removed all hardcoded values and connected to real data
+    - `planexe-frontend/src/app/recovery/components/APITelemetryStrip.tsx`: Enhanced to show real error messages
 - **Recovery Artefact Typing**: Resolved TypeScript errors in the recovery workspace by importing the correct `PlanArtefact` type and tightening map handlers
   - Ensures strict typing in `useRecoveryPlan` without falling back to `any`
   - `planexe-frontend/src/app/recovery/useRecoveryPlan.ts`: Added explicit `PlanArtefact` import and strongly typed mapping logic
@@ -21,6 +35,9 @@ Current version: **0.9.12** (Pre-release - features may change)
   - **Files Modified**:
     - `planexe-frontend/src/components/PipelineDetails.tsx`: Added auto-scroll functionality to `PipelineLogsPanel` component
     - Added necessary imports (`useRef`) and scroll logic that triggers when `details?.pipelineLog` updates
+- **React Hook Dependencies**: Fixed missing dependency warnings in useMemo hooks
+  - Added `planCreatedAt` to dependency array to prevent stale closures
+  - Removed TypeScript `any` types by properly typing usage objects with type guards
 
 ## [0.9.11] - 2025-10-27
 

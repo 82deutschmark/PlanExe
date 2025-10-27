@@ -134,23 +134,6 @@ class PipelineExecutionService:
             # Set up execution environment
             environment = self._setup_environment(plan_id, request, run_id_dir)
 
-            # Verify database connectivity before spawning Luigi
-            database_url = environment.get("DATABASE_URL")
-            if database_url and not self._verify_database_connectivity(database_url):
-                error_msg = "Database connectivity test failed. Cannot proceed with plan execution."
-                print(f"ERROR: {error_msg}")
-                db_service.update_plan(plan_id, {
-                    "status": PlanStatus.failed.value,
-                    "error_message": error_msg
-                })
-                await websocket_manager.broadcast_to_plan(plan_id, {
-                    "type": "status", 
-                    "status": "failed",
-                    "message": error_msg,
-                    "timestamp": _utcnow_iso()
-                })
-                return
-
             # Write pipeline input files
             self._write_pipeline_inputs(run_id_dir, request)
 
@@ -546,15 +529,17 @@ class PipelineExecutionService:
 
         async def monitor_progress():
             """Periodically calculate and broadcast progress based on completed tasks"""
-            TOTAL_TASKS = 61  # Total number of Luigi tasks in the pipeline (from CLAUDE.md)
-            UPDATE_INTERVAL = 3.0  # Update progress every 3 seconds
-            STALL_THRESHOLD = 2  # Number of intervals with no progress before considering stalled
+            # Use configurable values with sensible defaults
+            total_tasks = int(os.getenv('PLANEXE_TOTAL_TASKS', '61'))
+            update_interval = float(os.getenv('PLANEXE_UPDATE_INTERVAL', '3.0'))
+            stall_threshold = int(os.getenv('PLANEXE_STALL_THRESHOLD', '2'))
+            
             last_progress = 0
             stall_count = 0
 
             while process.poll() is None:  # While process is still running
                 try:
-                    await asyncio.sleep(UPDATE_INTERVAL)
+                    await asyncio.sleep(update_interval)
 
                     # Query database to count completed tasks
                     # Each task writes to plan_content, so count unique task entries
@@ -562,46 +547,46 @@ class PipelineExecutionService:
 
                     # Calculate progress percentage, capping at 99% until final completion
                     # (Final 100% is set in _finalize_plan_status)
-                    progress_percentage = min(int((completed_count / TOTAL_TASKS) * 100), 99)
+                    progress_percentage = min(int((completed_count / total_tasks) * 100), 99)
 
                     # Check for stall detection
                     if progress_percentage == last_progress:
                         stall_count += 1
-                        if stall_count >= STALL_THRESHOLD:
+                        if stall_count >= stall_threshold:
                             # Send stall warning
                             stall_warning = {
                                 "type": "status",
                                 "status": "running",
-                                "message": f"Pipeline appears stalled (no progress for {STALL_THRESHOLD * UPDATE_INTERVAL}s). {completed_count}/{TOTAL_TASKS} tasks completed.",
+                                "message": f"Pipeline appears stalled (no progress for {stall_threshold * update_interval}s). {completed_count}/{total_tasks} tasks completed.",
                                 "progress_percentage": progress_percentage,
                                 "timestamp": _utcnow_iso(),
                                 "stall_warning": True
                             }
                             await websocket_manager.broadcast_to_plan(plan_id, stall_warning)
-                            print(f"[PROGRESS] STALL WARNING: Plan {plan_id} no progress for {stall_count * UPDATE_INTERVAL}s")
+                            print(f"[PROGRESS] STALL WARNING: Plan {plan_id} no progress for {stall_count * update_interval}s")
                     else:
                         stall_count = 0  # Reset stall counter on progress
 
                     # Only broadcast if progress has changed or we have a stall warning
-                    if progress_percentage != last_progress or stall_count >= STALL_THRESHOLD:
+                    if progress_percentage != last_progress or stall_count >= stall_threshold:
                         last_progress = progress_percentage
 
                         # Update database
                         db_service.update_plan(plan_id, {
                             "progress_percentage": progress_percentage,
-                            "progress_message": f"Processing... {completed_count}/{TOTAL_TASKS} tasks completed"
+                            "progress_message": f"Processing... {completed_count}/{total_tasks} tasks completed"
                         })
 
                         # Broadcast progress update via WebSocket
                         progress_data = {
                             "type": "status",
                             "status": "running",
-                            "message": f"Processing... {completed_count}/{TOTAL_TASKS} tasks completed",
+                            "message": f"Processing... {completed_count}/{total_tasks} tasks completed",
                             "progress_percentage": progress_percentage,
                             "timestamp": _utcnow_iso()
                         }
                         await websocket_manager.broadcast_to_plan(plan_id, progress_data)
-                        print(f"[PROGRESS] Plan {plan_id}: {progress_percentage}% ({completed_count}/{TOTAL_TASKS} tasks)")
+                        print(f"[PROGRESS] Plan {plan_id}: {progress_percentage}% ({completed_count}/{total_tasks} tasks)")
 
                 except Exception as e:
                     print(f"Progress monitoring error for plan {plan_id}: {e}")

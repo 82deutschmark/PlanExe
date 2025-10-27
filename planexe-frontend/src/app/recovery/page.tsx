@@ -190,6 +190,10 @@ const RecoveryPageContent: React.FC = () => {
         lastWriteAt={lastWriteAt}
         stageSummary={stageSummary}
         activeStageKey={activeStageKey}
+        llmStreams={{
+          active: llmStreams.active,
+          history: llmStreams.history,
+        }}
         onRefreshPlan={plan.refresh}
         onRelaunch={handleRelaunch}
       />

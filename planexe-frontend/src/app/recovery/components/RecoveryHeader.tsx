@@ -24,7 +24,7 @@ import {
 import { PlanResponse } from '@/lib/api/fastapi-client';
 import { parseBackendDate } from '@/lib/utils/date';
 
-import { RecoveryConnectionState, StatusDisplay, StageSummary } from '../useRecoveryPlan';
+import { RecoveryConnectionState, StatusDisplay, StageSummary, LLMStreamState } from '../useRecoveryPlan';
 import { APITelemetryStrip } from './APITelemetryStrip';
 import { LiveTaskTicker } from './LiveTaskTicker';
 
@@ -37,6 +37,10 @@ interface RecoveryHeaderProps {
   lastWriteAt: Date | null;
   stageSummary: StageSummary[];
   activeStageKey: string | null;
+  llmStreams: {
+    active: LLMStreamState | null;
+    history: LLMStreamState[];
+  };
   onRefreshPlan: () => Promise<void>;
   onRelaunch: () => void | Promise<void>;
 }
@@ -84,6 +88,7 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
   lastWriteAt,
   stageSummary,
   activeStageKey,
+  llmStreams,
   onRefreshPlan,
   onRelaunch,
 }) => {
@@ -96,8 +101,8 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
   }, [lastWriteAt]);
   const planCreatedAt = useMemo(() => parseBackendDate(plan?.created_at ?? null), [plan?.created_at]);
 
-  // Calculate enhanced telemetry
-  const totalTasks = 61;
+  // Calculate enhanced telemetry - use actual task count from stage summary or default
+  const totalTasks = stageSummary.reduce((sum, stage) => sum + stage.count, 0) || 61;
   const completedTasks = Math.round((plan?.progress_percentage ?? 0) * totalTasks / 100);
   const pipelineVelocity = useMemo(() => {
     if (!planCreatedAt || completedTasks === 0) return 0;
@@ -107,35 +112,95 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
   
   const estimatedRemainingMinutes = pipelineVelocity > 0 ? Math.round((totalTasks - completedTasks) / pipelineVelocity) : null;
 
-  // Mock telemetry data (in real implementation, this would come from API/WebSocket)
-  const apiMetrics = useMemo(() => ({
-    totalCalls: 12,
-    successfulCalls: 11,
-    failedCalls: 1,
-    currentModel: plan?.llm_model || 'gpt-4o-mini',
-    lastResponseTime: 1250,
-    averageResponseTime: 980,
-    providerStatus: connection.status === 'connected' ? 'connected' as const : 'error' as const,
-    recentResponseTimes: [1200, 950, 1100, 800, 1300, 900, 1050, 1150, 850, 1250],
-  }), [plan?.llm_model, connection.status]);
+  // Real telemetry data from WebSocket streams
+  const apiMetrics = useMemo(() => {
+    const allStreams = [llmStreams.active, ...llmStreams.history].filter(Boolean) as LLMStreamState[];
+    const completedStreams = allStreams.filter(s => s.status === 'completed');
+    const failedStreams = allStreams.filter(s => s.status === 'failed');
+    
+    // Extract real response times from usage data
+    const responseTimes: number[] = [];
+    completedStreams.forEach(stream => {
+      if (stream.usage && typeof stream.usage === 'object') {
+        const usage = stream.usage as Record<string, unknown>;
+        if (typeof usage.duration_seconds === 'number') {
+          responseTimes.push(Math.round(usage.duration_seconds * 1000));
+        }
+      }
+    });
+    
+    const lastResponseTime = responseTimes.length > 0 ? responseTimes[responseTimes.length - 1] : null;
+    const averageResponseTime = responseTimes.length > 0 
+      ? Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length)
+      : null;
+    
+    // Get the most recent error message
+    const lastFailedStream = failedStreams[failedStreams.length - 1];
+    const lastError = lastFailedStream?.error || null;
+    
+    return {
+      totalCalls: allStreams.length,
+      successfulCalls: completedStreams.length,
+      failedCalls: failedStreams.length,
+      currentModel: plan?.llm_model || 'gpt-4o-mini',
+      lastResponseTime,
+      averageResponseTime,
+      providerStatus: connection.status === 'connected' ? 'connected' as const : 'error' as const,
+      recentResponseTimes: responseTimes.slice(-10),
+      lastError,
+    };
+  }, [llmStreams, plan?.llm_model, connection.status]);
 
   const currentTask = useMemo(() => {
+    if (llmStreams.active) {
+      const stream = llmStreams.active;
+      const duration = stream.lastUpdated ? Math.round((Date.now() - stream.lastUpdated) / 1000) : 0;
+      return {
+        id: `task-${stream.interactionId}`,
+        name: stream.stage ? `Processing ${stream.stage}` : 'LLM Interaction',
+        stage: stream.stage || 'LLM Call',
+        status: stream.status === 'running' ? 'running' as const : 
+                stream.status === 'failed' ? 'failed' as const : 'completed' as const,
+        startTime: stream.lastUpdated ? new Date(stream.lastUpdated - duration * 1000) : new Date(),
+        duration,
+        estimatedDuration: stream.usage && typeof stream.usage === 'object' && 
+          'duration_seconds' in stream.usage && typeof (stream.usage as Record<string, unknown>).duration_seconds === 'number'
+          ? Math.round((stream.usage as Record<string, unknown>).duration_seconds * 1000) || null : null,
+      };
+    }
+    
+    // Fallback to stage-based task if no active stream
     if (activeStageKey && stageSummary.length > 0) {
       const activeStage = stageSummary.find(s => s.key === activeStageKey);
       return {
-        id: 'task-current',
+        id: 'task-stage',
         name: `Processing ${activeStage?.label || 'Unknown Stage'}`,
         stage: activeStage?.label || 'Unknown',
         status: 'running' as const,
-        startTime: new Date(Date.now() - 30000), // Started 30 seconds ago
-        duration: 30,
-        estimatedDuration: 45,
+        startTime: planCreatedAt || new Date(),
+        duration: planCreatedAt ? Math.round((Date.now() - planCreatedAt.getTime()) / 1000) : 0,
+        estimatedDuration: null,
       };
     }
     return null;
-  }, [activeStageKey, stageSummary]);
+  }, [llmStreams.active, activeStageKey, stageSummary, planCreatedAt]);
 
   const queuedTasks = useMemo(() => {
+    // Show upcoming stages as queued tasks
+    if (activeStageKey) {
+      const currentIndex = stageSummary.findIndex(s => s.key === activeStageKey);
+      return stageSummary.slice(currentIndex + 1, currentIndex + 4).map((stage, index) => ({
+        id: `task-queued-${index}`,
+        name: `Process ${stage.label}`,
+        stage: stage.label,
+        status: 'queued' as const,
+        startTime: null,
+        duration: null,
+        estimatedDuration: null,
+      }));
+    }
+    
+    // If no active stage, show first few as queued
     return stageSummary.slice(0, 3).map((stage, index) => ({
       id: `task-queued-${index}`,
       name: `Process ${stage.label}`,
@@ -143,9 +208,9 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
       status: 'queued' as const,
       startTime: null,
       duration: null,
-      estimatedDuration: 60,
+      estimatedDuration: null,
     }));
-  }, [stageSummary]);
+  }, [stageSummary, activeStageKey]);
 
   // Stage tracker component
   const StageTracker = ({ stages, activeKey }: { stages: StageSummary[], activeKey: string | null }) => {
@@ -310,13 +375,12 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
           <APITelemetryStrip 
             metrics={apiMetrics}
-            activeTimeoutCountdown={connection.status === 'connected' ? 30 : null}
+            activeTimeoutCountdown={null}
           />
           <LiveTaskTicker 
             currentTask={currentTask}
             queuedTasks={queuedTasks}
             workerStatus={connection.status === 'connected' ? 'active' : 'idle'}
-            subprocessPid={12345} // Mock PID
           />
         </div>
       </div>

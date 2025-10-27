@@ -20,6 +20,7 @@ interface APICallMetrics {
   averageResponseTime: number | null;
   providerStatus: 'connected' | 'error' | 'unknown';
   recentResponseTimes: number[];
+  lastError?: string | null;
 }
 
 interface APITelemetryStripProps {
@@ -178,6 +179,11 @@ export const APITelemetryStrip: React.FC<APITelemetryStripProps> = ({
           <div className="flex items-center gap-1 text-orange-600">
             <AlertCircle className="h-3 w-3" />
             <span>{metrics.failedCalls} failed calls</span>
+            {metrics.lastError && (
+              <span className="text-xs text-gray-500 ml-1 truncate max-w-32" title={metrics.lastError}>
+                ({metrics.lastError})
+              </span>
+            )}
           </div>
         )}
       </div>
