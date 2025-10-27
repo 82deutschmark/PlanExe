@@ -91,6 +91,7 @@ class EnrichPotentialLevers:
         llm_executor: LLMExecutor,
         project_context: str,
         raw_levers_list: list[dict],
+        reasoning_effort: str,
     ) -> "EnrichPotentialLevers":
         try:
             input_levers = [InputLever(**lever) for lever in raw_levers_list]

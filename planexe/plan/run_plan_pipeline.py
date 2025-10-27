@@ -1004,7 +1004,8 @@ class EnrichLeversTask(PlanTask):
             enrich_potential_levers = EnrichPotentialLevers.execute(
                 llm_executor,
                 project_context=query,
-                raw_levers_list=lever_item_list
+                raw_levers_list=lever_item_list,
+                reasoning_effort=self.reasoning_effort
             )
             duration_seconds = time.time() - start_time
             response_dict = enrich_potential_levers.to_dict()
@@ -1111,7 +1112,8 @@ class FocusOnVitalFewLeversTask(PlanTask):
             focus_on_vital_few_levers = FocusOnVitalFewLevers.execute(
                 llm_executor,
                 project_context=query,
-                raw_levers_list=lever_item_list
+                raw_levers_list=lever_item_list,
+                reasoning_effort=self.reasoning_effort
             )
             duration_seconds = time.time() - start_time
             response_dict = focus_on_vital_few_levers.to_dict()

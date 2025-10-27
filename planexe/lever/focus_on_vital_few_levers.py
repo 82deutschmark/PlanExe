@@ -108,7 +108,7 @@ class FocusOnVitalFewLevers:
     metadata: dict
 
     @classmethod
-    def execute(cls, llm_executor: LLMExecutor, project_context: str, raw_levers_list: List[dict]) -> 'FocusOnVitalFewLevers':
+    def execute(cls, llm_executor: LLMExecutor, project_context: str, raw_levers_list: List[dict], reasoning_effort: str) -> 'FocusOnVitalFewLevers':
         if not isinstance(llm_executor, LLMExecutor):
             raise ValueError("Invalid LLMExecutor instance.")
         
