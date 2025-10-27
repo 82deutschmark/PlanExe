@@ -11,6 +11,31 @@ Current version: **0.9.10** (Pre-release - features may change)
 ## [0.9.10] - 2025-10-27
 
 ### Fixed
+- **Reasoning Effort Propagation**: Fixed critical issue where user-selected reasoning effort was not being passed to LLM calls
+  - **Root Cause**: Many pipeline task execute() methods were missing the reasoning_effort parameter, causing all LLM calls to default to 'medium' reasoning regardless of user selection
+  - **Impact**: Users selecting 'minimal' or 'high' reasoning effort were not getting their preferred setting, affecting response speed and detail level
+  - **Files Modified**:
+    - `planexe/llm_util/llm_executor.py`: Updated LLMModelFromName to accept and propagate reasoning_effort
+    - `planexe/plan/run_plan_pipeline.py`: Updated create_llm_executor and all task execute() calls to pass reasoning_effort
+    - `planexe/diagnostics/premise_attack.py`: Added reasoning_effort parameter to execute() method
+    - `planexe/diagnostics/redline_gate.py`: Added reasoning_effort parameter to execute() method
+    - `planexe/lever/identify_potential_levers.py`: Added reasoning_effort parameter to execute() method
+    - `planexe/lever/deduplicate_levers.py`: Added reasoning_effort parameter to execute() method
+    - `planexe/lever/enrich_potential_levers.py`: Added reasoning_effort parameter to execute() method
+    - `planexe/lever/focus_on_vital_few_levers.py`: Added reasoning_effort parameter to execute() method
+    - `planexe/lever/candidate_scenarios.py`: Added reasoning_effort parameter to execute() method
+    - `planexe/lever/select_scenario.py`: Added reasoning_effort parameter to execute() method
+    - `planexe/assume/review_assumptions.py`: Added reasoning_effort parameter to execute() method
+    - `planexe/assume/shorten_markdown.py`: Added reasoning_effort parameter to execute() method
+    - `planexe/plan/project_plan.py`: Added reasoning_effort parameter to execute() method
+    - `planexe/governance/governance_phase1_audit.py`: Added reasoning_effort parameter to execute() method
+    - `planexe/governance/governance_phase2_bodies.py`: Added reasoning_effort parameter to execute() method
+    - `planexe/governance/governance_phase3_impl_plan.py`: Added reasoning_effort parameter to execute() method
+    - `planexe/governance/governance_phase4_decision_escalation_matrix.py`: Added reasoning_effort parameter to execute() method
+    - `planexe/governance/governance_phase5_monitoring_progress.py`: Added reasoning_effort parameter to execute() method
+    - `planexe/governance/governance_phase6_extra.py`: Added reasoning_effort parameter to execute() method
+  - **Fix Applied**: Systematically added reasoning_effort parameter to all 19+ task execute() methods and updated all pipeline calls to pass self.reasoning_effort
+  - **Result**: User-selected reasoning effort now properly propagates from frontend through entire pipeline to all LLM interactions
 - **Report Navigation**: Added table of contents to report pages for better navigation through long reports
   - Interactive navigation links auto-generated from section headers
   - Improves usability for comprehensive plan reports
