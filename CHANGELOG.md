@@ -6,7 +6,14 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
-Current version: **0.9.11** (Pre-release - features may change)
+Current version: **0.9.12** (Pre-release - features may change)
+
+## [0.9.12] - 2025-10-27
+
+### Fixed
+- **Recovery Artefact Typing**: Resolved TypeScript errors in the recovery workspace by importing the correct `PlanArtefact` type and tightening map handlers
+  - Ensures strict typing in `useRecoveryPlan` without falling back to `any`
+  - `planexe-frontend/src/app/recovery/useRecoveryPlan.ts`: Added explicit `PlanArtefact` import and strongly typed mapping logic
 
 ## [0.9.11] - 2025-10-27
 

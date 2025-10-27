@@ -13,6 +13,7 @@ import { createElement, useCallback, useEffect, useMemo, useReducer, useRef, use
 
 import {
   fastApiClient,
+  PlanArtefact,
   PlanArtefactListResponse,
   PlanResponse,
   WebSocketLLMStreamMessage,
@@ -356,8 +357,8 @@ const getStatusDisplay = (status: PlanResponse['status']): StatusDisplay => {
 };
 
 const mapArtefacts = (response: PlanArtefactListResponse): PlanFile[] => {
-  const entries = (response.artefacts ?? []).filter((entry: any) => entry && entry.filename);
-  const mapped = entries.map<PlanFile>((entry: any) => {
+  const entries = (response.artefacts ?? []).filter((entry: PlanArtefact) => entry && entry.filename);
+  const mapped = entries.map<PlanFile>((entry: PlanArtefact) => {
     const normalizedStage = normaliseStageKey(entry.stage);
     const createdAt = toIsoStringOrFallback(entry.created_at);
     return {
