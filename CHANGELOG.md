@@ -1,6 +1,41 @@
 # Changelog - Use Proper Semantic Versioning and follow the Keep a Changelog standard
 
+## Versioning Scheme
+This project follows [Semantic Versioning](https://semver.org/):
+- **MAJOR**: Breaking changes that require migration
+- **MINOR**: New features (backward compatible)
+- **PATCH**: Bug fixes (backward compatible)
+
+Current version: **0.9.6** (Pre-release - features may change)
+
 ## [0.9.6] - 2025-10-26
+
+### Added
+- **Reasoning Effort UI**: Added visible reasoning effort selector to multiple entry points:
+  - Landing page (`app/page.tsx`): Four-button selector with inline descriptions below Speed vs Detail section
+  - Advanced form page (`app/create/page.tsx`): New route with full PlanForm component including dropdown selector
+  - Both components default to "medium" and include reasoning_effort in plan creation payloads
+  - Added "Advanced Form →" link to landing page card header for easy access to detailed form
+- **New Route**: Created `/create` route that displays the full `PlanForm` component with all fields (title, tags, examples tabs) for users who prefer a more detailed creation interface
+- **Visual Feedback**: Added reasoning effort badge to conversation modal header so users can see the active setting during intake conversations
+- **Unlimited Intake**: Removed all character limits from intake fields across frontend and backend:
+  - Frontend: Removed 10,000 character limit from `PlanFormSchema` prompt validation
+  - Backend: Removed 10,000 character limit from `CreatePlanRequest.prompt` field
+  - Backend: Removed 6,000 character limit from `ConversationTurnRequest.user_message` field (conversation modal)
+  - Backend: Removed 8,000 character limit from `AnalysisStreamRequest.prompt` field
+  - Users can now provide unlimited project context and detailed intake information without truncation
+
+### Changed
+- **Conversation Modal**: Extended `ConversationModal` to accept and display the user-selected reasoning effort, passing it through to the conversation API instead of always using backend defaults
+- **Resume Dialog**: Added reasoning effort selector to `ResumeDialog` so resumed plans can optionally override the original setting, with the previous value pre-selected by default
+- **Recovery Flow**: Updated recovery page to preserve reasoning effort when resuming plans, passing it through to both fallback and targeted resume operations
+- **Data Flow**: Updated `useResponsesConversation` hook to accept optional `reasoningEffort` parameter and use it in conversation turn payloads, while falling back to backend defaults only when not provided
+
+### Fixed
+- **OpenAI Metadata Fix**: Fixed 512-character error from OpenAI's Responses API by truncating `initialPrompt` in metadata to 512 characters. The full prompt is still sent as the user message; metadata is only used for logging/context. This resolves the `string_above_max_length` error when users provided prompts longer than 512 characters
+- Fixed the gap where reasoning effort was configured via backend defaults but never exposed in the UI, making the setting invisible and unchangeable
+
+### Security
 - **🔴 CRITICAL VERSION COMPATIBILITY DOCUMENTATION**: 
   - **Backend (Python)**: OpenAI SDK v1.109.1 - DO NOT UPGRADE beyond v1.x
   - **Frontend (Node.js)**: OpenAI SDK v6.7.0 - Latest version acceptable
@@ -11,6 +46,8 @@
     - Streaming interface evolution
   - **Risk Assessment**: HIGH RISK - Current v1.109.1 setup is stable and supports all required features
   - **Recommendation**: Maintain backend on v1.109.1; frontend can use latest Node.js SDK
+
+### Deprecated
 - **🔴 CRITICAL WINDOWS ENVIRONMENT ISSUE IDENTIFIED**: 
   - **Problem**: PlanExe works correctly on Railway (Linux deployment) but HANGS on Windows during OpenAI API calls
   - **Symptoms**: Luigi pipeline starts successfully, but LLM executor calls to OpenAI timeout/hang on Windows only
