@@ -254,7 +254,7 @@ class PremiseAttack:
     markdown: str
 
     @classmethod
-    def execute(cls, llm_executor: LLMExecutor, user_prompt: str) -> "PremiseAttack":
+    def execute(cls, llm_executor: LLMExecutor, user_prompt: str, reasoning_effort: str) -> "PremiseAttack":
         if not isinstance(llm_executor, LLMExecutor):
             raise ValueError("Invalid LLMExecutor instance.")
         if not isinstance(user_prompt, str):
