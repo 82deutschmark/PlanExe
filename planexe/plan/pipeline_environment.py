@@ -1,3 +1,7 @@
+# Author: gpt-5-codex
+# Date: 2025-10-26T00:00:00Z
+# PURPOSE: Pipeline environment helper that surfaces speed/detail, model, and reasoning effort selections for Luigi tasks.
+# SRP and DRY check: Pass. Centralizes environment lookups; no duplicate functionality elsewhere.
 from enum import Enum
 from dataclasses import dataclass
 import os
@@ -55,12 +59,28 @@ class PipelineEnvironment:
         Values: low|medium|high|intense (string pass-through). Defaults to 'medium'.
         Order of precedence: explicit config (if present) -> env var -> default.
         """
-        # Delete any placeholder; add actual resolution below
-        # Prefer self.config if available and contains reasoning_effort
+        def _normalize(value: Optional[str]) -> Optional[str]:
+            if value is None:
+                return None
+            normalized = str(value).strip()
+            if not normalized:
+                return None
+            return normalized
+
+        explicit_effort = _normalize(self.reasoning_effort)
+        if explicit_effort:
+            return explicit_effort
+
         try:
-            cfg_effort = getattr(self, "config", {}).get("reasoning_effort") if hasattr(self, "config") else None
+            config_obj = getattr(self, "config", None)
+            cfg_effort = _normalize(config_obj.get("reasoning_effort")) if isinstance(config_obj, dict) else None
         except Exception:
             cfg_effort = None
         if cfg_effort:
-            return str(cfg_effort)
+            return cfg_effort
+
+        env_effort = _normalize(os.environ.get(PipelineEnvironmentEnum.REASONING_EFFORT.value))
+        if env_effort:
+            return env_effort
+
         return os.getenv("REASONING_EFFORT_DEFAULT", "minimal")

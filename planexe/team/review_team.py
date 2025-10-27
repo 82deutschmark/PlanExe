@@ -15,7 +15,7 @@ import logging
 from copy import deepcopy
 from math import ceil
 from dataclasses import dataclass
-from typing import Any, List
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -100,7 +100,15 @@ class ReviewTeam:
         return query
 
     @classmethod
-    def execute(cls, llm: Any, user_prompt: str, team_member_list: list[dict], *, fast_mode: bool = False) -> 'ReviewTeam':
+    def execute(
+        cls,
+        llm: Any,
+        user_prompt: str,
+        team_member_list: list[dict],
+        *,
+        fast_mode: bool = False,
+        reasoning_effort: Optional[str] = None,
+    ) -> 'ReviewTeam':
         """
         Invoke LLM with each team member.
         """
@@ -122,12 +130,12 @@ class ReviewTeam:
 
         sllm = llm.as_structured_llm(DocumentDetails)
         start_time = time.perf_counter()
-        reasoning_effort = "low" if fast_mode else "medium"
+        resolved_reasoning_effort = reasoning_effort or ("low" if fast_mode else "medium")
         fallback_used = False
         try:
             chat_response: StructuredLLMResponse = sllm.chat(
                 chat_message_list,
-                reasoning_effort=reasoning_effort,
+                reasoning_effort=resolved_reasoning_effort,
             )
             parsed_model = chat_response.raw
             response_text = chat_response.message.content
@@ -159,6 +167,8 @@ class ReviewTeam:
         metadata["duration"] = duration
         metadata["response_byte_count"] = response_byte_count
         metadata["team_member_count"] = len(team_member_list_updated)
+        metadata["fallback_used"] = fallback_used
+        metadata["reasoning_effort"] = resolved_reasoning_effort
 
         result = ReviewTeam(
             system_prompt=system_prompt,

@@ -16,7 +16,7 @@ import logging
 from math import ceil
 from uuid import uuid4
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -102,7 +102,14 @@ WBS Level 1:
         return query
     
     @classmethod
-    def execute(cls, llm: Any, query: str, *, fast_mode: bool = False) -> 'CreateWBSLevel2':
+    def execute(
+        cls,
+        llm: Any,
+        query: str,
+        *,
+        fast_mode: bool = False,
+        reasoning_effort: Optional[str] = None,
+    ) -> 'CreateWBSLevel2':
         """
         Invoke LLM to create a Work Breakdown Structure (WBS) from a json representation of a project plan.
         """
@@ -127,13 +134,13 @@ WBS Level 1:
         ]
 
         sllm = llm.as_structured_llm(WorkBreakdownStructure)
-        reasoning_effort = "low" if fast_mode else "medium"
+        resolved_reasoning_effort = reasoning_effort or ("low" if fast_mode else "medium")
         start_time = time.perf_counter()
         fallback_used = False
         try:
             structured_response: StructuredLLMResponse = sllm.chat(
                 chat_messages,
-                reasoning_effort=reasoning_effort,
+                reasoning_effort=resolved_reasoning_effort,
             )
             parsed = structured_response.raw
             response_text = structured_response.text
@@ -151,7 +158,7 @@ WBS Level 1:
         metadata = dict(getattr(llm, "metadata", {}))
         metadata["duration"] = duration
         metadata["fallback_used"] = fallback_used
-        metadata["reasoning_effort"] = reasoning_effort
+        metadata["reasoning_effort"] = resolved_reasoning_effort
         if usage:
             metadata["token_usage"] = usage
 
