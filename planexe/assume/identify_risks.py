@@ -109,7 +109,7 @@ class IdentifyRisks:
     markdown: str
 
     @classmethod
-    def execute(cls, llm: LLM, user_prompt: str, reasoning_effort: str = "medium") -> 'IdentifyRisks':
+    def execute(cls, llm: LLM, user_prompt: str, reasoning_effort: str) -> 'IdentifyRisks':
         """
         Invoke LLM with the project description.
         """
