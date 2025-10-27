@@ -59,7 +59,7 @@ class GovernancePhase1Audit:
     markdown: str
 
     @classmethod
-    def execute(cls, llm: LLM, user_prompt: str) -> 'GovernancePhase1Audit':
+    def execute(cls, llm: LLM, user_prompt: str, reasoning_effort: str) -> 'GovernancePhase1Audit':
         """
         Invoke LLM with the project description.
         """

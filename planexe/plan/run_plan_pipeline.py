@@ -2769,7 +2769,7 @@ class GovernancePhase1AuditTask(PlanTask):
             }).id
             import time
             start_time = time.time()
-            governance_phase1_audit = GovernancePhase1Audit.execute(llm, query)
+            governance_phase1_audit = GovernancePhase1Audit.execute(llm, query, reasoning_effort=self.reasoning_effort)
             duration_seconds = time.time() - start_time
             response_dict = governance_phase1_audit.to_dict()
             db_service.update_llm_interaction(interaction_id, {
