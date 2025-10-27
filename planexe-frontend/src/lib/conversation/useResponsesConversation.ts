@@ -199,13 +199,17 @@ export function useResponsesConversation(
 
       const previousResponseId = currentResponseIdRef.current ?? undefined;
       const defaults = await getConversationDefaults();
+      // Truncate initialPrompt to 512 chars for OpenAI metadata field limit
+      const truncatedPrompt = initialPrompt.length > 512 
+        ? initialPrompt.substring(0, 512) 
+        : initialPrompt;
       const payload: ConversationTurnRequestPayload = {
         modelKey,
         userMessage: trimmedMessage,
         instructions: SYSTEM_PROMPT,
         metadata: {
           conversationKey,
-          initialPrompt,
+          initialPrompt: truncatedPrompt,
           ...(metadata ?? {}),
         },
         reasoningEffort: (userReasoningEffort ?? defaults.reasoningEffort) as 'low' | 'medium' | 'high',
