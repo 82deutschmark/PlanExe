@@ -30,9 +30,18 @@
    - Left: plan meta (ID, connection badge, timestamps). Right: progress module.
 2. **Inline stage summary**
    - Pass `stageSummary` & `activeStageKey` into `RecoveryHeader`; render a concise stage tracker (e.g., segmented bar or top stages with badge counts) adjacent to overall %.
-3. **Secondary cues**
-   - Display active stage label, tasks completed/61, and latest progress message beneath the % to leverage existing data.
-4. **Spacing cleanup**
+3. **API call telemetry strip**
+   - Add real-time API call indicator showing: LLM calls made/successful/failed, current model in use, last API response time, and active timeout countdown.
+   - Display mini sparkline of recent API response times (last 10 calls).
+   - Show API provider status badge (OpenAI/Responses API connectivity).
+4. **Live task activity feed**
+   - Scrollable ticker showing currently executing task name, duration, and queued next tasks.
+   - Display task start/end timestamps with elapsed time counters.
+   - Show Luigi worker status and active subprocess PID.
+5. **Secondary cues**
+   - Display active stage label, tasks completed/61, latest progress message, and database write count beneath the %.
+   - Add pipeline velocity indicator (tasks/minute) and estimated remaining time.
+6. **Spacing cleanup**
    - Reduce vertical padding, align badges, and ensure mobile breakpoint stacks modules without excessive whitespace.
 
 ## Implementation Steps
@@ -41,10 +50,18 @@
    2. Add helper to verify DB connectivity post-spawn; fail plan + broadcast error when check fails.
    3. Enhance `monitor_progress` with stall detection + warning event, and ensure database writes include stall diagnostics.
    4. Add structured log (`progress_env_info`) with masked DB host + mode.
+   5. **NEW: API telemetry tracking**
+      - Add `api_calls` table to track LLM requests: timestamp, model, response_time, status, tokens_used.
+      - Emit WebSocket events for each API call start/completion with response metrics.
+      - Track Luigi task execution timestamps and durations in `plan_content`.
 2. **Frontend**
    1. Update `useRecoveryPlan` return signature to expose `stageSummary` & `activeStageKey` to header.
    2. Redesign `RecoveryHeader` layout, adding stage chips/mini bar and compact progress stats.
-   3. Adjust CSS classes for tighter spacing (header + card) and ensure accessibility labels on new elements.
+   3. **NEW: API telemetry components**
+      - Create `APITelemetryStrip` component with real-time call counters, response time sparkline, and provider status.
+      - Add `LiveTaskTicker` component showing current executing task, duration, and queued tasks.
+      - Implement countdown timers for API timeouts and velocity calculations.
+   4. Adjust CSS classes for tighter spacing (header + card) and ensure accessibility labels on new elements.
 3. **QA / Validation**
    - Run plan end-to-end on Railway staging; confirm progress % increments beyond 0% and stage tracker updates.
    - Test failure path by temporarily masking `DATABASE_URL` to observe fail-fast behavior.
@@ -53,6 +70,8 @@
 ## Risks & Mitigations
 - **Potential regression**: Raising on missing `DATABASE_URL` could break local dev without envs → document requirement and optionally allow explicit opt-out via feature flag.
 - **UI density**: Adding stage info could clutter mobile view → design responsive stack (vertical list below 768px).
+- **NEW: API telemetry overhead**: WebSocket events for each API call could increase traffic → batch events or throttle updates during high-frequency calls.
+- **Database load**: Additional `api_calls` table writes during LLM requests → use async writes and consider partitioning by plan_id.
 
 ## Dependencies / Follow-ups
 - Confirm with DevOps that Railway env vars (`DATABASE_URL`, `PLANEXE_CLOUD_MODE`) remain available to the API container and child processes.
