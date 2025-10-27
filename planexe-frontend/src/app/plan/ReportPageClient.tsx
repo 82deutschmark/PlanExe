@@ -11,8 +11,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { 
-  Home, Download, FileText, Search, Filter, Copy, Check, 
-  ChevronDown, ChevronRight, Eye, EyeOff, Code
+  Home, Download, FileText, Search, Filter,
+  ChevronDown, ChevronRight
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,29 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { fastApiClient, StructuredReportResponse, ReportSection } from '@/lib/api/fastapi-client';
 import { ReportTaskFallback } from '@/components/files/ReportTaskFallback';
+
+// Interfaces for typed data structures
+interface TaskItem {
+  title?: string;
+  name?: string;
+  description?: string;
+  duration?: string;
+}
+
+interface RiskAssumptionItem {
+  assumption?: string;
+  risk?: string;
+  title?: string;
+  impact?: string;
+  mitigation?: string;
+}
+
+interface MilestoneItem {
+  title?: string;
+  name?: string;
+  date?: string;
+  description?: string;
+}
 
 const ReportPageClient: React.FC = () => {
   const search = useSearchParams();
@@ -31,9 +54,7 @@ const ReportPageClient: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedStage, setSelectedStage] = useState<string>('all');
-  const [copiedSection, setCopiedSection] = useState<string | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
-  const [showRawContent, setShowRawContent] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -84,22 +105,102 @@ const ReportPageClient: React.FC = () => {
   }, [reportData, searchTerm, selectedStage]);
 
   const renderSection = (section: ReportSection) => {
-    let content = section.content;
-    let isJson = false;
+    const content = section.content;
+    let parsedData: unknown = null;
     
-    // Try to parse JSON content for better formatting
+    // Parse JSON to extract meaningful content
     try {
-      const parsed = JSON.parse(content);
-      if (typeof parsed === 'object') {
-        content = JSON.stringify(parsed, null, 2);
-        isJson = true;
-      }
+      parsedData = JSON.parse(content);
     } catch {
       // Keep as-is if not JSON
     }
 
     const isCollapsed = collapsedSections.has(section.id);
-    const showRaw = showRawContent[section.id] || false;
+
+    // Format content based on section type
+    const formatContent = () => {
+      if (!parsedData) {
+        return <p className="text-gray-700 whitespace-pre-wrap">{content}</p>;
+      }
+
+      // Type guards for different data structures
+      const isArray = Array.isArray(parsedData);
+      const isObject = typeof parsedData === 'object' && parsedData !== null && !isArray;
+
+      // Handle different section types based on filename
+      if (section.filename.includes('wbs') || section.filename.includes('tasks')) {
+        if (isArray) {
+          return (
+            <div className="space-y-2">
+              {(parsedData as TaskItem[]).map((item: TaskItem, idx: number) => (
+                <div key={idx} className="ml-4 p-3 bg-gray-50 rounded border-l-4 border-blue-400">
+                  <h4 className="font-semibold text-gray-900">{item.title || item.name || `Task ${idx + 1}`}</h4>
+                  {item.description && <p className="text-sm text-gray-600 mt-1">{item.description}</p>}
+                  {item.duration && <p className="text-xs text-gray-500">Duration: {item.duration}</p>}
+                </div>
+              ))}
+            </div>
+          );
+        }
+      }
+
+      if (section.filename.includes('assumption') || section.filename.includes('risk')) {
+        if (isArray) {
+          return (
+            <div className="space-y-3">
+              {(parsedData as RiskAssumptionItem[]).map((item: RiskAssumptionItem, idx: number) => (
+                <div key={idx} className="p-3 bg-amber-50 rounded border border-amber-200">
+                  <h4 className="font-semibold text-amber-900">{item.assumption || item.risk || item.title || `Item ${idx + 1}`}</h4>
+                  {item.impact && <p className="text-sm text-amber-700 mt-1">Impact: {item.impact}</p>}
+                  {item.mitigation && <p className="text-sm text-amber-600 mt-1">Mitigation: {item.mitigation}</p>}
+                </div>
+              ))}
+            </div>
+          );
+        }
+      }
+
+      if (section.filename.includes('milestone') || section.filename.includes('timeline')) {
+        if (isArray) {
+          return (
+            <div className="space-y-2">
+              {(parsedData as MilestoneItem[]).map((item: MilestoneItem, idx: number) => (
+                <div key={idx} className="flex items-center gap-3 p-2">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold">{item.title || item.name || `Milestone ${idx + 1}`}</h4>
+                    {item.date && <p className="text-sm text-gray-500">{item.date}</p>}
+                    {item.description && <p className="text-sm text-gray-600">{item.description}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        }
+      }
+
+      // Default: pretty-print JSON if it's structured
+      if (isObject) {
+        const entries = Object.entries(parsedData as Record<string, unknown>);
+        if (entries.length > 0) {
+          return (
+            <div className="space-y-2">
+              {entries.map(([key, value]) => (
+                <div key={key} className="grid grid-cols-1 md:grid-cols-3 gap-2 p-2 bg-gray-50 rounded">
+                  <dt className="font-semibold text-gray-900 capitalize">{key.replace(/_/g, ' ')}:</dt>
+                  <dd className="md:col-span-2 text-gray-700">
+                    {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
+                  </dd>
+                </div>
+              ))}
+            </div>
+          );
+        }
+      }
+
+      // Fallback for plain text
+      return <p className="text-gray-700 whitespace-pre-wrap">{content}</p>;
+    };
 
     return (
       <Card key={section.id} className="mb-4 border shadow-sm">
@@ -123,71 +224,22 @@ const ReportPageClient: React.FC = () => {
               <FileText className="h-5 w-5" />
               {section.title}
             </div>
-            <div className="flex items-center gap-2">
-              {isJson && (
-                <Badge variant="secondary" className="text-xs">
-                  <Code className="h-3 w-3 mr-1" />
-                  JSON
-                </Badge>
-              )}
-              <Badge variant="outline" className="text-xs">
-                {section.stage || 'Unknown'}
-              </Badge>
-            </div>
+            <Badge variant="outline" className="text-xs">
+              {section.stage || 'Unknown'}
+            </Badge>
           </CardTitle>
           {section.stage && (
             <div className="text-sm text-gray-500 ml-7">
-              Stage: {section.stage} • File: {section.filename}
+              Stage: {section.stage}
             </div>
           )}
         </CardHeader>
         {!isCollapsed && (
           <CardContent className="pt-0">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      navigator.clipboard.writeText(content);
-                      setCopiedSection(section.id);
-                      setTimeout(() => setCopiedSection(null), 2000);
-                    }}
-                  >
-                    {copiedSection === section.id ? (
-                      <Check className="h-4 w-4 mr-1" />
-                    ) : (
-                      <Copy className="h-4 w-4 mr-1" />
-                    )}
-                    Copy
-                  </Button>
-                  {isJson && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setShowRawContent(prev => ({
-                          ...prev,
-                          [section.id]: !prev[section.id]
-                        }));
-                      }}
-                    >
-                      {showRaw ? <Eye className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
-                      {showRaw ? 'Formatted' : 'Raw'}
-                    </Button>
-                  )}
-                </div>
-              </div>
-              {isJson && !showRaw ? (
-                <pre className="text-sm bg-gray-900 text-gray-100 p-4 rounded overflow-auto">
-                  {content}
-                </pre>
-              ) : (
-                <pre className="whitespace-pre-wrap text-sm bg-gray-50 dark:bg-gray-900 p-4 rounded overflow-auto max-h-96">
-                  {content}
-                </pre>
-              )}
-            </CardContent>
+            <div className="prose prose-sm max-w-none">
+              {formatContent()}
+            </div>
+          </CardContent>
         )}
       </Card>
     );
