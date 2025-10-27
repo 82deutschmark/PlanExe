@@ -3,6 +3,8 @@
 ## [0.9.6] - 2025-10-26
 - **Reasoning Effort UI**: Added visible reasoning effort selector to `PlanForm` component with four levels (minimal, low, medium, high) and helpful badges indicating speed/thoroughness trade-offs.
 - **Conversation Modal**: Extended `ConversationModal` to accept and display the user-selected reasoning effort, passing it through to the conversation API instead of always using backend defaults.
+- **Resume Dialog**: Added reasoning effort selector to `ResumeDialog` so resumed plans can optionally override the original setting, with the previous value pre-selected by default.
+- **Recovery Flow**: Updated recovery page to preserve reasoning effort when resuming plans, passing it through to both fallback and targeted resume operations.
 - **Data Flow**: Updated `useResponsesConversation` hook to accept optional `reasoningEffort` parameter and use it in conversation turn payloads, while falling back to backend defaults only when not provided.
 - **Visual Feedback**: Added reasoning effort badge to conversation modal header so users can see the active setting during intake conversations.
 - Fixed the gap where reasoning effort was configured via backend defaults but never exposed in the UI, making the setting invisible and unchangeable.
