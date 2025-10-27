@@ -6,7 +6,26 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
-Current version: **0.9.10** (Pre-release - features may change)
+Current version: **0.9.11** (Pre-release - features may change)
+
+## [0.9.11] - 2025-10-27
+
+### Added
+- **Reasoning Effort Streaming Warnings**: Added user-friendly warnings when selecting reasoning effort levels that don't support streaming
+  - **Feature**: Users can now choose 'minimal' reasoning effort for fastest processing, but are clearly informed about streaming limitations
+  - **UI Enhancement**: Real-time validation shows helpful alerts when 'minimal' or 'low' reasoning effort is selected
+  - **Backend API**: New `/api/validate-reasoning-effort` endpoint provides streaming compatibility information
+  - **User Experience**: Maintains user choice while providing clear guidance about trade-offs between speed and real-time feedback
+  - **Files Modified**:
+    - `planexe_api/models.py`: Added ReasoningEffortValidation model for API responses
+    - `planexe_api/api.py`: Added reasoning effort validation endpoint with streaming warnings
+    - `planexe-frontend/src/components/planning/PlanForm.tsx`: Added real-time validation and warning display
+    - `planexe_api/config.py`: Reverted defaults to 'minimal' with proper validation instead of blocking
+
+### Changed
+- **Reasoning Effort Philosophy**: Shifted from blocking minimal effort to educating users about streaming trade-offs
+  - Users can now select any reasoning effort level with appropriate guidance
+  - Improved transparency about how reasoning effort affects real-time streaming vs batch processing
 
 ## [0.9.10] - 2025-10-27
 

@@ -12,10 +12,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { ArrowRight, Loader2, Sparkles } from 'lucide-react';
 
 interface SimplifiedPlanInputProps {
-  onSubmit: (prompt: string) => void;
+  onSubmit: (prompt: string, reasoningEffort?: string) => void;
   isSubmitting?: boolean;
   placeholder?: string;
   buttonText?: string;

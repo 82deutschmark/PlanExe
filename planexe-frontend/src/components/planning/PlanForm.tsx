@@ -83,6 +83,14 @@ export const PlanForm: React.FC<PlanFormProps> = ({
     loadDefaultReasoningEffort();
   }, [form]);
 
+  // Validate initial reasoning effort
+  useEffect(() => {
+    const currentEffort = form.getValues('reasoning_effort');
+    if (currentEffort) {
+      validateReasoningEffort(currentEffort);
+    }
+  }, []);
+
   const handleSubmit = async (data: PlanFormData) => {
     const request: CreatePlanRequest = {
       prompt: data.prompt,
@@ -92,6 +100,33 @@ export const PlanForm: React.FC<PlanFormProps> = ({
     };
 
     await onSubmit(request);
+  };
+
+  const validateReasoningEffort = async (effort: string) => {
+    try {
+      const response = await fetch('/api/validate-reasoning-effort', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(effort),
+      });
+      
+      if (response.ok) {
+        const validation = await response.json();
+        setStreamingWarning(validation.streaming_warning);
+      } else {
+        setStreamingWarning(null);
+      }
+    } catch (error) {
+      console.warn('Failed to validate reasoning effort:', error);
+      setStreamingWarning(null);
+    }
+  };
+
+  const handleReasoningEffortChange = (effort: string) => {
+    form.setValue('reasoning_effort', effort as any);
+    validateReasoningEffort(effort);
   };
 
   const handleExampleSelect = (example: PromptExample) => {
@@ -359,7 +394,7 @@ export const PlanForm: React.FC<PlanFormProps> = ({
                     render={({ field }: { field: ControllerRenderProps<PlanFormData, 'reasoning_effort'> }) => (
                       <FormItem>
                         <FormLabel htmlFor="reasoning-effort-select" className="text-sm text-slate-700">Reasoning effort *</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value} disabled={isSubmitting} name="reasoning_effort">
+                        <Select onValueChange={handleReasoningEffortChange} value={field.value} disabled={isSubmitting} name="reasoning_effort">
                           <FormControl>
                             <SelectTrigger id="reasoning-effort-select">
                               <SelectValue placeholder="Select reasoning effort" />
@@ -394,6 +429,13 @@ export const PlanForm: React.FC<PlanFormProps> = ({
                         <FormDescription className="text-xs text-slate-500">
                           Controls how deeply the AI reasons about your plan. Higher effort provides more thorough analysis but takes longer.
                         </FormDescription>
+                        {streamingWarning && (
+                          <Alert className="mt-2">
+                            <AlertDescription className="text-xs">
+                              {streamingWarning}
+                            </AlertDescription>
+                          </Alert>
+                        )}
                         <FormMessage />
                       </FormItem>
                     )}
