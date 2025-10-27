@@ -111,6 +111,7 @@ const RecoveryPageContent: React.FC = () => {
       const newPlan = await fastApiClient.createPlan({
         prompt: plan.data.prompt,
         speed_vs_detail,
+        reasoning_effort: plan.data.reasoning_effort,
         enriched_intake: {
           project_title: 'Plan Resume',
           refined_objective: 'Resume to complete the plan without explicit missing list.',
@@ -156,6 +157,7 @@ const RecoveryPageContent: React.FC = () => {
               prompt: plan.data.prompt,
               llm_model: llmModel ?? undefined,
               speed_vs_detail: speedVsDetail,
+              reasoning_effort: plan.data.reasoning_effort,
               enriched_intake: {
                 project_title: 'Plan Resume',
                 refined_objective: 'Resume only selected missing sections to complete the plan.',
