@@ -3001,7 +3001,7 @@ class GovernancePhase4DecisionEscalationMatrixTask(PlanTask):
             interaction_id = db_service.create_llm_interaction({"plan_id": plan_id, "llm_model": str(self.llm_models[0]) if self.llm_models else "unknown", "stage": "governance_phase4", "prompt_text": query[:10000], "status": "pending"}).id
             import time
             start_time = time.time()
-            governance_phase4_decision_escalation_matrix = GovernancePhase4DecisionEscalationMatrix.execute(llm, query)
+            governance_phase4_decision_escalation_matrix = GovernancePhase4DecisionEscalationMatrix.execute(llm, query, reasoning_effort=self.reasoning_effort)
             duration_seconds = time.time() - start_time
             response_dict = governance_phase4_decision_escalation_matrix.to_dict()
             db_service.update_llm_interaction(interaction_id, {"status": "completed", "response_text": json.dumps(response_dict), "completed_at": datetime.utcnow(), "duration_seconds": duration_seconds})
