@@ -276,6 +276,25 @@ class PipelineExecutionService:
                 environment[key] = value
                 print(f"DEBUG ENV: Explicitly set {key} in subprocess environment")
 
+        # Enforce Luigi worker default of 10
+        default_workers = 10
+        workers_env = environment.get('LUIGI_WORKERS')
+        workers_value = default_workers
+        if workers_env:
+            try:
+                parsed_workers = int(workers_env)
+                if parsed_workers < default_workers:
+                    print(
+                        f"DEBUG ENV: LUIGI_WORKERS={workers_env} below minimum; overriding to {default_workers}"
+                    )
+                else:
+                    workers_value = parsed_workers
+            except Exception:
+                print(
+                    f"DEBUG ENV: Invalid LUIGI_WORKERS='{workers_env}'; using default {default_workers}"
+                )
+        environment['LUIGI_WORKERS'] = str(max(default_workers, workers_value))
+
         # CRITICAL: Add DATABASE_URL for Luigi database writes
         database_url = environment.get("DATABASE_URL") or os.environ.get("DATABASE_URL")
         if database_url:
@@ -396,13 +415,22 @@ class PipelineExecutionService:
         print(f"DEBUG: Python version: {sys.version}")
         print(f"DEBUG: System: {system_name}")
         
+        luigi_workers = environment.get('LUIGI_WORKERS', '10')
+        try:
+            parsed_workers = int(luigi_workers)
+            if parsed_workers < 10:
+                parsed_workers = 10
+        except Exception:
+            parsed_workers = 10
+        environment['LUIGI_WORKERS'] = str(parsed_workers)
+
         # CRITICAL: Always use list format, NEVER shell=True to avoid encoding crashes
         # PERFORMANCE: Enable multiple workers for parallel task execution
         # This allows independent tasks to run simultaneously, providing 3-5x speedup
         command = [
             python_executable, "-m", MODULE_PATH_PIPELINE,
-            "--workers", "4",  # Enable 4 parallel workers
-            "--worker-pool-threads", "4",  # Thread pool for each worker
+            "--workers", str(parsed_workers),
+            "--worker-pool-threads", str(parsed_workers),
             "--scheduler-host", "localhost"  # Ensure proper scheduler communication
         ]
         use_shell = False

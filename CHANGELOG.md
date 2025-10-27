@@ -6,7 +6,12 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
-Current version: **0.9.12** (Pre-release - features may change)
+## [0.9.13] - 2025-10-27
+
+### Changed
+- **Luigi Worker Pool Enforcement**: Guarantee at least 10 concurrent workers regardless of caller environment to keep early-stage tasks parallelized
+  - `planexe/plan/run_plan_pipeline.py`: Forces `LUIGI_WORKERS` minimum of 10 and warns on invalid overrides before invoking `luigi.build`
+  - `planexe_api/services/pipeline_execution_service.py`: Normalizes FastAPI subprocess environment/CLI arguments so the Luigi child process inherits the same minimum
 
 ## [0.9.12] - 2025-10-27
 

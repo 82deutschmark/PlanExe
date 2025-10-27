@@ -6067,11 +6067,29 @@ class ExecutePipeline:
         logger.info(f"Saved {len(self.all_expected_filenames)} expected filenames to {expected_filenames_path}")
 
         # DIAGNOSTIC: Log before Luigi build starts
+        default_workers = 10
         workers_env = os.environ.get('LUIGI_WORKERS')
-        try:
-            workers = max(1, int(workers_env)) if workers_env else 1
-        except Exception:
-            workers = 1
+        workers = default_workers
+        if workers_env:
+            try:
+                parsed_workers = int(workers_env)
+                if parsed_workers < default_workers:
+                    logger.warning(
+                        "[PIPELINE] LUIGI_WORKERS=%s is below minimum; using %s",
+                        workers_env,
+                        default_workers,
+                    )
+                else:
+                    workers = parsed_workers
+            except Exception:
+                logger.warning(
+                    "[PIPELINE] Invalid LUIGI_WORKERS value '%s'; using default %s",
+                    workers_env,
+                    default_workers,
+                )
+        workers = max(default_workers, workers)
+        os.environ['LUIGI_WORKERS'] = str(workers)
+
         # CRITICAL DIAGNOSTIC: Check if FastAPI cleanup actually ran
         cleanup_marker = self.run_id_dir / "CLEANUP_RAN.txt"
         if cleanup_marker.exists():
