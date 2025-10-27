@@ -1,5 +1,12 @@
 # Changelog - Use Proper Semantic Versioning and follow the Keep a Changelog standard
 
+## [0.9.6] - 2025-10-26
+- **Reasoning Effort UI**: Added visible reasoning effort selector to `PlanForm` component with four levels (minimal, low, medium, high) and helpful badges indicating speed/thoroughness trade-offs.
+- **Conversation Modal**: Extended `ConversationModal` to accept and display the user-selected reasoning effort, passing it through to the conversation API instead of always using backend defaults.
+- **Data Flow**: Updated `useResponsesConversation` hook to accept optional `reasoningEffort` parameter and use it in conversation turn payloads, while falling back to backend defaults only when not provided.
+- **Visual Feedback**: Added reasoning effort badge to conversation modal header so users can see the active setting during intake conversations.
+- Fixed the gap where reasoning effort was configured via backend defaults but never exposed in the UI, making the setting invisible and unchangeable.
+
 ## [0.9.5] - 2025-10-26
 - Fixed the Railway static export by replacing the dynamic `/plan/[planId]` route with a query-string driven `/plan` page so Next.js no longer requires `generateStaticParams()`.
 - Moved the report viewer client component to the new `/plan` entry point and updated recovery redirects/download actions to use `?planId=` links.
