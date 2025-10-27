@@ -1799,7 +1799,7 @@ class CurrencyStrategyTask(PlanTask):
             # Execute LLM call with timing
             import time
             start_time = time.time()
-            currency_strategy = CurrencyStrategy.execute(llm, query)
+            currency_strategy = CurrencyStrategy.execute(llm, query, reasoning_effort=self.reasoning_effort)
             duration_seconds = time.time() - start_time
 
             # Update LLM interaction COMPLETE
@@ -1922,7 +1922,7 @@ class IdentifyRisksTask(PlanTask):
             # Execute LLM call with timing
             import time
             start_time = time.time()
-            identify_risks = IdentifyRisks.execute(llm, query)
+            identify_risks = IdentifyRisks.execute(llm, query, reasoning_effort=self.reasoning_effort)
             duration_seconds = time.time() - start_time
 
             # Update LLM interaction COMPLETE
