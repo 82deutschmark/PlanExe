@@ -891,7 +891,8 @@ class DeduplicateLeversTask(PlanTask):
             deduplicate_levers = DeduplicateLevers.execute(
                 llm_executor,
                 project_context=query,
-                raw_levers_list=lever_item_list
+                raw_levers_list=lever_item_list,
+                reasoning_effort=self.reasoning_effort
             )
             duration_seconds = time.time() - start_time
 
