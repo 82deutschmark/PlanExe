@@ -1242,7 +1242,8 @@ class CandidateScenariosTask(PlanTask):
             scenarios = CandidateScenarios.execute(
                 llm_executor=llm_executor,
                 project_context=query,
-                raw_vital_levers=lever_item_list
+                raw_vital_levers=lever_item_list,
+                reasoning_effort=self.reasoning_effort
             )
             duration_seconds = time.time() - start_time
             response_dict = scenarios.to_dict()

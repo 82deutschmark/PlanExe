@@ -126,7 +126,7 @@ class CandidateScenarios:
     metadata: dict
 
     @classmethod
-    def execute(cls, llm_executor: LLMExecutor, project_context: str, raw_vital_levers: list[dict]) -> 'CandidateScenarios':
+    def execute(cls, llm_executor: LLMExecutor, project_context: str, raw_vital_levers: list[dict], reasoning_effort: str) -> 'CandidateScenarios':
         vital_levers = [VitalLever(**lever) for lever in raw_vital_levers]
 
         if not vital_levers:
