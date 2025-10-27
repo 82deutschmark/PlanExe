@@ -164,8 +164,8 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
         startTime: stream.lastUpdated ? new Date(stream.lastUpdated - duration * 1000) : new Date(),
         duration,
         estimatedDuration: stream.usage && typeof stream.usage === 'object' && 
-          'duration_seconds' in stream.usage && typeof (stream.usage as Record<string, unknown>).duration_seconds === 'number'
-          ? Math.round(Number((stream.usage as Record<string, unknown>).duration_seconds) * 1000) || null : null,
+          'duration_seconds' in stream.usage 
+          ? Math.round(Number((stream.usage as { duration_seconds?: unknown }).duration_seconds) * 1000) || null : null,
       };
     }
     
