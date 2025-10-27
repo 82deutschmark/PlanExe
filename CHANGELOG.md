@@ -1,6 +1,16 @@
 # Changelog - Use Proper Semantic Versioning and follow the Keep a Changelog standard
 
 ## [0.9.6] - 2025-10-26
+- **🔴 CRITICAL VERSION COMPATIBILITY DOCUMENTATION**: 
+  - **Backend (Python)**: OpenAI SDK v1.109.1 - DO NOT UPGRADE beyond v1.x
+  - **Frontend (Node.js)**: OpenAI SDK v6.7.0 - Latest version acceptable
+  - **Breaking Changes**: Upgrading backend beyond v1.x will break Responses API integration due to:
+    - Client instantiation changes (module-level → explicit client)
+    - Response object changes (dict → Pydantic models) 
+    - API path changes (`client.responses` may be different)
+    - Streaming interface evolution
+  - **Risk Assessment**: HIGH RISK - Current v1.109.1 setup is stable and supports all required features
+  - **Recommendation**: Maintain backend on v1.109.1; frontend can use latest Node.js SDK
 - **Reasoning Effort UI**: Added visible reasoning effort selector to multiple entry points:
   - Landing page (`app/page.tsx`): Four-button selector with inline descriptions below Speed vs Detail section
   - Advanced form page (`app/create/page.tsx`): New route with full PlanForm component including dropdown selector
