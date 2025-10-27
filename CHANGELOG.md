@@ -21,7 +21,16 @@ Current version: **0.9.12** (Pre-release - features may change)
     - `estimatedDuration: 60` - Fake queued task estimates
     - `activeTimeoutCountdown={30}` - Mock countdown timer
     - `totalTasks = 61` - Hardcoded magic number
+    - `"DB: Active"` and `"LLM: Ready"` - Fake status messages
+    - `maxStagesToShow = 5` - Hardcoded display limits
+    - `slice(0, 3)` and `slice(-10)` - Hardcoded array limits
   - **Solution**: Connected all telemetry to real WebSocket data streams and actual plan metadata
+  - **Enhanced Real Data Display**:
+    - Real database connection status based on actual connection state
+    - Real LLM status showing actual call counts and active/idle state
+    - Real token usage summed from all LLM stream usage data
+    - Dynamic stage display limits based on available data
+    - Real response time history from actual LLM interactions
   - **Files Modified**:
     - `planexe-frontend/src/app/recovery/components/RecoveryHeader.tsx`: Removed all hardcoded values and connected to real data
     - `planexe-frontend/src/app/recovery/components/APITelemetryStrip.tsx`: Enhanced to show real error messages

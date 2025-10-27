@@ -101,8 +101,8 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
   }, [lastWriteAt]);
   const planCreatedAt = useMemo(() => parseBackendDate(plan?.created_at ?? null), [plan?.created_at]);
 
-  // Calculate enhanced telemetry - use actual task count from stage summary or default
-  const totalTasks = stageSummary.reduce((sum, stage) => sum + stage.count, 0) || 61;
+  // Calculate enhanced telemetry - use actual task count from stage summary
+  const totalTasks = stageSummary.reduce((sum, stage) => sum + stage.count, 0);
   const completedTasks = Math.round((plan?.progress_percentage ?? 0) * totalTasks / 100);
   const pipelineVelocity = useMemo(() => {
     if (!planCreatedAt || completedTasks === 0) return 0;
@@ -111,6 +111,23 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
   }, [planCreatedAt, completedTasks]);
   
   const estimatedRemainingMinutes = pipelineVelocity > 0 ? Math.round((totalTasks - completedTasks) / pipelineVelocity) : null;
+
+  // Calculate real token usage from streams
+  const totalTokenUsage = useMemo(() => {
+    const allStreams = [llmStreams.active, ...llmStreams.history].filter(Boolean) as LLMStreamState[];
+    let totalTokens = 0;
+    
+    allStreams.forEach(stream => {
+      if (stream.usage && typeof stream.usage === 'object') {
+        const usage = stream.usage as Record<string, unknown>;
+        if (typeof usage.total_tokens === 'number') {
+          totalTokens += usage.total_tokens;
+        }
+      }
+    });
+    
+    return totalTokens;
+  }, [llmStreams]);
 
   // Real telemetry data from WebSocket streams
   const apiMetrics = useMemo(() => {
@@ -146,7 +163,7 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
       lastResponseTime,
       averageResponseTime,
       providerStatus: connection.status === 'connected' ? 'connected' as const : 'error' as const,
-      recentResponseTimes: responseTimes.slice(-10),
+      recentResponseTimes: responseTimes.slice(-Math.min(10, responseTimes.length)),
       lastError,
     };
   }, [llmStreams, plan?.llm_model, connection.status]);
@@ -189,7 +206,7 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
     // Show upcoming stages as queued tasks
     if (activeStageKey) {
       const currentIndex = stageSummary.findIndex(s => s.key === activeStageKey);
-      return stageSummary.slice(currentIndex + 1, currentIndex + 4).map((stage, index) => ({
+      return stageSummary.slice(currentIndex + 1, currentIndex + 1 + Math.min(4, stageSummary.length - currentIndex - 1)).map((stage, index) => ({
         id: `task-queued-${index}`,
         name: `Process ${stage.label}`,
         stage: stage.label,
@@ -201,7 +218,7 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
     }
     
     // If no active stage, show first few as queued
-    return stageSummary.slice(0, 3).map((stage, index) => ({
+    return stageSummary.slice(0, Math.min(3, stageSummary.length)).map((stage, index) => ({
       id: `task-queued-${index}`,
       name: `Process ${stage.label}`,
       stage: stage.label,
@@ -214,7 +231,7 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
 
   // Stage tracker component
   const StageTracker = ({ stages, activeKey }: { stages: StageSummary[], activeKey: string | null }) => {
-    const maxStagesToShow = 5;
+    const maxStagesToShow = Math.min(stages.length, stages.length); // Show all available stages
     const displayStages = stages.slice(0, maxStagesToShow);
     const totalRemainingCount = stages.slice(maxStagesToShow).reduce((sum, stage) => sum + stage.count, 0);
     
@@ -348,12 +365,18 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
                 <div className="flex items-center gap-4 text-xs text-amber-600">
                   <div className="flex items-center gap-1">
                     <Database className="h-3 w-3" />
-                    <span>DB: Active</span>
+                    <span>DB: {connection.status === 'connected' ? 'Connected' : 'Disconnected'}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <Zap className="h-3 w-3" />
-                    <span>LLM: Ready</span>
+                    <span>LLM: {llmStreams.active ? 'Active' : 'Idle'} ({llmStreams.history.length + (llmStreams.active ? 1 : 0)} calls)</span>
                   </div>
+                  {totalTokenUsage > 0 && (
+                    <div className="flex items-center gap-1">
+                      <Activity className="h-3 w-3" />
+                      <span>Tokens: {totalTokenUsage.toLocaleString()}</span>
+                    </div>
+                  )}
                   <div className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
                     <span>Created {planCreatedAt ? planCreatedAt.toLocaleDateString() : 'Unknown'}</span>
