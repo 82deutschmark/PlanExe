@@ -9,7 +9,7 @@
 
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -411,6 +411,14 @@ interface PipelineLogsPanelProps {
 
 export function PipelineLogsPanel({ planId, className }: PipelineLogsPanelProps) {
   const { details, loading, error } = usePipelineDetails(planId)
+  const logContainerRef = useRef<HTMLDivElement>(null)
+
+  // Auto-scroll to bottom when log content updates
+  useEffect(() => {
+    if (logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight
+    }
+  }, [details?.pipelineLog])
 
   if (loading) {
     return (
@@ -458,7 +466,7 @@ export function PipelineLogsPanel({ planId, className }: PipelineLogsPanelProps)
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="max-h-96 overflow-y-auto rounded-md bg-slate-950/90 p-4 font-mono text-xs text-emerald-300">
+        <div ref={logContainerRef} className="max-h-96 overflow-y-auto rounded-md bg-slate-950/90 p-4 font-mono text-xs text-emerald-300">
           {logContent ? (
             <pre className="whitespace-pre-wrap leading-relaxed">{logContent}</pre>
           ) : (

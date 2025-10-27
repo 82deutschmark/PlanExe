@@ -14,6 +14,13 @@ Current version: **0.9.12** (Pre-release - features may change)
 - **Recovery Artefact Typing**: Resolved TypeScript errors in the recovery workspace by importing the correct `PlanArtefact` type and tightening map handlers
   - Ensures strict typing in `useRecoveryPlan` without falling back to `any`
   - `planexe-frontend/src/app/recovery/useRecoveryPlan.ts`: Added explicit `PlanArtefact` import and strongly typed mapping logic
+- **Pipeline Logs Auto-Scroll**: Added auto-scroll functionality to the "Pipeline Logs" element in the recovery workspace
+  - **Feature**: Logs now automatically scroll to show the latest content as the pipeline progresses
+  - **Implementation**: Added `useRef` and `useEffect` hooks to `PipelineLogsPanel` component to monitor log content changes and scroll to bottom
+  - **User Experience**: Users no longer need to manually scroll to see the latest log entries during plan execution
+  - **Files Modified**:
+    - `planexe-frontend/src/components/PipelineDetails.tsx`: Added auto-scroll functionality to `PipelineLogsPanel` component
+    - Added necessary imports (`useRef`) and scroll logic that triggers when `details?.pipelineLog` updates
 
 ## [0.9.11] - 2025-10-27
 
