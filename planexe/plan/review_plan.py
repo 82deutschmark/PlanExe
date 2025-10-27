@@ -15,7 +15,7 @@ import time
 import logging
 from math import ceil
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -77,7 +77,14 @@ class ReviewPlan:
     markdown: str
 
     @classmethod
-    def execute(cls, llm_executor: LLMExecutor, speed_vs_detail: SpeedVsDetailEnum, document: str) -> 'ReviewPlan':
+    def execute(
+        cls,
+        llm_executor: LLMExecutor,
+        speed_vs_detail: SpeedVsDetailEnum,
+        document: str,
+        *,
+        reasoning_effort: Optional[str] = None,
+    ) -> 'ReviewPlan':
         """
         Invoke LLM with the data to be reviewed.
         """
@@ -129,7 +136,9 @@ class ReviewPlan:
         response_byte_counts = []
 
         fallback_questions = 0
-        reasoning_effort = "low" if speed_vs_detail == SpeedVsDetailEnum.FAST_BUT_SKIP_DETAILS else "medium"
+        resolved_reasoning_effort = reasoning_effort or (
+            "low" if speed_vs_detail == SpeedVsDetailEnum.FAST_BUT_SKIP_DETAILS else "medium"
+        )
 
         previous_response_id: str | None = None
 
@@ -145,11 +154,11 @@ class ReviewPlan:
 
             def execute_function(llm: Any) -> ReviewPlanRunResult:
                 sllm = llm.as_structured_llm(DocumentDetails)
-                # Pass previous_response_id for chaining; reasoning_effort remains from config
+                # Pass previous_response_id for chaining; reuse the resolved reasoning effort
                 chat_response = sllm.chat(
                     chat_message_list,
                     previous_response_id=previous_response_id,
-                    reasoning_effort=reasoning_effort,
+                    reasoning_effort=resolved_reasoning_effort,
                 )
                 metadata = dict(getattr(llm, "metadata", {}))
                 metadata.setdefault("model", getattr(llm, "model", None))
@@ -199,7 +208,7 @@ class ReviewPlan:
                 metadata_entry = {
                     "fallback_used": True,
                     "error": error_message,
-                    "reasoning_effort": reasoning_effort,
+                    "reasoning_effort": resolved_reasoning_effort,
                 }
                 previous_response_id = None
             else:
@@ -210,7 +219,7 @@ class ReviewPlan:
                 usage = getattr(review_plan_run_result.chat_response, "token_usage", None)
                 metadata_entry = dict(review_plan_run_result.metadata)
                 metadata_entry["fallback_used"] = False
-                metadata_entry["reasoning_effort"] = reasoning_effort
+                metadata_entry["reasoning_effort"] = resolved_reasoning_effort
                 if usage:
                     usage_payload = usage.model_dump() if hasattr(usage, "model_dump") else usage
                     metadata_entry["token_usage"] = usage_payload
