@@ -2668,7 +2668,7 @@ class ProjectPlanTask(PlanTask):
             # Execute LLM call with timing
             import time
             start_time = time.time()
-            project_plan = ProjectPlan.execute(llm, query)
+            project_plan = ProjectPlan.execute(llm, query, reasoning_effort=self.reasoning_effort)
             duration_seconds = time.time() - start_time
 
             # Update LLM interaction COMPLETE

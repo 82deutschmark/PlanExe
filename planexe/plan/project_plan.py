@@ -215,7 +215,7 @@ class ProjectPlan:
     markdown: str
 
     @classmethod
-    def execute(cls, llm: Any, user_prompt: str) -> 'ProjectPlan':
+    def execute(cls, llm: Any, user_prompt: str, reasoning_effort: str) -> 'ProjectPlan':
         """
         Invoke LLM to create project plan from a vague description.
 
