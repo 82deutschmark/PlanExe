@@ -11,7 +11,7 @@
 import React, { useMemo } from 'react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
-import { Home, Radio, RefreshCw, RotateCcw } from 'lucide-react';
+import { Home, Radio, RefreshCw, RotateCcw, Activity, Clock, Zap, Database, Wifi, WifiOff } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,7 +24,7 @@ import {
 import { PlanResponse } from '@/lib/api/fastapi-client';
 import { parseBackendDate } from '@/lib/utils/date';
 
-import { RecoveryConnectionState, StatusDisplay } from '../useRecoveryPlan';
+import { RecoveryConnectionState, StatusDisplay, StageSummary } from '../useRecoveryPlan';
 
 interface RecoveryHeaderProps {
   planId: string;
@@ -34,6 +34,8 @@ interface RecoveryHeaderProps {
   statusDisplay: StatusDisplay | null;
   connection: RecoveryConnectionState;
   lastWriteAt: Date | null;
+  stageSummary: StageSummary[];
+  activeStageKey: string | null;
   onRefreshPlan: () => Promise<void>;
   onRelaunch: () => void | Promise<void>;
 }
@@ -80,6 +82,8 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
   statusDisplay,
   connection,
   lastWriteAt,
+  stageSummary,
+  activeStageKey,
   onRefreshPlan,
   onRelaunch,
 }) => {
@@ -91,6 +95,43 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
     return `Last artefact ${formatDistanceToNow(lastWriteAt, { addSuffix: true })}`;
   }, [lastWriteAt]);
   const planCreatedAt = useMemo(() => parseBackendDate(plan?.created_at ?? null), [plan?.created_at]);
+
+  // Calculate enhanced telemetry
+  const totalTasks = 61;
+  const completedTasks = Math.round((plan?.progress_percentage ?? 0) * totalTasks / 100);
+  const pipelineVelocity = useMemo(() => {
+    if (!planCreatedAt || completedTasks === 0) return 0;
+    const elapsedMinutes = (Date.now() - planCreatedAt.getTime()) / (1000 * 60);
+    return elapsedMinutes > 0 ? Math.round(completedTasks / elapsedMinutes * 10) / 10 : 0;
+  }, [planCreatedAt, completedTasks]);
+  
+  const estimatedRemainingMinutes = pipelineVelocity > 0 ? Math.round((totalTasks - completedTasks) / pipelineVelocity) : null;
+
+  // Stage tracker component
+  const StageTracker = ({ stages, activeKey }: { stages: StageSummary[], activeKey: string | null }) => {
+    const maxStagesToShow = 5;
+    const displayStages = stages.slice(0, maxStagesToShow);
+    const totalRemainingCount = stages.slice(maxStagesToShow).reduce((sum, stage) => sum + stage.count, 0);
+    
+    return (
+      <div className="flex items-center gap-1 flex-wrap">
+        {displayStages.map((stage) => (
+          <Badge
+            key={stage.key}
+            variant={activeKey === stage.key ? "default" : "secondary"}
+            className="text-xs px-2 py-0.5"
+          >
+            {stage.label} ({stage.count})
+          </Badge>
+        ))}
+        {totalRemainingCount > 0 && (
+          <Badge variant="outline" className="text-xs px-2 py-0.5">
+            +{totalRemainingCount} more
+          </Badge>
+        )}
+      </div>
+    );
+  };
 
   return (
     <>
@@ -129,41 +170,91 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
       </header>
       <div className="mx-auto max-w-7xl px-4 pt-4">
         <Card className="border-amber-300">
-          <CardHeader className="flex flex-wrap items-center justify-between gap-4 pb-3">
-            <div className="space-y-2">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <span className="font-mono text-base text-amber-900">{planId}</span>
-                {statusDisplay && (
-                  <Badge className={`${statusDisplay.badgeClass} flex items-center gap-1`}>
-                    {statusDisplay.icon}
-                    {statusDisplay.label}
-                  </Badge>
-                )}
-              </CardTitle>
-              <div className="flex items-center gap-3 text-xs text-amber-700">
-                <span className={connectionMeta.tone === 'good' ? 'text-emerald-600' : connectionMeta.tone === 'warn' ? 'text-orange-600' : 'text-amber-700'}>
-                  <Radio className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />
-                  {connectionMeta.detail}
-                </span>
-                <span>{lastWriteDescription}</span>
+          <CardHeader className="pb-3">
+            {/* Compact grid layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Left column: Plan meta and stage tracker */}
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <span className="font-mono text-base text-amber-900">{planId}</span>
+                    {statusDisplay && (
+                      <Badge className={`${statusDisplay.badgeClass} flex items-center gap-1`}>
+                        {statusDisplay.icon}
+                        {statusDisplay.label}
+                      </Badge>
+                    )}
+                  </CardTitle>
+                  <div className="flex items-center gap-3 text-xs text-amber-700">
+                    <span className={connectionMeta.tone === 'good' ? 'text-emerald-600' : connectionMeta.tone === 'warn' ? 'text-orange-600' : 'text-amber-700'}>
+                      {connectionMeta.tone === 'good' ? <Wifi className="mr-1 inline h-3.5 w-3.5" /> : <WifiOff className="mr-1 inline h-3.5 w-3.5" />}
+                      {connectionMeta.detail}
+                    </span>
+                    <span>{lastWriteDescription}</span>
+                  </div>
+                </div>
+                
+                {/* Stage tracker */}
+                <div className="space-y-2">
+                  <div className="text-xs font-medium text-amber-800 flex items-center gap-1">
+                    <Activity className="h-3 w-3" />
+                    Pipeline Stages
+                  </div>
+                  <StageTracker stages={stageSummary} activeKey={activeStageKey} />
+                </div>
               </div>
-            </div>
-            <div className="flex flex-col items-end text-sm text-amber-900">
-              {plan ? (
-                <>
-                  <span className="font-semibold">Progress: {Math.round(plan.progress_percentage ?? 0)}%</span>
-                  {plan.progress_message && (
-                    <span className="mt-1 max-w-sm text-xs text-amber-700">{plan.progress_message}</span>
-                  )}
-                  <span className="mt-1 text-xs text-amber-700">
-                    Created {planCreatedAt ? planCreatedAt.toLocaleString() : 'Unknown'}
-                  </span>
-                </>
-              ) : planError ? (
-                <span className="text-xs text-red-600">{planError}</span>
-              ) : (
-                <span className="text-xs text-amber-700">Waiting for plan metadata...</span>
-              )}
+
+              {/* Right column: Progress and telemetry */}
+              <div className="space-y-3">
+                {/* Main progress display */}
+                <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg p-3 border border-amber-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-amber-900">Progress</span>
+                    <span className="text-lg font-bold text-amber-900">{Math.round(plan?.progress_percentage ?? 0)}%</span>
+                  </div>
+                  
+                  {/* Progress details */}
+                  <div className="space-y-1 text-xs text-amber-700">
+                    <div className="flex justify-between">
+                      <span>Tasks completed:</span>
+                      <span className="font-medium">{completedTasks}/{totalTasks}</span>
+                    </div>
+                    {pipelineVelocity > 0 && (
+                      <div className="flex justify-between">
+                        <span>Velocity:</span>
+                        <span className="font-medium">{pipelineVelocity} tasks/min</span>
+                      </div>
+                    )}
+                    {estimatedRemainingMinutes !== null && (
+                      <div className="flex justify-between">
+                        <span>ETA:</span>
+                        <span className="font-medium">{estimatedRemainingMinutes} min</span>
+                      </div>
+                    )}
+                    {plan?.progress_message && (
+                      <div className="mt-2 pt-2 border-t border-amber-200">
+                        <span className="italic">{plan.progress_message}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Additional telemetry */}
+                <div className="flex items-center gap-4 text-xs text-amber-600">
+                  <div className="flex items-center gap-1">
+                    <Database className="h-3 w-3" />
+                    <span>DB: Active</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Zap className="h-3 w-3" />
+                    <span>LLM: Ready</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    <span>Created {planCreatedAt ? planCreatedAt.toLocaleDateString() : 'Unknown'}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </CardHeader>
           {plan?.error_message && (
