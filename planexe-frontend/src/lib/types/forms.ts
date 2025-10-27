@@ -16,7 +16,6 @@ export const PlanFormSchema = z.object({
   prompt: z
     .string()
     .min(10, 'Plan description must be at least 10 characters')
-    .max(10000, 'Plan description must be less than 10000 characters')
     .refine(
       (text) => text.trim().length > 0,
       'Plan description cannot be empty or only whitespace'

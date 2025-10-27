@@ -7,6 +7,7 @@
 - **Recovery Flow**: Updated recovery page to preserve reasoning effort when resuming plans, passing it through to both fallback and targeted resume operations.
 - **Data Flow**: Updated `useResponsesConversation` hook to accept optional `reasoningEffort` parameter and use it in conversation turn payloads, while falling back to backend defaults only when not provided.
 - **Visual Feedback**: Added reasoning effort badge to conversation modal header so users can see the active setting during intake conversations.
+- **Unlimited Intake**: Removed the 10,000 character limit on plan description field in `PlanFormSchema` to allow users to provide comprehensive project context without arbitrary truncation.
 - Fixed the gap where reasoning effort was configured via backend defaults but never exposed in the UI, making the setting invisible and unchangeable.
 
 ## [0.9.5] - 2025-10-26
