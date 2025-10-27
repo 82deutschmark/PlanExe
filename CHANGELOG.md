@@ -38,6 +38,15 @@ Current version: **0.9.6** (Pre-release - features may change)
   - **Fix Applied**: Updated `planexe/llm_util/simple_openai_llm.py` to use the correct `response.reasoning_summary.delta` event name for pipeline streaming
   - **Note**: Conversation system continues to use the old event name as it has different streaming requirements
 - **OpenAI Metadata Fix**: Fixed 512-character error from OpenAI's Responses API by truncating `initialPrompt` in metadata to 512 characters. The full prompt is still sent as the user message; metadata is only used for logging/context. This resolves the `string_above_max_length` error when users provided prompts longer than 512 characters.
+- **🔴 CRITICAL Pipeline Task Fixes**: Fixed two critical Luigi pipeline task failures that were preventing plan completion:
+  - **CreateWBSLevel1Task NameError**: Fixed missing `start_time` variable and wrong variable reference (`parsed.model_dump()`) in `planexe/plan/create_wbs_level1.py`
+    - **Root Cause**: Copy-paste error during refactoring omitted `start_time = time.perf_counter()` and referenced undefined `parsed` variable
+    - **Impact**: Pipeline failed at WBS stage, preventing all subsequent tasks from running
+    - **Fix Applied**: Added proper timing initialization and corrected variable references
+  - **EnrichLeversTask KeyError/EmptyList**: Fixed missing key handling when `DeduplicateLeversTask` produces no levers in `planexe/plan/run_plan_pipeline.py`
+    - **Root Cause**: Code directly accessed `json_dict["deduplicated_levers"]` without checking if key exists or list is empty
+    - **Impact**: Pipeline failed when no levers were identified, causing cascading failures in downstream tasks
+    - **Fix Applied**: Added defensive programming with `.get()` method and graceful empty-output handling
 - Fixed the gap where reasoning effort was configured via backend defaults but never exposed in the UI, making the setting invisible and unchangeable.
 
 ### Security
