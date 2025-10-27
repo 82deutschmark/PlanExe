@@ -38,7 +38,7 @@ class ShortenMarkdown:
     metadata: dict
 
     @classmethod
-    def execute(cls, llm: any, user_prompt: str) -> 'ShortenMarkdown':
+    def execute(cls, llm: any, user_prompt: str, reasoning_effort: str) -> 'ShortenMarkdown':
         """
         Invoke LLM with a long markdown document that is to be shortened.
         """

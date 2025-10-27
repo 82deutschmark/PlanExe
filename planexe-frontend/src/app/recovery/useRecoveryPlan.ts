@@ -455,6 +455,11 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
     dispatch({ type: 'plan:start' });
     try {
       const plan = await fastApiClient.getPlan(planId);
+      console.log('[Recovery] Plan data fetched:', {
+        status: plan.status,
+        progress_percentage: plan.progress_percentage,
+        progress_message: plan.progress_message,
+      });
       dispatch({ type: 'plan:success', payload: plan });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to load plan metadata.';
@@ -566,14 +571,22 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
     if (!planId) {
       return;
     }
-    // Only poll when plan is running
-    if (state.plan?.status !== 'running') {
+    // Only poll when plan is running or pending (to catch the transition to running)
+    if (state.plan && state.plan.status !== 'running' && state.plan.status !== 'pending') {
       return;
     }
     const interval = window.setInterval(() => {
+      console.log('[Recovery] Polling plan progress...', {
+        planId,
+        currentStatus: state.plan?.status,
+        currentProgress: state.plan?.progress_percentage,
+      });
       void refreshPlan();
     }, 3000); // Poll every 3 seconds for responsive progress updates
-    return () => window.clearInterval(interval);
+    return () => {
+      console.log('[Recovery] Stopped polling plan progress');
+      window.clearInterval(interval);
+    };
   }, [planId, refreshPlan, state.plan?.status]);
 
   const handleLlmStreamMessage = useCallback(
