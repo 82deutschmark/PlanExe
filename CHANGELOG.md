@@ -6,7 +6,29 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
-Current version: **0.9.7** (Pre-release - features may change)
+Current version: **0.9.8** (Pre-release - features may change)
+
+## [0.9.8] - 2025-10-27
+
+### Fixed
+- **🔴 CRITICAL Reasoning Effort Override Bug**: Fixed pipeline consistently using "medium" reasoning effort regardless of user selection
+  - **Root Cause**: Multiple hardcoded "medium" defaults in execute method signatures were overriding user's reasoning effort choice from the UI
+  - **Impact**: User selections for "minimal", "low", "medium", or "high" reasoning effort were ignored, forcing all LLM calls to use "medium"
+  - **Files Modified**:
+    - `planexe/plan/run_plan_pipeline.py`: Updated 7 pipeline tasks to pass `reasoning_effort=self.reasoning_effort` parameter:
+      - `IdentifyPurposeTask`, `IdentifyPlanTypeTask`, `PhysicalLocationsTask`, `CurrencyStrategyTask`
+      - `IdentifyRisksTask`, `MakeAssumptionsTask`, `DistillAssumptionsTask`
+    - `planexe/assume/identify_purpose.py`: Removed hardcoded `"medium"` default from execute method signature
+    - `planexe/assume/identify_plan_type.py`: Removed hardcoded `"medium"` default from execute method signature
+    - `planexe/assume/physical_locations.py`: Removed hardcoded `"medium"` default from execute method signature
+    - `planexe/assume/currency_strategy.py`: Removed hardcoded `"medium"` default from execute method signature
+    - `planexe/assume/identify_risks.py`: Removed hardcoded `"medium"` default from execute method signature
+    - `planexe/assume/make_assumptions.py`: Removed hardcoded `"medium"` default from execute method signature
+  - **Fix Applied**: 
+    - Updated all pipeline task calls to explicitly pass the user's reasoning effort selection
+    - Removed hardcoded defaults from execute method signatures to prevent overrides
+    - Maintained LLM-level fallback in `simple_openai_llm.py` as safety net
+  - **Result**: User's reasoning effort selection now properly flows from frontend → API → pipeline → LLM calls
 
 ## [0.9.7] - 2025-10-27
 
