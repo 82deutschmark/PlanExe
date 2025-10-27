@@ -22,10 +22,12 @@ interface ResumeDialogProps {
   missing: MissingSectionResponse[];
   defaultModel?: string | null;
   defaultSpeed?: CreatePlanRequest['speed_vs_detail'];
+  defaultReasoningEffort?: CreatePlanRequest['reasoning_effort'];
   onConfirm: (payload: {
     selectedFilenames: string[];
     llmModel?: string | null;
     speedVsDetail: CreatePlanRequest['speed_vs_detail'];
+    reasoningEffort?: CreatePlanRequest['reasoning_effort'];
   }) => void | Promise<void>;
 }
 
