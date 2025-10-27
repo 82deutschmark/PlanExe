@@ -83,7 +83,7 @@ const ReportPageClient: React.FC = () => {
   const stages = useMemo(() => {
     if (!reportData) return [];
     const uniqueStages = new Set<string>();
-    reportData.sections.forEach(section => {
+    reportData.sections.forEach((section: ReportSection) => {
       if (section.stage) uniqueStages.add(section.stage);
     });
     return Array.from(uniqueStages).sort();
@@ -92,7 +92,7 @@ const ReportPageClient: React.FC = () => {
   // Filter sections based on search and stage
   const filteredSections = useMemo(() => {
     if (!reportData) return [];
-    return reportData.sections.filter(section => {
+    return reportData.sections.filter((section: ReportSection) => {
       const matchesSearch = searchTerm === '' || 
         section.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         section.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -328,7 +328,7 @@ const ReportPageClient: React.FC = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      setCollapsedSections(new Set(reportData.sections.map(s => s.id)));
+                      setCollapsedSections(new Set(reportData.sections.map((s: ReportSection) => s.id)));
                     }}
                   >
                     Collapse All
@@ -351,7 +351,7 @@ const ReportPageClient: React.FC = () => {
                   <Input
                     placeholder="Search sections..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
                     className="pl-10"
                   />
                 </div>

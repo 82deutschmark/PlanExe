@@ -76,7 +76,7 @@ Examples:
           <Textarea
             ref={textareaRef}
             value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setPrompt(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             disabled={isSubmitting}

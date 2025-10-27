@@ -356,8 +356,8 @@ const getStatusDisplay = (status: PlanResponse['status']): StatusDisplay => {
 };
 
 const mapArtefacts = (response: PlanArtefactListResponse): PlanFile[] => {
-  const entries = (response.artefacts ?? []).filter((entry) => entry && entry.filename);
-  const mapped = entries.map<PlanFile>((entry) => {
+  const entries = (response.artefacts ?? []).filter((entry: any) => entry && entry.filename);
+  const mapped = entries.map<PlanFile>((entry: any) => {
     const normalizedStage = normaliseStageKey(entry.stage);
     const createdAt = toIsoStringOrFallback(entry.created_at);
     return {
@@ -372,7 +372,7 @@ const mapArtefacts = (response: PlanArtefactListResponse): PlanFile[] => {
     };
   });
 
-  mapped.sort((a, b) => {
+  mapped.sort((a: PlanFile, b: PlanFile) => {
     const orderDiff = (a.order ?? 9999) - (b.order ?? 9999);
     if (orderDiff !== 0) {
       return orderDiff;
@@ -587,7 +587,7 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
       console.log('[Recovery] Stopped polling plan progress');
       window.clearInterval(interval);
     };
-  }, [planId, refreshPlan, state.plan?.status]);
+  }, [planId, refreshPlan, state.plan?.status, state.plan]);
 
   const handleLlmStreamMessage = useCallback(
     (message: WebSocketLLMStreamMessage) => {
