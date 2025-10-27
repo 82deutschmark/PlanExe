@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Author: ChatGPT (gpt-5-codex)
  * Date: 2025-10-30
  * PURPOSE: Full-screen intake modal that opens after the landing form submit,
@@ -60,6 +60,7 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
   const initialPrompt = request?.prompt ?? '';
   const fallbackModel = defaultModelFromStore || FALLBACK_MODEL_ID;
   const resolvedModel = request?.llm_model ?? fallbackModel;
+  const reasoningEffort = request?.reasoning_effort ?? 'medium';
   const metadata = useMemo(
     () => ({
       speedVsDetail: request?.speed_vs_detail,
@@ -82,6 +83,7 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
     modelKey: resolvedModel,
     metadata,
     sessionKey: sessionKey ?? undefined,
+    reasoningEffort,
   });
 
   const [draftMessage, setDraftMessage] = useState('');

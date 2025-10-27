@@ -350,6 +350,53 @@ export const PlanForm: React.FC<PlanFormProps> = ({
                     )}
                   />
 
+                  {/* Reasoning Effort Selection */}
+                  <FormField
+                    control={form.control}
+                    name="reasoning_effort"
+                    render={({ field }: { field: ControllerRenderProps<PlanFormData, 'reasoning_effort'> }) => (
+                      <FormItem>
+                        <FormLabel htmlFor="reasoning-effort-select" className="text-sm text-slate-700">Reasoning effort *</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={isSubmitting} name="reasoning_effort">
+                          <FormControl>
+                            <SelectTrigger id="reasoning-effort-select">
+                              <SelectValue placeholder="Select reasoning effort" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="minimal">
+                              <div className="flex items-center space-x-2">
+                                <span>Minimal</span>
+                                <Badge variant="outline" className="text-xs">Fastest</Badge>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="low">
+                              <div className="flex items-center space-x-2">
+                                <span>Low</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="medium">
+                              <div className="flex items-center space-x-2">
+                                <span>Medium</span>
+                                <Badge variant="outline" className="text-xs">Balanced</Badge>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="high">
+                              <div className="flex items-center space-x-2">
+                                <span>High</span>
+                                <Badge variant="outline" className="text-xs">Most thorough</Badge>
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormDescription className="text-xs text-slate-500">
+                          Controls how deeply the AI reasons about your plan. Higher effort provides more thorough analysis but takes longer.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
                 </TabsContent>
 
                 <TabsContent value="examples" className="space-y-3">
