@@ -60,6 +60,7 @@ from planexe_api.models import (
     PlanResponse,
     PlanStatus,
     PromptExample,
+    ReasoningEffortValidation,
     ReportSection,
     StreamStatusResponse,
     SpeedVsDetail,
@@ -1607,6 +1608,46 @@ async def debug_conversation_chaining(conversation_id: str, db: DatabaseService 
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to debug conversation chaining: {str(e)}")
+
+
+@app.post("/api/validate-reasoning-effort")
+def validate_reasoning_effort(reasoning_effort: str) -> ReasoningEffortValidation:
+    """
+    Validate reasoning effort and provide streaming compatibility information.
+    
+    This endpoint helps the UI inform users about streaming limitations
+    when they select minimal reasoning effort.
+    """
+    valid_values = ["minimal", "low", "medium", "high"]
+    
+    if reasoning_effort not in valid_values:
+        raise HTTPException(
+            status_code=422, 
+            detail=f"reasoning_effort must be one of {valid_values}, got '{reasoning_effort}'"
+        )
+    
+    # Determine streaming compatibility
+    streaming_compatible = reasoning_effort in ["medium", "high"]
+    recommended_for_streaming = reasoning_effort == "medium"
+    
+    streaming_warning = None
+    if reasoning_effort == "minimal":
+        streaming_warning = (
+            "Minimal reasoning effort is fastest but does not support real-time streaming. "
+            "You'll see results after the entire plan completes. Use 'medium' for streaming."
+        )
+    elif reasoning_effort == "low":
+        streaming_warning = (
+            "Low reasoning effort has limited streaming support. "
+            "Use 'medium' or 'high' for the best streaming experience."
+        )
+    
+    return ReasoningEffortValidation(
+        reasoning_effort=reasoning_effort,
+        streaming_compatible=streaming_compatible,
+        streaming_warning=streaming_warning,
+        recommended_for_streaming=recommended_for_streaming
+    )
 
 
 if __name__ == "__main__":

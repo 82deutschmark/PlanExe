@@ -58,6 +58,15 @@ class CreatePlanRequest(BaseModel):
 
 
 
+class ReasoningEffortValidation(BaseModel):
+    """Validation response for reasoning effort selection."""
+    
+    reasoning_effort: str = Field(..., description="The validated reasoning effort value")
+    streaming_compatible: bool = Field(..., description="Whether this effort level supports streaming")
+    streaming_warning: Optional[str] = Field(None, description="Warning message if streaming is not supported")
+    recommended_for_streaming: bool = Field(False, description="Whether this is recommended for streaming use cases")
+
+
 class PlanResponse(BaseModel):
     """Response when creating or retrieving a plan"""
     plan_id: str = Field(..., description="Unique plan identifier")
