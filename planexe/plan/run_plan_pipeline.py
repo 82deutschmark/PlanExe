@@ -2050,7 +2050,7 @@ class MakeAssumptionsTask(PlanTask):
             # Execute LLM call with timing
             import time
             start_time = time.time()
-            make_assumptions = MakeAssumptions.execute(llm, query)
+            make_assumptions = MakeAssumptions.execute(llm, query, reasoning_effort=self.reasoning_effort)
             duration_seconds = time.time() - start_time
 
             # Update LLM interaction COMPLETE
@@ -2179,7 +2179,7 @@ class DistillAssumptionsTask(PlanTask):
             # Execute LLM call with timing
             import time
             start_time = time.time()
-            distill_assumptions = DistillAssumptions.execute(llm, query)
+            distill_assumptions = DistillAssumptions.execute(llm, query, reasoning_effort=self.reasoning_effort)
             duration_seconds = time.time() - start_time
 
             # Update LLM interaction COMPLETE

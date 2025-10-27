@@ -227,7 +227,7 @@ class CurrencyStrategy:
     markdown: str
 
     @classmethod
-    def execute(cls, llm: LLM, user_prompt: str, reasoning_effort: str = "medium") -> 'CurrencyStrategy':
+    def execute(cls, llm: LLM, user_prompt: str, reasoning_effort: str) -> 'CurrencyStrategy':
         """
         Invoke LLM with the project description.
         """

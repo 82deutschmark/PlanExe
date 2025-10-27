@@ -182,7 +182,7 @@ class IdentifyPlanType:
     markdown: str
 
     @classmethod
-    def execute(cls, llm: Any, user_prompt: str, reasoning_effort: str = "medium") -> 'IdentifyPlanType':
+    def execute(cls, llm: Any, user_prompt: str, reasoning_effort: str) -> 'IdentifyPlanType':
         """
         Invoke LLM with the project description.
         """

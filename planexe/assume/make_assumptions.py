@@ -220,7 +220,7 @@ class MakeAssumptions:
     markdown: str
 
     @classmethod
-    def execute(cls, llm: LLM, user_prompt: str, reasoning_effort: str = "medium") -> 'MakeAssumptions':
+    def execute(cls, llm: LLM, user_prompt: str, reasoning_effort: str) -> 'MakeAssumptions':
         """
         Invoke LLM and make assumptions based on the user prompt.
         """

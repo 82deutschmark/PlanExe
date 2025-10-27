@@ -64,7 +64,7 @@ class IdentifyPurpose:
     markdown: str
 
     @classmethod
-    def execute(cls, llm: LLM, user_prompt: str, reasoning_effort: str = "medium") -> 'IdentifyPurpose':
+    def execute(cls, llm: LLM, user_prompt: str, reasoning_effort: str) -> 'IdentifyPurpose':
         """
         Invoke LLM with the project description.
         """
