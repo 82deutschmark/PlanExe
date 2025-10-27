@@ -2313,7 +2313,7 @@ class ReviewAssumptionsTask(PlanTask):
             # Execute LLM call with timing
             import time
             start_time = time.time()
-            review_assumptions = ReviewAssumptions.execute(llm, full_markdown)
+            review_assumptions = ReviewAssumptions.execute(llm, full_markdown, reasoning_effort=self.reasoning_effort)
             duration_seconds = time.time() - start_time
 
             # Update LLM interaction COMPLETE
