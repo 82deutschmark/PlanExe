@@ -115,6 +115,11 @@ class PlanTask(luigi.Task):
     # List of LLM models to try, in order of priority.
     llm_models = luigi.ListParameter(default=[DEFAULT_LLM_MODEL])
 
+    # Reasoning effort configuration passed from FastAPI pipeline environment.
+    reasoning_effort = luigi.Parameter(
+        default=os.getenv("REASONING_EFFORT_DEFAULT", "minimal")
+    )
+
     # Optional callback for updating progress bar and aborting the pipeline.
     # If the callback raises PipelineStopRequested, the pipeline will be aborted. This is the only exception that is allowed to be raised.
     # If the callback raises exceptions different than PipelineStopRequested, the pipeline will be aborted. This means that something went wrong, and we should not continue.
@@ -3582,6 +3587,7 @@ class ReviewTeamTask(PlanTask):
                 query,
                 team_member_list,
                 fast_mode=self.speedvsdetail == SpeedVsDetailEnum.FAST_BUT_SKIP_DETAILS,
+                reasoning_effort=self.reasoning_effort,
             )
             duration_seconds = time.time() - start_time
             raw_dict = review_team.to_dict()
@@ -4579,7 +4585,12 @@ class CreateWBSLevel2Task(PlanTask):
                 "content_size_bytes": len(progress_content.encode('utf-8'))
             })
 
-            create_wbs_level2 = CreateWBSLevel2.execute(llm, query, fast_mode=self.speedvsdetail == SpeedVsDetailEnum.FAST_BUT_SKIP_DETAILS)
+            create_wbs_level2 = CreateWBSLevel2.execute(
+                llm,
+                query,
+                fast_mode=self.speedvsdetail == SpeedVsDetailEnum.FAST_BUT_SKIP_DETAILS,
+                reasoning_effort=self.reasoning_effort,
+            )
             duration_seconds = time.time() - start_time
             wbs_level2_raw_dict = create_wbs_level2.raw_response_dict()
             db_service.update_llm_interaction(interaction_id, {"status": "completed", "response_text": json.dumps(wbs_level2_raw_dict), "completed_at": datetime.utcnow(), "duration_seconds": duration_seconds})
@@ -5236,7 +5247,12 @@ class ReviewPlanTask(PlanTask):
                 "content": progress_content,
                 "content_size_bytes": len(progress_content.encode('utf-8'))
             })
-            review_plan = ReviewPlan.execute(llm_executor=llm_executor, document=query, speed_vs_detail=self.speedvsdetail)
+            review_plan = ReviewPlan.execute(
+                llm_executor=llm_executor,
+                document=query,
+                speed_vs_detail=self.speedvsdetail,
+                reasoning_effort=self.reasoning_effort,
+            )
             duration_seconds = time.time() - start_time
             last_attempt = llm_executor.get_last_attempt()
             response_text = last_attempt.get('response_text', '') if last_attempt else ''
@@ -5845,6 +5861,9 @@ class ExecutePipeline:
     run_id_dir: Path
     speedvsdetail: SpeedVsDetailEnum
     llm_models: list[str]
+    reasoning_effort: str = field(
+        default_factory=lambda: os.getenv("REASONING_EFFORT_DEFAULT", "minimal")
+    )
     full_plan_pipeline_task: Optional[FullPlanPipeline] = field(default=None)
     all_expected_filenames: list[str] = field(default_factory=list)
     luigi_build_return_value: Optional[bool] = field(default=None, init=False)
@@ -5861,9 +5880,10 @@ class ExecutePipeline:
             raise FileNotFoundError(f"The '{FilenameEnum.INITIAL_PLAN.value}' file does not exist in the run_id_dir: {self.run_id_dir!r}")
 
         full_plan_pipeline_task = FullPlanPipeline(
-            run_id_dir=self.run_id_dir, 
-            speedvsdetail=self.speedvsdetail, 
-            llm_models=self.llm_models
+            run_id_dir=self.run_id_dir,
+            speedvsdetail=self.speedvsdetail,
+            llm_models=self.llm_models,
+            reasoning_effort=self.reasoning_effort,
         )
         self.full_plan_pipeline_task = full_plan_pipeline_task
 
@@ -6190,12 +6210,25 @@ if __name__ == '__main__':
         track_activity = TrackActivity(jsonl_file_path=run_id_dir / ExtraFilenameEnum.TRACK_ACTIVITY_JSONL.value, write_to_logger=False)
         get_dispatcher().add_event_handler(track_activity)
 
+    reasoning_effort = pipeline_environment.get_reasoning_effort()
+    logger.info(f"Reasoning effort: {reasoning_effort}")
+
     llm_models = ExecutePipeline.resolve_llm_models(pipeline_environment.llm_model)
 
     if True:
-        execute_pipeline = ExecutePipeline(run_id_dir=run_id_dir, speedvsdetail=speedvsdetail, llm_models=llm_models)
+        execute_pipeline = ExecutePipeline(
+            run_id_dir=run_id_dir,
+            speedvsdetail=speedvsdetail,
+            llm_models=llm_models,
+            reasoning_effort=reasoning_effort,
+        )
     else:
-        execute_pipeline = DemoStoppingExecutePipeline(run_id_dir=run_id_dir, speedvsdetail=speedvsdetail, llm_models=llm_models)
+        execute_pipeline = DemoStoppingExecutePipeline(
+            run_id_dir=run_id_dir,
+            speedvsdetail=speedvsdetail,
+            llm_models=llm_models,
+            reasoning_effort=reasoning_effort,
+        )
     
     try:
         execute_pipeline.setup()
