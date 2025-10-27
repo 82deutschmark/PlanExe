@@ -561,6 +561,21 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
     return () => window.clearInterval(interval);
   }, [planId, refreshArtefacts]);
 
+  // Plan progress polling (ensures progress updates even if WebSocket fails)
+  useEffect(() => {
+    if (!planId) {
+      return;
+    }
+    // Only poll when plan is running
+    if (state.plan?.status !== 'running') {
+      return;
+    }
+    const interval = window.setInterval(() => {
+      void refreshPlan();
+    }, 3000); // Poll every 3 seconds for responsive progress updates
+    return () => window.clearInterval(interval);
+  }, [planId, refreshPlan, state.plan?.status]);
+
   const handleLlmStreamMessage = useCallback(
     (message: WebSocketLLMStreamMessage) => {
       const sanitizedData = sanitizeStreamPayload(message.data);
