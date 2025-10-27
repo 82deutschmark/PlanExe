@@ -6,7 +6,29 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
-Current version: **0.9.9** (Pre-release - features may change)
+Current version: **0.9.10** (Pre-release - features may change)
+
+## [0.9.10] - 2025-10-27
+
+### Fixed
+- **Report Navigation**: Added table of contents to report pages for better navigation through long reports
+  - Interactive navigation links auto-generated from section headers
+  - Improves usability for comprehensive plan reports
+- **Enriched Intake Data Handling**: Fixed enriched intake to properly handle physical locations and currency strategy fields
+  - Ensures location and currency data flows correctly from conversation to pipeline
+  - Prevents data loss during plan creation
+- **Database Integration**: Fixed pipeline tasks to properly write to database during execution
+  - Ensures all task outputs are captured in database
+  - Improves plan recovery and resume capabilities
+- **Empty Levers Handling**: Fixed pipeline crash when no levers are identified during analysis
+  - Gracefully handles empty lever lists
+  - Prevents cascading failures in downstream tasks
+- **Progress Monitoring**: Enhanced progress tracking with improved error handling and logging
+  - More robust progress calculations
+  - Better visibility into pipeline execution stages
+- **Error Handling**: Improved error handling and logging throughout plan pipeline
+  - More graceful failure modes
+  - Better error messages for debugging
 
 ## [0.9.9] - 2025-10-27
 
@@ -17,9 +39,10 @@ Current version: **0.9.9** (Pre-release - features may change)
   - **Files Modified**:
     - `planexe-frontend/src/app/recovery/useRecoveryPlan.ts`: Added plan progress polling mechanism (every 3 seconds) alongside existing artefact polling
   - **Fix Applied**:
-    - Added new `useEffect` hook that polls the plan endpoint every 3 seconds while plan status is 'running'
+    - Added new `useEffect` hook that polls the plan endpoint every 3 seconds while plan status is 'running' or 'pending'
     - Provides resilient fallback to WebSocket updates, ensuring progress displays even if WebSocket disconnects
     - Automatically stops polling when plan completes or fails
+    - Added diagnostic logging to track polling behavior and API responses
   - **Result**: Recovery header now displays live progress updates (0% → 15% → 30% → ...) and accurate task completion messages ("Processing... 15/61 tasks completed") regardless of WebSocket reliability
 
 ## [0.9.8] - 2025-10-27
