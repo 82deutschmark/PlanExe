@@ -220,7 +220,7 @@ class MakeAssumptions:
     markdown: str
 
     @classmethod
-    def execute(cls, llm: LLM, user_prompt: str) -> 'MakeAssumptions':
+    def execute(cls, llm: LLM, user_prompt: str, reasoning_effort: str = "medium") -> 'MakeAssumptions':
         """
         Invoke LLM and make assumptions based on the user prompt.
         """
@@ -253,7 +253,7 @@ class MakeAssumptions:
         logger.debug("Starting LLM chat interaction.")
         start_time = time.perf_counter()
         try:
-            chat_response = sllm.chat(chat_message_list)
+            chat_response = sllm.chat(chat_message_list, reasoning_effort=reasoning_effort)
         except Exception as e:
             logger.debug(f"LLM chat interaction failed: {e}")
             logger.error("LLM chat interaction failed.", exc_info=True)
@@ -267,6 +267,7 @@ class MakeAssumptions:
         metadata["llm_classname"] = llm.class_name()
         metadata["duration"] = duration
         metadata["response_byte_count"] = response_byte_count
+        metadata["reasoning_effort"] = reasoning_effort
 
         try:
             json_response = json.loads(chat_response.message.content)

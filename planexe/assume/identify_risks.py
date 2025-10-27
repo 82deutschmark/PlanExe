@@ -109,7 +109,7 @@ class IdentifyRisks:
     markdown: str
 
     @classmethod
-    def execute(cls, llm: LLM, user_prompt: str) -> 'IdentifyRisks':
+    def execute(cls, llm: LLM, user_prompt: str, reasoning_effort: str = "medium") -> 'IdentifyRisks':
         """
         Invoke LLM with the project description.
         """
@@ -136,7 +136,7 @@ class IdentifyRisks:
         sllm = llm.as_structured_llm(DocumentDetails)
         start_time = time.perf_counter()
         try:
-            chat_response = sllm.chat(chat_message_list)
+            chat_response = sllm.chat(chat_message_list, reasoning_effort=reasoning_effort)
         except Exception as e:
             logger.debug(f"LLM chat interaction failed: {e}")
             logger.error("LLM chat interaction failed.", exc_info=True)

@@ -47,6 +47,21 @@ Current version: **0.9.6** (Pre-release - features may change)
     - **Root Cause**: Code directly accessed `json_dict["deduplicated_levers"]` without checking if key exists or list is empty
     - **Impact**: Pipeline failed when no levers were identified, causing cascading failures in downstream tasks
     - **Fix Applied**: Added defensive programming with `.get()` method and graceful empty-output handling
+- **🔴 CRITICAL Reasoning Effort Override Fix**: Fixed pipeline tasks that were ignoring user's reasoning effort selection and defaulting to "medium"
+  - **Root Cause**: Several execute methods were using `fast_mode` or `speed_vs_detail` parameters to override reasoning effort instead of respecting user selection, while others were missing reasoning effort support entirely
+  - **Impact**: User's reasoning effort selection (minimal, low, medium, high) was being ignored, causing all LLM calls to use "medium" regardless of UI setting
+  - **Files Modified**:
+    - `planexe/plan/run_plan_pipeline.py`: Added `get_reasoning_effort()` method to PlanTask and updated all task calls
+    - `planexe/plan/create_wbs_level2.py`: Updated execute method to accept `reasoning_effort` parameter
+    - `planexe/team/review_team.py`: Updated execute method to accept `reasoning_effort` parameter  
+    - `planexe/plan/review_plan.py`: Updated execute method to accept `reasoning_effort` parameter
+    - `planexe/assume/make_assumptions.py`: Updated execute method to accept `reasoning_effort` parameter
+    - `planexe/assume/identify_purpose.py`: Updated execute method to accept `reasoning_effort` parameter
+    - `planexe/assume/identify_plan_type.py`: Updated execute method to accept `reasoning_effort` parameter
+    - `planexe/assume/physical_locations.py`: Updated execute method to accept `reasoning_effort` parameter
+    - `planexe/assume/currency_strategy.py`: Updated execute method to accept `reasoning_effort` parameter
+    - `planexe/assume/identify_risks.py`: Updated execute method to accept `reasoning_effort` parameter
+  - **Fix Applied**: Modified execute methods to accept `reasoning_effort` parameter and updated pipeline tasks to pass user's selection from environment variables. Fixed both override issues and missing support issues.
 - Fixed the gap where reasoning effort was configured via backend defaults but never exposed in the UI, making the setting invisible and unchangeable.
 
 ### Security
