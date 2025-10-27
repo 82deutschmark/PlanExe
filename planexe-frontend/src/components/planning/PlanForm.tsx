@@ -17,7 +17,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PlanFormSchema, PlanFormData } from '@/lib/types/forms';
 import { CreatePlanRequest, LLMModel, PromptExample } from '@/lib/api/fastapi-client';
@@ -85,10 +84,8 @@ export const PlanForm: React.FC<PlanFormProps> = ({
 
   // Validate initial reasoning effort
   useEffect(() => {
-    const currentEffort = form.getValues('reasoning_effort');
-    if (currentEffort) {
-      validateReasoningEffort(currentEffort);
-    }
+    // Use the default value that was set in the form
+    validateReasoningEffort('minimal');
   }, []);
 
   const handleSubmit = async (data: PlanFormData) => {
@@ -125,7 +122,7 @@ export const PlanForm: React.FC<PlanFormProps> = ({
   };
 
   const handleReasoningEffortChange = (effort: string) => {
-    form.setValue('reasoning_effort', effort as any);
+    form.setValue('reasoning_effort', effort as 'minimal' | 'low' | 'medium' | 'high');
     validateReasoningEffort(effort);
   };
 
@@ -430,11 +427,9 @@ export const PlanForm: React.FC<PlanFormProps> = ({
                           Controls how deeply the AI reasons about your plan. Higher effort provides more thorough analysis but takes longer.
                         </FormDescription>
                         {streamingWarning && (
-                          <Alert className="mt-2">
-                            <AlertDescription className="text-xs">
-                              {streamingWarning}
-                            </AlertDescription>
-                          </Alert>
+                          <div className="mt-2 p-2 text-xs bg-amber-50 border border-amber-200 rounded text-amber-800">
+                            {streamingWarning}
+                          </div>
                         )}
                         <FormMessage />
                       </FormItem>

@@ -27,6 +27,13 @@ Current version: **0.9.11** (Pre-release - features may change)
   - Users can now select any reasoning effort level with appropriate guidance
   - Improved transparency about how reasoning effort affects real-time streaming vs batch processing
 
+### Fixed
+- **PlanResponse Validation**: Fixed HTTP 422 errors caused by missing fields in API endpoint responses
+  - Added reasoning_effort field to POST /api/plans, GET /api/plans/{plan_id}, and GET /api/plans endpoints
+  - Added missing llm_model and speed_vs_detail fields to GET /api/plans endpoint
+  - Endpoints now match PlanResponse schema requirements introduced in recent reasoning_effort propagation work
+  - No database changes required - reasoning_effort uses config defaults for retrieval endpoints
+
 ## [0.9.10] - 2025-10-27
 
 ### Fixed
