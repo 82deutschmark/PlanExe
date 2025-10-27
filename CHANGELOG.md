@@ -13,6 +13,7 @@
   - Backend: Removed 6,000 character limit from `ConversationTurnRequest.user_message` field (conversation modal)
   - Backend: Removed 8,000 character limit from `AnalysisStreamRequest.prompt` field
   - Users can now provide unlimited project context and detailed intake information without truncation
+- **OpenAI Metadata Fix**: Fixed 512-character error from OpenAI's Responses API by truncating `initialPrompt` in metadata to 512 characters. The full prompt is still sent as the user message; metadata is only used for logging/context. This resolves the `string_above_max_length` error when users provided prompts longer than 512 characters.
 - Fixed the gap where reasoning effort was configured via backend defaults but never exposed in the UI, making the setting invisible and unchangeable.
 
 ## [0.9.5] - 2025-10-26
