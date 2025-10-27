@@ -6,6 +6,38 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.10.0] - 2025-10-27
+
+### Added
+- **🚀 Pipeline Concurrency Optimizations**: Implemented async concurrent execution for major pipeline bottlenecks to significantly reduce execution time
+  - **Problem**: Sequential LLM API calls in document drafting, expert criticism, and WBS tasks created significant performance bottlenecks
+  - **Solution**: Added async support to LLMExecutor and updated key tasks to use concurrent execution via `asyncio.gather()`
+  - **Performance Impact**: Tasks that previously executed sequentially now run concurrently, reducing overall pipeline execution time
+  - **Core Changes**:
+    - **LLMExecutor Async Support**: Added `run_async()` and `run_batch_async()` methods for concurrent LLM execution
+    - **Document Drafting Concurrency**: Both `DraftDocumentsToFindTask` and `DraftDocumentsToCreateTask` now process all documents concurrently
+    - **Expert Criticism Concurrency**: `ExpertOrchestrator` now gathers expert feedback concurrently instead of sequentially
+    - **WBS Task Duration Concurrency**: `EstimateTaskDurationsTask` now estimates task durations in concurrent chunks
+    - **WBS Level 3 Decomposition Concurrency**: `CreateWBSLevel3Task` now decomposes tasks concurrently
+  - **Technical Implementation**:
+    - Added async `aexecute()` methods to all relevant LLM interaction classes
+    - Updated pipeline tasks to use `asyncio.run()` with concurrent execution patterns
+    - Maintained database-first architecture with proper concurrent write handling
+    - Preserved all existing error handling and fallback mechanisms
+  - **Files Modified**:
+    - `planexe/llm_util/llm_executor.py`: Added async execution methods
+    - `planexe/document/draft_document_to_find.py`: Added `aexecute()` method
+    - `planexe/document/draft_document_to_create.py`: Added `aexecute()` method
+    - `planexe/expert/expert_criticism.py`: Added `aexecute()` method
+    - `planexe/plan/estimate_wbs_task_durations.py`: Added `aexecute()` method
+    - `planexe/plan/create_wbs_level3.py`: Added `aexecute()` method
+    - `planexe/expert/expert_orchestrator.py`: Updated to use concurrent criticism
+    - `planexe/plan/run_plan_pipeline.py`: Updated all major tasks to use concurrent execution
+  - **Backward Compatibility**: All synchronous `execute()` methods remain unchanged and functional
+
+### Changed
+- **IdentifyPurpose Reasoning Effort**: Updated to use `reasoning_effort="medium"` for consistent performance across async and sync execution
+
 ## [0.9.14] - 2025-10-27
 
 ### Fixed
