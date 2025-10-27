@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PlanFormSchema, PlanFormData } from '@/lib/types/forms';
 import { CreatePlanRequest, LLMModel, PromptExample } from '@/lib/api/fastapi-client';
@@ -45,6 +46,7 @@ export const PlanForm: React.FC<PlanFormProps> = ({
   loadLLMModels
 }) => {
   const [selectedExample, setSelectedExample] = useState<string>('');
+  const [streamingWarning, setStreamingWarning] = useState<string | null>(null);
 
   const form = useForm<PlanFormData>({
     resolver: zodResolver(PlanFormSchema),
