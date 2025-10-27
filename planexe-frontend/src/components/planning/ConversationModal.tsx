@@ -257,9 +257,14 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
                   <MessageCircle className="h-4 w-4 text-indigo-400" />
                   Conversation timeline
                 </div>
-                <Badge variant="secondary" className="rounded-full px-3 text-xs uppercase bg-slate-800 text-slate-300">
-                  Model: {resolvedModel}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="rounded-full px-3 text-xs uppercase bg-slate-800 text-slate-300">
+                    Model: {resolvedModel}
+                  </Badge>
+                  <Badge variant="secondary" className="rounded-full px-3 text-xs uppercase bg-indigo-900/50 text-indigo-300 border-indigo-700">
+                    Reasoning: {reasoningEffort}
+                  </Badge>
+                </div>
               </header>
               <div className="flex-1 min-h-0 space-y-5 overflow-y-auto px-8 py-6">
                 {messages.map((message) => (

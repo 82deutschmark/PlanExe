@@ -45,6 +45,7 @@ export interface UseResponsesConversationOptions {
   sessionKey?: string;
   schemaName?: string;
   schemaModel?: string;
+  reasoningEffort?: string;
 }
 
 export interface UseResponsesConversationReturn {
@@ -95,7 +96,7 @@ function createMessageId(): string {
 export function useResponsesConversation(
   options: UseResponsesConversationOptions,
 ): UseResponsesConversationReturn {
-  const { initialPrompt, modelKey, taskId, metadata, sessionKey, schemaName, schemaModel } = options;
+  const { initialPrompt, modelKey, taskId, metadata, sessionKey, schemaName, schemaModel, reasoningEffort: userReasoningEffort } = options;
   const conversationKey = useMemo(
     () => sessionKey ?? taskId ?? `prompt-intake-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     [sessionKey, taskId],
@@ -207,7 +208,7 @@ export function useResponsesConversation(
           initialPrompt,
           ...(metadata ?? {}),
         },
-        reasoningEffort: defaults.reasoningEffort as 'low' | 'medium' | 'high',
+        reasoningEffort: (userReasoningEffort ?? defaults.reasoningEffort) as 'low' | 'medium' | 'high',
         reasoningSummary: defaults.reasoningSummary,
         textVerbosity: defaults.textVerbosity,
         store: true,
@@ -315,6 +316,7 @@ export function useResponsesConversation(
       persistResponseId,
       schemaName,
       schemaModel,
+      userReasoningEffort,
     ],
   );
 
