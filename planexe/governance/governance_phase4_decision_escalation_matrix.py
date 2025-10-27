@@ -83,7 +83,7 @@ class GovernancePhase4DecisionEscalationMatrix:
     markdown: str
 
     @classmethod
-    def execute(cls, llm: LLM, user_prompt: str) -> 'GovernancePhase4DecisionEscalationMatrix':
+    def execute(cls, llm: LLM, user_prompt: str, reasoning_effort: str) -> 'GovernancePhase4DecisionEscalationMatrix':
         """
         Invoke LLM with the project description.
         """

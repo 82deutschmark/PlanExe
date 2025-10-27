@@ -76,7 +76,7 @@ class GovernancePhase3ImplPlan:
     markdown: str
 
     @classmethod
-    def execute(cls, llm: LLM, user_prompt: str) -> 'GovernancePhase3ImplPlan':
+    def execute(cls, llm: LLM, user_prompt: str, reasoning_effort: str) -> 'GovernancePhase3ImplPlan':
         """
         Invoke LLM with the project description.
         """
