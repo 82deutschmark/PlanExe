@@ -111,8 +111,22 @@ class FocusOnVitalFewLevers:
     def execute(cls, llm_executor: LLMExecutor, project_context: str, raw_levers_list: List[dict]) -> 'FocusOnVitalFewLevers':
         if not isinstance(llm_executor, LLMExecutor):
             raise ValueError("Invalid LLMExecutor instance.")
+        
+        # Gracefully handle empty levers list - create empty result instead of failing
         if not raw_levers_list:
-            raise ValueError("No valid enriched levers were provided.")
+            logger.warning("No levers provided to FocusOnVitalFewLevers. Creating empty vital levers result.")
+            return cls(
+                system_prompt="",
+                user_prompt="",
+                enriched_levers=[],
+                response=VitalLeversAssessmentResult(
+                    lever_assessments=[],
+                    summary="No levers were identified in this project."
+                ),
+                vital_levers=[],
+                metadata={"llm_classname": "empty_input", "processing_time": 0.0}
+            )
+        
         enriched_levers = [EnrichedLever(**lever) for lever in raw_levers_list]
 
         logger.info(f"Assessing {len(enriched_levers)} characterized levers to find the vital few.")

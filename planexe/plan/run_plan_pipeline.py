@@ -1066,7 +1066,33 @@ class FocusOnVitalFewLeversTask(PlanTask):
             with self.input()['plan_type']['markdown'].open("r") as f:
                 plan_type_markdown = f.read()
             with self.input()['enriched_levers']['raw'].open("r") as f:
-                lever_item_list = json.load(f)["characterized_levers"]
+                enriched_data = json.load(f)
+                lever_item_list = enriched_data.get("characterized_levers", [])
+                
+            # Gracefully handle empty levers list
+            if not lever_item_list:
+                logger.warning("No levers found from EnrichLeversTask. Creating empty vital levers output.")
+                # Create empty result for database and file output
+                empty_result = {
+                    "response": {
+                        "lever_assessments": [],
+                        "summary": "No levers were identified in this project."
+                    },
+                    "levers": [],
+                    "metadata": {"llm_classname": "empty_input", "processing_time": 0.0}
+                }
+                raw_content = json.dumps(empty_result, indent=2)
+                db_service.create_plan_content({
+                    "plan_id": plan_id,
+                    "filename": FilenameEnum.VITAL_FEW_LEVERS_RAW.value,
+                    "stage": "vital_few_levers",
+                    "content_type": "json",
+                    "content": raw_content,
+                    "content_size_bytes": len(raw_content.encode('utf-8'))
+                })
+                output_raw_path = self.output()['raw'].path
+                Path(output_raw_path).write_text(raw_content)
+                return  # Exit early - no LLM call needed
             query = (
                 f"File 'plan.txt':\n{plan_prompt}\n\n"
                 f"File 'purpose.md':\n{identify_purpose_markdown}\n\n"
