@@ -3,8 +3,10 @@
 ## [0.9.6] - 2025-10-26
 - **Reasoning Effort UI**: Added visible reasoning effort selector to multiple entry points:
   - Landing page (`app/page.tsx`): Four-button selector with inline descriptions below Speed vs Detail section
-  - `PlanForm` component: Dropdown selector with badges indicating speed/thoroughness trade-offs
+  - Advanced form page (`app/create/page.tsx`): New route with full PlanForm component including dropdown selector
   - Both components default to "medium" and include reasoning_effort in plan creation payloads
+  - Added "Advanced Form →" link to landing page card header for easy access to detailed form
+- **New Route**: Created `/create` route that displays the full `PlanForm` component with all fields (title, tags, examples tabs) for users who prefer a more detailed creation interface
 - **Conversation Modal**: Extended `ConversationModal` to accept and display the user-selected reasoning effort, passing it through to the conversation API instead of always using backend defaults.
 - **Resume Dialog**: Added reasoning effort selector to `ResumeDialog` so resumed plans can optionally override the original setting, with the previous value pre-selected by default.
 - **Recovery Flow**: Updated recovery page to preserve reasoning effort when resuming plans, passing it through to both fallback and targeted resume operations.

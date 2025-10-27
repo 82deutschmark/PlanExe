@@ -10,6 +10,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { SimplifiedPlanInput } from '@/components/planning/SimplifiedPlanInput';
 import { ConversationModal } from '@/components/planning/ConversationModal';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -243,8 +244,16 @@ const HomePage: React.FC = () => {
               <Card className="border-white/10 bg-white/10 shadow-2xl shadow-cyan-500/10 backdrop-blur">
                 <CardHeader className="space-y-3 pb-2">
                   <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <CardTitle className="text-lg font-semibold text-white">Start a new plan</CardTitle>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <CardTitle className="text-lg font-semibold text-white">Start a new plan</CardTitle>
+                        <Link 
+                          href="/create" 
+                          className="text-[10px] uppercase tracking-wider text-cyan-300/70 hover:text-cyan-200 transition-colors"
+                        >
+                          Advanced Form →
+                        </Link>
+                      </div>
                       <CardDescription className="text-xs text-slate-300">
                         Choose a model, describe your idea, and the conversation modal opens instantly.
                       </CardDescription>
