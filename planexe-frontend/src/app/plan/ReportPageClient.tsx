@@ -10,10 +10,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Home, Download, FileText } from 'lucide-react';
+import { 
+  Home, Download, FileText, Search, Filter, Copy, Check, 
+  ChevronDown, ChevronRight, Eye, EyeOff, Code
+} from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { fastApiClient, StructuredReportResponse, ReportSection } from '@/lib/api/fastapi-client';
 import { ReportTaskFallback } from '@/components/files/ReportTaskFallback';
 
@@ -24,6 +29,11 @@ const ReportPageClient: React.FC = () => {
   const [reportData, setReportData] = useState<StructuredReportResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [selectedStage, setSelectedStage] = useState<string>('all');
+  const [copiedSection, setCopiedSection] = useState<string | null>(null);
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const [showRawContent, setShowRawContent] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -48,35 +58,137 @@ const ReportPageClient: React.FC = () => {
     };
   }, [planId]);
 
+  // Extract unique stages for filter dropdown
+  const stages = useMemo(() => {
+    if (!reportData) return [];
+    const uniqueStages = new Set<string>();
+    reportData.sections.forEach(section => {
+      if (section.stage) uniqueStages.add(section.stage);
+    });
+    return Array.from(uniqueStages).sort();
+  }, [reportData]);
+
+  // Filter sections based on search and stage
+  const filteredSections = useMemo(() => {
+    if (!reportData) return [];
+    return reportData.sections.filter(section => {
+      const matchesSearch = searchTerm === '' || 
+        section.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        section.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        section.filename.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStage = selectedStage === 'all' || section.stage === selectedStage;
+      
+      return matchesSearch && matchesStage;
+    });
+  }, [reportData, searchTerm, selectedStage]);
+
   const renderSection = (section: ReportSection) => {
     let content = section.content;
+    let isJson = false;
     
     // Try to parse JSON content for better formatting
     try {
       const parsed = JSON.parse(content);
       if (typeof parsed === 'object') {
         content = JSON.stringify(parsed, null, 2);
+        isJson = true;
       }
     } catch {
       // Keep as-is if not JSON
     }
 
+    const isCollapsed = collapsedSections.has(section.id);
+    const showRaw = showRawContent[section.id] || false;
+
     return (
-      <Card key={section.id} className="mb-4">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <FileText className="h-5 w-5" />
-            {section.title}
+      <Card key={section.id} className="mb-4 border shadow-sm">
+        <CardHeader 
+          className="hover:bg-gray-50 transition-colors cursor-pointer"
+          onClick={() => {
+            setCollapsedSections(prev => {
+              const newSet = new Set(prev);
+              if (newSet.has(section.id)) {
+                newSet.delete(section.id);
+              } else {
+                newSet.add(section.id);
+              }
+              return newSet;
+            });
+          }}
+        >
+          <CardTitle className="flex items-center justify-between text-lg">
+            <div className="flex items-center gap-2">
+              {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              <FileText className="h-5 w-5" />
+              {section.title}
+            </div>
+            <div className="flex items-center gap-2">
+              {isJson && (
+                <Badge variant="secondary" className="text-xs">
+                  <Code className="h-3 w-3 mr-1" />
+                  JSON
+                </Badge>
+              )}
+              <Badge variant="outline" className="text-xs">
+                {section.stage || 'Unknown'}
+              </Badge>
+            </div>
           </CardTitle>
           {section.stage && (
-            <div className="text-sm text-gray-500">Stage: {section.stage}</div>
+            <div className="text-sm text-gray-500 ml-7">
+              Stage: {section.stage} • File: {section.filename}
+            </div>
           )}
         </CardHeader>
-        <CardContent>
-          <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded overflow-auto">
-            {content}
-          </pre>
-        </CardContent>
+        {!isCollapsed && (
+          <CardContent className="pt-0">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(content);
+                      setCopiedSection(section.id);
+                      setTimeout(() => setCopiedSection(null), 2000);
+                    }}
+                  >
+                    {copiedSection === section.id ? (
+                      <Check className="h-4 w-4 mr-1" />
+                    ) : (
+                      <Copy className="h-4 w-4 mr-1" />
+                    )}
+                    Copy
+                  </Button>
+                  {isJson && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setShowRawContent(prev => ({
+                          ...prev,
+                          [section.id]: !prev[section.id]
+                        }));
+                      }}
+                    >
+                      {showRaw ? <Eye className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
+                      {showRaw ? 'Formatted' : 'Raw'}
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {isJson && !showRaw ? (
+                <pre className="text-sm bg-gray-900 text-gray-100 p-4 rounded overflow-auto">
+                  {content}
+                </pre>
+              ) : (
+                <pre className="whitespace-pre-wrap text-sm bg-gray-50 dark:bg-gray-900 p-4 rounded overflow-auto max-h-96">
+                  {content}
+                </pre>
+              )}
+            </CardContent>
+        )}
       </Card>
     );
   };
@@ -151,13 +263,71 @@ const ReportPageClient: React.FC = () => {
         )}
         {!loading && reportData && (
           <div>
-            <div className="mb-4 text-sm text-gray-600">
-              Showing {reportData.sections.length} sections from {reportData.source}
-              {reportData.generated_at && (
-                <span> • Generated {new Date(reportData.generated_at).toLocaleString()}</span>
-              )}
+            <div className="mb-6 flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  Showing {filteredSections.length} of {reportData.sections.length} sections from {reportData.source}
+                  {reportData.generated_at && (
+                    <span> • Generated {new Date(reportData.generated_at).toLocaleString()}</span>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setCollapsedSections(new Set(reportData.sections.map(s => s.id)));
+                    }}
+                  >
+                    Collapse All
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setCollapsedSections(new Set());
+                    }}
+                  >
+                    Expand All
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search sections..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <div className="flex gap-2 items-center">
+                  <Filter className="h-4 w-4 text-gray-400" />
+                  <select
+                    value={selectedStage}
+                    onChange={(e) => setSelectedStage(e.target.value)}
+                    className="px-3 py-2 border rounded-md text-sm bg-white"
+                  >
+                    <option value="all">All Stages</option>
+                    {stages.map(stage => (
+                      <option key={stage} value={stage}>{stage}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
-            {reportData.sections.map(renderSection)}
+            
+            {filteredSections.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <p className="text-gray-500">No sections match your filters.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              filteredSections.map(renderSection)
+            )}
           </div>
         )}
         {!loading && (!reportData || error) && (
