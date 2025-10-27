@@ -5143,31 +5143,61 @@ class CreateWBSLevel3Task(PlanTask):
             wbs_project_str = format_json_for_use_in_query(wbs_project.to_dict())
             wbs_level3_result_accumulated = []
             total_tasks = len(decompose_task_id_list)
-            for index, task_id in enumerate(decompose_task_id_list, start=1):
-                logger.info("Decomposing task %d of %d", index, total_tasks)
-                query = (f"The project plan:\n{project_plan_str}\n\n" f"Data collection:\n{data_collection_markdown}\n\n" f"Work breakdown structure:\n{wbs_project_str}\n\n" f"Only decompose this task:\n\"{task_id}\"")
-                interaction_id = db_service.create_llm_interaction({"plan_id": plan_id, "llm_model": str(self.llm_models[0]) if self.llm_models else "unknown", "stage": f"wbs_level3_{index}", "prompt_text": query[:10000], "status": "pending"}).id
-                def execute_create_wbs_level3(llm: LLM) -> CreateWBSLevel3:
-                    return CreateWBSLevel3.execute(llm, query, task_id)
-                start_time = time.time()
-                try:
-                    create_wbs_level3 = llm_executor.run(execute_create_wbs_level3)
-                    duration_seconds = time.time() - start_time
-                    wbs_level3_raw_dict = create_wbs_level3.raw_response_dict()
-                    db_service.update_llm_interaction(interaction_id, {"status": "completed", "response_text": json.dumps(wbs_level3_raw_dict), "completed_at": datetime.utcnow(), "duration_seconds": duration_seconds})
-                    raw_content = json.dumps(wbs_level3_raw_dict, indent=2)
-                    raw_filename = FilenameEnum.WBS_LEVEL3_RAW_TEMPLATE.value.format(index)
-                    db_service.create_plan_content({"plan_id": plan_id, "filename": raw_filename, "stage": f"wbs_level3_{index}", "content_type": "json", "content": raw_content, "content_size_bytes": len(raw_content.encode('utf-8'))})
-                    raw_chunk_path = self.run_id_dir / raw_filename
-                    with open(raw_chunk_path, 'w') as f:
-                        json.dump(wbs_level3_raw_dict, f, indent=2)
-                    wbs_level3_result_accumulated.extend(create_wbs_level3.tasks)
-                except PipelineStopRequested:
-                    raise
-                except Exception as e:
-                    db_service.update_llm_interaction(interaction_id, {"status": "failed", "error_message": str(e), "completed_at": datetime.utcnow()})
-                    logger.error(f"WBS Level 3 task {index} LLM interaction failed.", exc_info=True)
-                    raise ValueError(f"WBS Level 3 task {index} LLM interaction failed.") from e
+            
+            # Prepare async execution functions for concurrent processing
+            async def decompose_tasks_concurrently():
+                execute_functions = []
+                interaction_ids = []
+                task_data = []
+                
+                # Create all the execute functions and interaction IDs upfront
+                for index, task_id in enumerate(decompose_task_id_list, start=1):
+                    logger.info("Preparing decomposition for task %d of %d", index, total_tasks)
+                    query = (f"The project plan:\n{project_plan_str}\n\n" f"Data collection:\n{data_collection_markdown}\n\n" f"Work breakdown structure:\n{wbs_project_str}\n\n" f"Only decompose this task:\n\"{task_id}\"")
+                    interaction_id = db_service.create_llm_interaction({"plan_id": plan_id, "llm_model": str(self.llm_models[0]) if self.llm_models else "unknown", "stage": f"wbs_level3_{index}", "prompt_text": query[:10000], "status": "pending"}).id
+                    interaction_ids.append(interaction_id)
+                    task_data.append({
+                        'index': index,
+                        'task_id': task_id,
+                        'interaction_id': interaction_id
+                    })
+                    
+                    def create_execute_function(decompose_query, decompose_task_id):
+                        async def execute_create_wbs_level3_async(llm: LLM) -> CreateWBSLevel3:
+                            return await CreateWBSLevel3.aexecute(llm, decompose_query, decompose_task_id)
+                        return execute_create_wbs_level3_async
+                    
+                    execute_functions.append(create_execute_function(query, task_id))
+                
+                # Execute all task decompositions concurrently
+                results = await llm_executor.run_batch_async(execute_functions)
+                
+                # Process results and update database
+                for index, (create_wbs_level3, chunk_data) in enumerate(zip(results, task_data)):
+                    chunk_index = chunk_data['index']
+                    task_id = chunk_data['task_id']
+                    interaction_id = chunk_data['interaction_id']
+                    
+                    try:
+                        wbs_level3_raw_dict = create_wbs_level3.raw_response_dict()
+                        db_service.update_llm_interaction(interaction_id, {"status": "completed", "response_text": json.dumps(wbs_level3_raw_dict), "completed_at": datetime.utcnow(), "duration_seconds": create_wbs_level3.metadata.get("duration", 0)})
+                        raw_content = json.dumps(wbs_level3_raw_dict, indent=2)
+                        raw_filename = FilenameEnum.WBS_LEVEL3_RAW_TEMPLATE.value.format(chunk_index)
+                        db_service.create_plan_content({"plan_id": plan_id, "filename": raw_filename, "stage": f"wbs_level3_{chunk_index}", "content_type": "json", "content": raw_content, "content_size_bytes": len(raw_content.encode('utf-8'))})
+                        raw_chunk_path = self.run_id_dir / raw_filename
+                        with open(raw_chunk_path, 'w') as f:
+                            json.dump(wbs_level3_raw_dict, f, indent=2)
+                        wbs_level3_result_accumulated.extend(create_wbs_level3.tasks)
+                        logger.info("Task decomposition %d of %d completed", chunk_index, total_tasks)
+                    except Exception as e:
+                        db_service.update_llm_interaction(interaction_id, {"status": "failed", "error_message": str(e), "completed_at": datetime.utcnow()})
+                        logger.error(f"WBS Level 3 task {chunk_index} LLM interaction failed.", exc_info=True)
+                        raise ValueError(f"WBS Level 3 task {chunk_index} LLM interaction failed.") from e
+                
+                return wbs_level3_result_accumulated
+            
+            # Run the concurrent execution
+            wbs_level3_result_accumulated = asyncio.run(decompose_tasks_concurrently())
             aggregated_content = json.dumps(wbs_level3_result_accumulated, indent=2)
             db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.WBS_LEVEL3.value, "stage": "wbs_level3_aggregated", "content_type": "json", "content": aggregated_content, "content_size_bytes": len(aggregated_content.encode('utf-8'))})
             aggregated_path = self.file_path(FilenameEnum.WBS_LEVEL3)
