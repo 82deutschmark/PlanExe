@@ -155,6 +155,60 @@ Only decompose this task:
             tasks=result_tasks,
             task_uuids=result_task_uuids
         )
+        return result
+
+    @classmethod
+    async def aexecute(cls, llm: Any, query: str, decompose_task_id: str) -> 'CreateWBSLevel3':
+        """
+        Async version of execute - invoke LLM to decompose a big WBS level 2 task into smaller tasks.
+        """
+        if not hasattr(llm, "as_structured_llm"):
+            raise ValueError("Invalid LLM instance: missing as_structured_llm().")
+        if not isinstance(query, str):
+            raise ValueError("Invalid query.")
+        if not isinstance(decompose_task_id, str):
+            raise ValueError("Invalid decompose_task_id.")
+
+        start_time = time.perf_counter()
+
+        sllm = llm.as_structured_llm(WBSTaskDetails)
+        # Use async complete method
+        response = await sllm.acomplete(QUERY_PREAMBLE + query)
+        json_response = json.loads(response.text)
+
+        end_time = time.perf_counter()
+        duration = int(ceil(end_time - start_time))
+
+        metadata = dict(getattr(llm, "metadata", {}))
+        metadata["llm_classname"] = getattr(llm, "class_name", lambda: llm.__class__.__name__)()
+        metadata["duration"] = duration
+
+        # Cleanup the json response from the LLM model, assign unique ids to each subtask.
+        parent_task_id = decompose_task_id
+        result_tasks = []
+        result_task_uuids = []
+        for subtask in json_response['subtasks']:
+            name = subtask['name']
+            description = subtask['description']
+            resources_needed = subtask['resources_needed']
+            uuid = str(uuid4())
+            subtask_item = {
+                "id": uuid,
+                "name": name,
+                "description": description,
+                "resources_needed": resources_needed,
+                "parent_id": parent_task_id
+            }
+            result_tasks.append(subtask_item)
+            result_task_uuids.append(uuid)
+
+        result = CreateWBSLevel3(
+            query=query,
+            response=json_response,
+            metadata=metadata,
+            tasks=result_tasks,
+            task_uuids=result_task_uuids
+        )
         return result    
 
     def raw_response_dict(self, include_metadata=True, include_query=True) -> dict:

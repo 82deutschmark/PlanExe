@@ -166,6 +166,69 @@ class ExpertCriticism:
         )
         return result    
 
+    @classmethod
+    async def aexecute(cls, llm: Any, query: str, system_prompt: Optional[str]) -> 'ExpertCriticism':
+        """
+        Async version of execute - invoke LLM to get advise from the expert.
+        """
+        if not hasattr(llm, "as_structured_llm"):
+            raise ValueError("Invalid LLM instance: missing as_structured_llm().")
+        if not isinstance(query, str):
+            raise ValueError("Invalid query.")
+
+        chat_message_list = []
+        if system_prompt:
+            chat_message_list.append(
+                SimpleChatMessage(
+                    role=SimpleMessageRole.SYSTEM,
+                    content=system_prompt,
+                )
+            )
+
+        chat_message_user = SimpleChatMessage(
+            role=SimpleMessageRole.USER,
+            content=query,
+        )
+        chat_message_list.append(chat_message_user)
+
+        start_time = time.perf_counter()
+
+        sllm = llm.as_structured_llm(ExpertConsultation)
+        # Use async chat method
+        chat_response = await sllm.achat(chat_message_list)
+        json_response = chat_response.raw.model_dump()
+
+        end_time = time.perf_counter()
+        duration = int(ceil(end_time - start_time))
+
+        metadata = dict(getattr(llm, "metadata", {}))
+        metadata["llm_classname"] = getattr(llm, "class_name", lambda: llm.__class__.__name__)()
+        metadata["duration"] = duration
+
+        # Cleanup the json response from the LLM model.
+        result_feedback_list = []
+        for item in json_response['negative_feedback_list']:
+            d = {
+                'title': item.get('feedback_title', ''),
+                'verbose': item.get('feedback_verbose', ''),
+                'tags': item.get('feedback_problem_tags', []),
+                'mitigation': item.get('feedback_mitigation', ''),
+                'consequence': item.get('feedback_consequence', ''),
+                'root_cause': item.get('feedback_root_cause', ''),
+            }
+            result_feedback_list.append(d)
+
+        result = ExpertCriticism(
+            query=query,
+            response=json_response,
+            metadata=metadata,
+            feedback_list=result_feedback_list,
+            primary_actions=json_response.get('user_primary_actions', []),
+            secondary_actions=json_response.get('user_secondary_actions', []),
+            follow_up=json_response.get('follow_up_consultation', '')
+        )
+        return result    
+
     def to_dict(self, include_metadata=True, include_query=True) -> dict:
         d = self.response.copy()
         if include_metadata:

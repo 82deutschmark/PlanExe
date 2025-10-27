@@ -9,6 +9,7 @@ PROMPT> python -m planexe.expert.expert_orchestrator
 """
 import logging
 import time
+import asyncio
 from math import ceil
 from typing import Any
 
@@ -54,33 +55,46 @@ class ExpertOrchestrator:
 
         logger.info(f"Asking {expert_list_truncated_count} experts for criticism...")
 
-        for expert_index, expert_dict in enumerate(expert_list_truncated):
-            expert_copy = expert_dict.copy()
-            expert_copy.pop('id')
-            expert_title = expert_copy.get('title', 'Missing title')
-            logger.info(f"Getting criticism from expert {expert_index + 1} of {expert_list_truncated_count}. expert_title: {expert_title}")
-            system_prompt = ExpertCriticism.format_system(expert_dict)
-
-            def execute_expert_criticism(llm: Any) -> ExpertCriticism:
-                return ExpertCriticism.execute(llm, query, system_prompt)
-
-            start_time = time.perf_counter()
-            try:
-                expert_criticism = llm_executor.run(execute_expert_criticism)
-            except PipelineStopRequested:
-                # Re-raise PipelineStopRequested without wrapping it
-                raise
-            except Exception as e:
-                logger.error(f"Expert {expert_index + 1} criticism LLM interaction failed.", exc_info=True)
-                raise ValueError(f"Expert {expert_index + 1} criticism LLM interaction failed.") from e
-
-            end_time = time.perf_counter()
-            duration = int(ceil(end_time - start_time))
-            logger.info(f"Expert {expert_index + 1} criticism completed in {duration} seconds.")
-
-            if self.phase2_post_callback:
-                self.phase2_post_callback(expert_criticism, expert_index)
-            self.expert_criticism_list.append(expert_criticism)
+        # Prepare async execution functions for concurrent processing
+        async def get_expert_criticism_concurrently():
+            execute_functions = []
+            expert_data = []
+            
+            # Create all the execute functions and expert data upfront
+            for expert_index, expert_dict in enumerate(expert_list_truncated):
+                expert_copy = expert_dict.copy()
+                expert_copy.pop('id')
+                expert_title = expert_copy.get('title', 'Missing title')
+                logger.info(f"Preparing criticism from expert {expert_index + 1} of {expert_list_truncated_count}. expert_title: {expert_title}")
+                system_prompt = ExpertCriticism.format_system(expert_dict)
+                
+                def create_execute_function(expert_query, expert_system_prompt):
+                    async def execute_expert_criticism_async(llm: Any) -> ExpertCriticism:
+                        return await ExpertCriticism.aexecute(llm, expert_query, expert_system_prompt)
+                    return execute_expert_criticism_async
+                
+                execute_functions.append(create_execute_function(query, system_prompt))
+                expert_data.append({
+                    'expert_index': expert_index,
+                    'expert_dict': expert_dict,
+                    'expert_title': expert_title
+                })
+            
+            # Execute all expert criticisms concurrently
+            results = await llm_executor.run_batch_async(execute_functions)
+            
+            # Process results
+            for expert_criticism, expert_info in zip(results, expert_data):
+                expert_index = expert_info['expert_index']
+                if self.phase2_post_callback:
+                    self.phase2_post_callback(expert_criticism, expert_index)
+                self.expert_criticism_list.append(expert_criticism)
+                logger.info(f"Expert {expert_index + 1} criticism completed.")
+            
+            return self.expert_criticism_list
+        
+        # Run the concurrent execution
+        self.expert_criticism_list = asyncio.run(get_expert_criticism_concurrently())
 
         logger.info(f"Finished collecting criticism from {expert_list_truncated_count} experts.")
     

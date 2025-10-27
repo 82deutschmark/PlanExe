@@ -132,7 +132,7 @@ class DraftDocumentToFind:
 
         if identify_purpose_dict is None:
             logging.info("No identify_purpose_dict provided, identifying purpose.")
-            identify_purpose = IdentifyPurpose.execute(llm, user_prompt)
+            identify_purpose = IdentifyPurpose.execute(llm, user_prompt, reasoning_effort="medium")
             identify_purpose_dict = identify_purpose.to_dict()
         else:
             logging.info("identify_purpose_dict provided, using it.")
@@ -177,6 +177,85 @@ class DraftDocumentToFind:
         except Exception as e:
             logger.error(f"DocumentItem failed to chat with LLM: {e}")
             raise ValueError(f"Failed to chat with LLM: {e}")
+        json_response = json.loads(chat_response.message.content)
+
+        end_time = time.perf_counter()
+        duration = int(ceil(end_time - start_time))
+
+        metadata = dict(llm.metadata)
+        metadata["llm_classname"] = llm.class_name()
+        metadata["duration"] = duration
+
+        result = DraftDocumentToFind(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            response=json_response,
+            metadata=metadata
+        )
+        return result    
+
+    @classmethod
+    async def aexecute(cls, llm: LLM, user_prompt: str, identify_purpose_dict: Optional[dict]) -> 'DraftDocumentToFind':
+        """
+        Async version of execute - invoke LLM to draft a document based on the query.
+        """
+        if not isinstance(llm, LLM):
+            raise ValueError("Invalid LLM instance.")
+        if not isinstance(user_prompt, str):
+            raise ValueError("Invalid user_prompt.")
+        if identify_purpose_dict is not None and not isinstance(identify_purpose_dict, dict):
+            raise ValueError("Invalid identify_purpose_dict.")
+
+        logger.debug(f"User Prompt:\n{user_prompt}")
+
+        if identify_purpose_dict is None:
+            logging.info("No identify_purpose_dict provided, identifying purpose.")
+            identify_purpose = await IdentifyPurpose.aexecute(llm, user_prompt, reasoning_effort="medium")
+            identify_purpose_dict = identify_purpose.to_dict()
+        else:
+            logging.info("identify_purpose_dict provided, using it.")
+
+        # Parse the identify_purpose_dict
+        logging.debug(f"IdentifyPurpose json {json.dumps(identify_purpose_dict, indent=2)}")
+        try:
+            purpose_info = PlanPurposeInfo(**identify_purpose_dict)
+        except Exception as e:
+            logging.error(f"Error parsing identify_purpose_dict: {e}")
+            raise ValueError("Error parsing identify_purpose_dict.") from e
+
+        # Select the appropriate system prompt based on the purpose
+        logging.info(f"DraftDocumentToFind.aexecute: purpose: {purpose_info.purpose}")
+        if purpose_info.purpose == PlanPurpose.business:
+            system_prompt = DRAFT_DOCUMENT_TO_FIND_BUSINESS_SYSTEM_PROMPT
+        elif purpose_info.purpose == PlanPurpose.personal:
+            system_prompt = DRAFT_DOCUMENT_TO_FIND_PERSONAL_SYSTEM_PROMPT
+        elif purpose_info.purpose == PlanPurpose.other:
+            system_prompt = DRAFT_DOCUMENT_TO_FIND_OTHER_SYSTEM_PROMPT
+        else:
+            raise ValueError(f"Invalid purpose: {purpose_info.purpose}, must be one of 'business', 'personal', or 'other'. Cannot draft document to find.")
+
+        system_prompt = system_prompt.strip()
+
+        chat_message_list = [
+            ChatMessage(
+                role=MessageRole.SYSTEM,
+                content=system_prompt,
+            ),
+            ChatMessage(
+                role=MessageRole.USER,
+                content=user_prompt
+            )
+        ]
+
+        start_time = time.perf_counter()
+
+        sllm = llm.as_structured_llm(DocumentItem)
+        try:
+            # Use async chat method
+            chat_response = await sllm.achat(chat_message_list)
+        except Exception as e:
+            logger.error(f"DocumentItem failed to async chat with LLM: {e}")
+            raise ValueError(f"Failed to async chat with LLM: {e}")
         json_response = json.loads(chat_response.message.content)
 
         end_time = time.perf_counter()

@@ -8,6 +8,7 @@ from datetime import date, datetime
 import time
 import logging
 import json
+import asyncio
 from typing import Any, Optional
 from uuid import uuid4
 import luigi
@@ -4342,31 +4343,50 @@ class DraftDocumentsToFindTask(PlanTask):
             accumulated_documents = documents_to_find.copy()
             if self.speedvsdetail == SpeedVsDetailEnum.FAST_BUT_SKIP_DETAILS:
                 documents_to_find = documents_to_find[:2]
-            for index, document in enumerate(documents_to_find):
-                query = (f"File 'strategic_decisions.md':\n{strategic_decisions_markdown}\n\nFile 'scenarios.md':\n{scenarios_markdown}\n\nFile 'assumptions.md':\n{assumptions_markdown}\n\nFile 'project-plan.md':\n{project_plan_markdown}\n\nFile 'document.json':\n{document}")
-                interaction_id = db_service.create_llm_interaction({"plan_id": plan_id, "llm_model": str(self.llm_models[0]) if self.llm_models else "unknown", "stage": f"draft_docs_find_{index+1}", "prompt_text": query[:10000], "status": "pending"}).id
-                def execute_draft_document_to_find(llm: LLM) -> DraftDocumentToFind:
-                    return DraftDocumentToFind.execute(llm=llm, user_prompt=query, identify_purpose_dict=identify_purpose_dict)
-                start_time = time.time()
-                try:
-                    draft_document = llm_executor.run(execute_draft_document_to_find)
-                    duration_seconds = time.time() - start_time
-                    json_response = draft_document.to_dict()
-                    db_service.update_llm_interaction(interaction_id, {"status": "completed", "response_text": json.dumps(json_response), "completed_at": datetime.utcnow(), "duration_seconds": duration_seconds})
-                    raw_content = json.dumps(json_response, indent=2)
-                    raw_filename = FilenameEnum.DRAFT_DOCUMENTS_TO_FIND_RAW_TEMPLATE.value.format(index+1)
-                    db_service.create_plan_content({"plan_id": plan_id, "filename": raw_filename, "stage": f"draft_docs_find_{index+1}", "content_type": "json", "content": raw_content, "content_size_bytes": len(raw_content.encode('utf-8'))})
-                    with open(self.run_id_dir / raw_filename, 'w') as f:
-                        json.dump(json_response, f, indent=2)
-                    document_updated = document.copy()
-                    for key in draft_document.response.keys():
-                        document_updated[key] = draft_document.response[key]
-                    accumulated_documents[index] = document_updated
-                except PipelineStopRequested:
-                    raise
-                except Exception as e:
-                    db_service.update_llm_interaction(interaction_id, {"status": "failed", "error_message": str(e), "completed_at": datetime.utcnow()})
-                    raise ValueError(f"Document-to-find {index+1} LLM interaction failed.") from e
+            
+            # Prepare async execution functions for concurrent processing
+            async def draft_documents_concurrently():
+                execute_functions = []
+                interaction_ids = []
+                
+                # Create all the execute functions and interaction IDs upfront
+                for index, document in enumerate(documents_to_find):
+                    query = (f"File 'strategic_decisions.md':\n{strategic_decisions_markdown}\n\nFile 'scenarios.md':\n{scenarios_markdown}\n\nFile 'assumptions.md':\n{assumptions_markdown}\n\nFile 'project-plan.md':\n{project_plan_markdown}\n\nFile 'document.json':\n{document}")
+                    interaction_id = db_service.create_llm_interaction({"plan_id": plan_id, "llm_model": str(self.llm_models[0]) if self.llm_models else "unknown", "stage": f"draft_docs_find_{index+1}", "prompt_text": query[:10000], "status": "pending"}).id
+                    interaction_ids.append(interaction_id)
+                    
+                    def create_execute_function(doc_query, doc_identify_purpose_dict):
+                        async def execute_draft_document_to_find_async(llm: LLM) -> DraftDocumentToFind:
+                            return await DraftDocumentToFind.aexecute(llm=llm, user_prompt=doc_query, identify_purpose_dict=doc_identify_purpose_dict)
+                        return execute_draft_document_to_find_async
+                    
+                    execute_functions.append(create_execute_function(query, identify_purpose_dict))
+                
+                # Execute all document drafting concurrently
+                results = await llm_executor.run_batch_async(execute_functions)
+                
+                # Process results and update database
+                for index, (draft_document, interaction_id) in enumerate(zip(results, interaction_ids)):
+                    try:
+                        json_response = draft_document.to_dict()
+                        db_service.update_llm_interaction(interaction_id, {"status": "completed", "response_text": json.dumps(json_response), "completed_at": datetime.utcnow(), "duration_seconds": draft_document.metadata.get("duration", 0)})
+                        raw_content = json.dumps(json_response, indent=2)
+                        raw_filename = FilenameEnum.DRAFT_DOCUMENTS_TO_FIND_RAW_TEMPLATE.value.format(index+1)
+                        db_service.create_plan_content({"plan_id": plan_id, "filename": raw_filename, "stage": f"draft_docs_find_{index+1}", "content_type": "json", "content": raw_content, "content_size_bytes": len(raw_content.encode('utf-8'))})
+                        with open(self.run_id_dir / raw_filename, 'w') as f:
+                            json.dump(json_response, f, indent=2)
+                        document_updated = documents_to_find[index].copy()
+                        for key in draft_document.response.keys():
+                            document_updated[key] = draft_document.response[key]
+                        accumulated_documents[index] = document_updated
+                    except Exception as e:
+                        db_service.update_llm_interaction(interaction_id, {"status": "failed", "error_message": str(e), "completed_at": datetime.utcnow()})
+                        raise ValueError(f"Document-to-find {index+1} LLM interaction failed.") from e
+                
+                return accumulated_documents
+            
+            # Run the concurrent execution
+            accumulated_documents = asyncio.run(draft_documents_concurrently())
             consolidated_content = json.dumps(accumulated_documents, indent=2)
             db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.DRAFT_DOCUMENTS_TO_FIND_CONSOLIDATED.value, "stage": "draft_docs_find_consolidated", "content_type": "json", "content": consolidated_content, "content_size_bytes": len(consolidated_content.encode('utf-8'))})
             with self.output().open("w") as f:
@@ -4415,31 +4435,50 @@ class DraftDocumentsToCreateTask(PlanTask):
             accumulated_documents = documents_to_create.copy()
             if self.speedvsdetail == SpeedVsDetailEnum.FAST_BUT_SKIP_DETAILS:
                 documents_to_create = documents_to_create[:2]
-            for index, document in enumerate(documents_to_create):
-                query = (f"File 'strategic_decisions.md':\n{strategic_decisions_markdown}\n\nFile 'scenarios.md':\n{scenarios_markdown}\n\nFile 'assumptions.md':\n{assumptions_markdown}\n\nFile 'project-plan.md':\n{project_plan_markdown}\n\nFile 'document.json':\n{document}")
-                interaction_id = db_service.create_llm_interaction({"plan_id": plan_id, "llm_model": str(self.llm_models[0]) if self.llm_models else "unknown", "stage": f"draft_docs_create_{index+1}", "prompt_text": query[:10000], "status": "pending"}).id
-                def execute_draft_document_to_create(llm: LLM) -> DraftDocumentToCreate:
-                    return DraftDocumentToCreate.execute(llm=llm, user_prompt=query, identify_purpose_dict=identify_purpose_dict)
-                start_time = time.time()
-                try:
-                    draft_document = llm_executor.run(execute_draft_document_to_create)
-                    duration_seconds = time.time() - start_time
-                    json_response = draft_document.to_dict()
-                    db_service.update_llm_interaction(interaction_id, {"status": "completed", "response_text": json.dumps(json_response), "completed_at": datetime.utcnow(), "duration_seconds": duration_seconds})
-                    raw_content = json.dumps(json_response, indent=2)
-                    raw_filename = FilenameEnum.DRAFT_DOCUMENTS_TO_CREATE_RAW_TEMPLATE.value.format(index+1)
-                    db_service.create_plan_content({"plan_id": plan_id, "filename": raw_filename, "stage": f"draft_docs_create_{index+1}", "content_type": "json", "content": raw_content, "content_size_bytes": len(raw_content.encode('utf-8'))})
-                    with open(self.run_id_dir / raw_filename, 'w') as f:
-                        json.dump(json_response, f, indent=2)
-                    document_updated = document.copy()
-                    for key in draft_document.response.keys():
-                        document_updated[key] = draft_document.response[key]
-                    accumulated_documents[index] = document_updated
-                except PipelineStopRequested:
-                    raise
-                except Exception as e:
-                    db_service.update_llm_interaction(interaction_id, {"status": "failed", "error_message": str(e), "completed_at": datetime.utcnow()})
-                    raise ValueError(f"Document-to-create {index+1} LLM interaction failed.") from e
+            
+            # Prepare async execution functions for concurrent processing
+            async def draft_documents_concurrently():
+                execute_functions = []
+                interaction_ids = []
+                
+                # Create all the execute functions and interaction IDs upfront
+                for index, document in enumerate(documents_to_create):
+                    query = (f"File 'strategic_decisions.md':\n{strategic_decisions_markdown}\n\nFile 'scenarios.md':\n{scenarios_markdown}\n\nFile 'assumptions.md':\n{assumptions_markdown}\n\nFile 'project-plan.md':\n{project_plan_markdown}\n\nFile 'document.json':\n{document}")
+                    interaction_id = db_service.create_llm_interaction({"plan_id": plan_id, "llm_model": str(self.llm_models[0]) if self.llm_models else "unknown", "stage": f"draft_docs_create_{index+1}", "prompt_text": query[:10000], "status": "pending"}).id
+                    interaction_ids.append(interaction_id)
+                    
+                    def create_execute_function(doc_query, doc_identify_purpose_dict):
+                        async def execute_draft_document_to_create_async(llm: LLM) -> DraftDocumentToCreate:
+                            return await DraftDocumentToCreate.aexecute(llm=llm, user_prompt=doc_query, identify_purpose_dict=doc_identify_purpose_dict)
+                        return execute_draft_document_to_create_async
+                    
+                    execute_functions.append(create_execute_function(query, identify_purpose_dict))
+                
+                # Execute all document drafting concurrently
+                results = await llm_executor.run_batch_async(execute_functions)
+                
+                # Process results and update database
+                for index, (draft_document, interaction_id) in enumerate(zip(results, interaction_ids)):
+                    try:
+                        json_response = draft_document.to_dict()
+                        db_service.update_llm_interaction(interaction_id, {"status": "completed", "response_text": json.dumps(json_response), "completed_at": datetime.utcnow(), "duration_seconds": draft_document.metadata.get("duration", 0)})
+                        raw_content = json.dumps(json_response, indent=2)
+                        raw_filename = FilenameEnum.DRAFT_DOCUMENTS_TO_CREATE_RAW_TEMPLATE.value.format(index+1)
+                        db_service.create_plan_content({"plan_id": plan_id, "filename": raw_filename, "stage": f"draft_docs_create_{index+1}", "content_type": "json", "content": raw_content, "content_size_bytes": len(raw_content.encode('utf-8'))})
+                        with open(self.run_id_dir / raw_filename, 'w') as f:
+                            json.dump(json_response, f, indent=2)
+                        document_updated = documents_to_create[index].copy()
+                        for key in draft_document.response.keys():
+                            document_updated[key] = draft_document.response[key]
+                        accumulated_documents[index] = document_updated
+                    except Exception as e:
+                        db_service.update_llm_interaction(interaction_id, {"status": "failed", "error_message": str(e), "completed_at": datetime.utcnow()})
+                        raise ValueError(f"Document-to-create {index+1} LLM interaction failed.") from e
+                
+                return accumulated_documents
+            
+            # Run the concurrent execution
+            accumulated_documents = asyncio.run(draft_documents_concurrently())
             consolidated_content = json.dumps(accumulated_documents, indent=2)
             db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.DRAFT_DOCUMENTS_TO_CREATE_CONSOLIDATED.value, "stage": "draft_docs_create_consolidated", "content_type": "json", "content": consolidated_content, "content_size_bytes": len(consolidated_content.encode('utf-8'))})
             with self.output().open("w") as f:
@@ -4939,85 +4978,96 @@ class EstimateTaskDurationsTask(PlanTask):
             if self.speedvsdetail == SpeedVsDetailEnum.FAST_BUT_SKIP_DETAILS:
                 task_ids_chunks = task_ids_chunks[:2]
             accumulated_task_duration_list = []
-            for index, task_ids_chunk in enumerate(task_ids_chunks, start=1):
-                query = EstimateWBSTaskDurations.format_query(project_plan_dict, major_phases_with_subtasks, task_ids_chunk)
-                interaction_id = db_service.create_llm_interaction({"plan_id": plan_id, "llm_model": str(self.llm_models[0]) if self.llm_models else "unknown", "stage": f"estimate_durations_{index}", "prompt_text": query[:10000], "status": "pending"}).id
-
-                def execute_estimate_task_durations(llm: LLM) -> EstimateWBSTaskDurations:
-                    return EstimateWBSTaskDurations.execute(llm, query)
-
-                def apply_fallback(failure_reason: Exception) -> None:
-                    logger.warning(
-                        "Task durations chunk %s falling back to heuristic durations: %s",
-                        index,
-                        failure_reason,
-                    )
-                    fallback_task_details = [
-                        {
-                            "task_id": task_id,
-                            "delay_risks": "Detailed risk analysis unavailable (fallback mode).",
-                            "mitigation_strategy": "Assign project manager to review manually and adjust schedule as needed.",
-                            "days_min": 3,
-                            "days_max": 10,
-                            "days_realistic": 5,
-                        }
-                        for task_id in task_ids_chunk
-                    ]
-
-                    fallback_payload = {
-                        "task_details": fallback_task_details,
-                        "fallback": True,
-                        "fallback_reason": str(failure_reason),
-                    }
-
-                    db_service.update_llm_interaction(
-                        interaction_id,
-                        {
-                            "status": "completed",
-                            "response_text": json.dumps(fallback_payload),
-                            "completed_at": datetime.utcnow(),
-                            "duration_seconds": 0,
-                            "error_message": f"LLM failure; used heuristic fallback: {failure_reason}",
-                        },
-                    )
-
-                    raw_content = json.dumps(fallback_payload, indent=2)
-                    filename = FilenameEnum.TASK_DURATIONS_RAW_TEMPLATE.format(index)
-                    db_service.create_plan_content(
-                        {
-                            "plan_id": plan_id,
-                            "filename": filename,
-                            "stage": f"estimate_durations_{index}",
-                            "content_type": "json",
-                            "content": raw_content,
-                            "content_size_bytes": len(raw_content.encode("utf-8")),
-                        }
-                    )
-                    with open(self.run_id_dir / filename, "w") as f:
-                        json.dump(fallback_payload, f, indent=2)
-                    accumulated_task_duration_list.extend(fallback_task_details)
-
-                start_time = time.time()
-                try:
-                    estimate_durations = llm_executor.run(execute_estimate_task_durations)
-                    duration_seconds = time.time() - start_time
+            
+            # Prepare async execution functions for concurrent processing
+            async def estimate_durations_concurrently():
+                execute_functions = []
+                interaction_ids = []
+                task_chunks_data = []
+                
+                # Create all the execute functions and interaction IDs upfront
+                for index, task_ids_chunk in enumerate(task_ids_chunks, start=1):
+                    query = EstimateWBSTaskDurations.format_query(project_plan_dict, major_phases_with_subtasks, task_ids_chunk)
+                    interaction_id = db_service.create_llm_interaction({"plan_id": plan_id, "llm_model": str(self.llm_models[0]) if self.llm_models else "unknown", "stage": f"estimate_durations_{index}", "prompt_text": query[:10000], "status": "pending"}).id
+                    interaction_ids.append(interaction_id)
+                    task_chunks_data.append({
+                        'index': index,
+                        'task_ids_chunk': task_ids_chunk,
+                        'interaction_id': interaction_id
+                    })
+                    
+                    def create_execute_function(duration_query):
+                        async def execute_estimate_task_durations_async(llm: LLM) -> EstimateWBSTaskDurations:
+                            return await EstimateWBSTaskDurations.aexecute(llm, duration_query)
+                        return execute_estimate_task_durations_async
+                    
+                    execute_functions.append(create_execute_function(query))
+                
+                # Execute all duration estimations concurrently
+                results = await llm_executor.run_batch_async(execute_functions)
+                
+                # Process results and update database
+                for index, (estimate_durations, chunk_data) in enumerate(zip(results, task_chunks_data)):
+                    chunk_index = chunk_data['index']
+                    task_ids_chunk = chunk_data['task_ids_chunk']
+                    interaction_id = chunk_data['interaction_id']
+                    
                     try:
                         durations_raw_dict = estimate_durations.raw_response_dict()
-                    except Exception as parse_error:  # pragma: no cover - defensive guard
-                        apply_fallback(parse_error)
-                        continue
+                        db_service.update_llm_interaction(interaction_id, {"status": "completed", "response_text": json.dumps(durations_raw_dict), "completed_at": datetime.utcnow(), "duration_seconds": estimate_durations.metadata.get("duration", 0)})
+                        raw_content = json.dumps(durations_raw_dict, indent=2)
+                        filename = FilenameEnum.TASK_DURATIONS_RAW_TEMPLATE.format(chunk_index)
+                        db_service.create_plan_content({"plan_id": plan_id, "filename": filename, "stage": f"estimate_durations_{chunk_index}", "content_type": "json", "content": raw_content, "content_size_bytes": len(raw_content.encode('utf-8'))})
+                        with open(self.run_id_dir / filename, "w") as f:
+                            json.dump(durations_raw_dict, f, indent=2)
+                        accumulated_task_duration_list.extend(durations_raw_dict.get('task_details', []))
+                    except Exception as e:
+                        # Apply fallback for failed chunks
+                        logger.warning(
+                            "Task durations chunk %s falling back to heuristic durations: %s",
+                            chunk_index,
+                            e,
+                        )
+                        fallback_task_details = [
+                            {
+                                "task_id": task_id,
+                                "delay_risks": "Detailed risk analysis unavailable (fallback mode).",
+                                "mitigation_strategy": "Assign project manager to review manually and adjust schedule as needed.",
+                                "days_min": 3,
+                                "days_max": 10,
+                                "days_realistic": 5,
+                            }
+                            for task_id in task_ids_chunk
+                        ]
 
-                    db_service.update_llm_interaction(interaction_id, {"status": "completed", "response_text": json.dumps(durations_raw_dict), "completed_at": datetime.utcnow(), "duration_seconds": duration_seconds})
-                    raw_content = json.dumps(durations_raw_dict, indent=2)
-                    filename = FilenameEnum.TASK_DURATIONS_RAW_TEMPLATE.format(index)
-                    db_service.create_plan_content({"plan_id": plan_id, "filename": filename, "stage": f"estimate_durations_{index}", "content_type": "json", "content": raw_content, "content_size_bytes": len(raw_content.encode('utf-8'))})
-                    with open(self.run_id_dir / filename, "w") as f:
-                        json.dump(durations_raw_dict, f, indent=2)
-                    accumulated_task_duration_list.extend(durations_raw_dict.get('task_details', []))
-                except PipelineStopRequested:
-                    raise
-                except Exception as e:  # pragma: no cover - fallback path
-                    apply_fallback(e)
+                        fallback_payload = {
+                            "task_details": fallback_task_details,
+                            "fallback": True,
+                            "fallback_reason": str(e),
+                        }
+
+                        db_service.update_llm_interaction(
+                            interaction_id,
+                            {
+                                "status": "completed",
+                                "response_text": json.dumps(fallback_payload),
+                                "completed_at": datetime.utcnow(),
+                                "duration_seconds": 0,
+                                "error_message": f"LLM failure; heuristic durations generated: {e}",
+                            },
+                        )
+
+                        raw_content = json.dumps(fallback_payload, indent=2)
+                        filename = FilenameEnum.TASK_DURATIONS_RAW_TEMPLATE.format(chunk_index)
+                        db_service.create_plan_content({"plan_id": plan_id, "filename": filename, "stage": f"estimate_durations_{chunk_index}", "content_type": "json", "content": raw_content, "content_size_bytes": len(raw_content.encode('utf-8'))})
+                        with open(self.run_id_dir / filename, "w") as f:
+                            json.dump(fallback_payload, f, indent=2)
+                        accumulated_task_duration_list.extend(fallback_task_details)
+                
+                return accumulated_task_duration_list
+            
+            # Run the concurrent execution
+            accumulated_task_duration_list = asyncio.run(estimate_durations_concurrently())
             aggregated_content = json.dumps(accumulated_task_duration_list, indent=2)
             aggregated_path = self.file_path(FilenameEnum.TASK_DURATIONS)
             db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.TASK_DURATIONS.value, "stage": "estimate_durations_aggregated", "content_type": "json", "content": aggregated_content, "content_size_bytes": len(aggregated_content.encode('utf-8'))})

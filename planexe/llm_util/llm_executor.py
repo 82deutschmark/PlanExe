@@ -32,6 +32,7 @@ import time
 import logging
 import inspect
 import typing
+import asyncio
 from uuid import uuid4
 from typing import Any, Callable, Optional, List
 from dataclasses import dataclass
@@ -208,6 +209,72 @@ class LLMExecutor:
         # If we get here, all attempts have failed.
         self._raise_final_exception()
 
+    async def run_async(self, execute_function: Callable[[Any], Any]):
+        """
+        Async version of the run method that executes the function with async LLM calls.
+        
+        Args:
+            execute_function: A callable that accepts an LLM instance and returns a result.
+                             The callable should use async LLM methods (achat, acomplete).
+        
+        Returns:
+            The result from the successful execute_function call.
+        """
+        self._validate_execute_function(execute_function)
+
+        # Reset attempts for each new run
+        self.attempts = []
+        overall_start_time = time.perf_counter()
+
+        for index, llm_model in enumerate(self.llm_models):
+            # Attempt invoking the execute_function with one LLM.
+            attempt = await self._try_one_attempt_async(llm_model, execute_function)
+            self.attempts.append(attempt)
+
+            # Check if the callback wants to abort execution.
+            self._check_stop_callback(attempt, overall_start_time, index)
+
+            # If the attempt succeeded and we weren't told to abort, we are done.
+            if attempt.success:
+                return attempt.result
+
+        # If we get here, all attempts have failed.
+        self._raise_final_exception()
+
+    async def run_batch_async(self, execute_functions: List[Callable[[Any], Any]]) -> List[Any]:
+        """
+        Run multiple execute functions concurrently using asyncio.gather.
+        
+        Args:
+            execute_functions: List of callables that each accept an LLM instance.
+                              Each callable should use async LLM methods.
+        
+        Returns:
+            List of results from the successful execute_function calls.
+        """
+        if not execute_functions:
+            return []
+        
+        # Validate all execute functions
+        for func in execute_functions:
+            self._validate_execute_function(func)
+        
+        # Create tasks for concurrent execution
+        tasks = [self.run_async(func) for func in execute_functions]
+        
+        # Execute all tasks concurrently and wait for completion
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Handle exceptions in results
+        final_results = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                logger.error(f"Batch execution failed for function {i}: {result}")
+                raise result
+            final_results.append(result)
+        
+        return final_results
+
     def _validate_execute_function(self, execute_function: Callable[[Any], Any]) -> None:
         """
         Validate that the execute_function is callable with exactly one positional parameter.
@@ -254,6 +321,41 @@ class LLMExecutor:
         except Exception as e:
             duration = time.perf_counter() - attempt_start_time
             logger.error(f"LLMExecutor: error when invoking execute_function. LLM {llm_model!r} and llm_executor_uuid: {llm_executor_uuid!r}: {e!r}")
+            return LLMAttempt(stage='execute', llm_model=llm_model, success=False, duration=duration, exception=e)
+
+    async def _try_one_attempt_async(self, llm_model: LLMModelBase, execute_function: Callable[[Any], Any]) -> LLMAttempt:
+        """
+        Async version of _try_one_attempt that performs a single attempt with async LLM calls.
+        
+        Args:
+            llm_model: The LLM model to try.
+            execute_function: The async callback to execute with the llm.
+
+        Returns:
+            A detailed result of the attempt.
+        """
+        attempt_start_time = time.perf_counter()
+        try:
+            llm = llm_model.create_llm()
+        except Exception as e:
+            duration = time.perf_counter() - attempt_start_time
+            logger.error(f"Error creating LLM {llm_model!r}: {e!r}")
+            return LLMAttempt(stage='create', llm_model=llm_model, success=False, duration=duration, exception=e)
+
+        llm_executor_uuid = str(uuid4())
+        try:
+            logger.debug(f"LLMExecutor will invoke async execute_function. LLM {llm_model!r}. llm_executor_uuid: {llm_executor_uuid!r}")
+            with instrument_tags({"llm_executor_uuid": llm_executor_uuid}):
+                result = await execute_function(llm)
+            duration = time.perf_counter() - attempt_start_time
+            logger.info(f"LLMExecutor did invoke async execute_function. LLM {llm_model!r}. llm_executor_uuid: {llm_executor_uuid!r}. Duration: {duration:.2f} seconds")
+            return LLMAttempt(stage='execute', llm_model=llm_model, success=True, duration=duration, result=result)
+        except PipelineStopRequested as e:
+            logger.info(f"LLMExecutor: Stopping because the async execute_function callback raised PipelineStopRequested: {e!r}")
+            raise
+        except Exception as e:
+            duration = time.perf_counter() - attempt_start_time
+            logger.error(f"LLMExecutor: error when invoking async execute_function. LLM {llm_model!r} and llm_executor_uuid: {llm_executor_uuid!r}: {e!r}")
             return LLMAttempt(stage='execute', llm_model=llm_model, success=False, duration=duration, exception=e)
 
     def _check_stop_callback(self, last_attempt: LLMAttempt, start_time: float, attempt_index: int) -> None:
