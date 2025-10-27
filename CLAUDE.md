@@ -88,12 +88,12 @@ General
 - Prefer editing existing files; avoid creating new files unless necessary.
 - Add rationale and task lists in `/docs` when you change behavior or architecture.
 - Keep responses and changes concise; discuss tradeoffs with the product owner before large changes.
+- **🔴 CRITICAL WINDOWS LIMITATION**: PlanExe works on Railway (Linux) but hangs on Windows during OpenAI API calls. Luigi pipeline starts but LLM executor timeouts. Use Railway for full testing; develop on Linux/macOS for local testing.
 
 Frontend
 - Use snake_case to match backend field names.
 - Do not add Next.js API routes; call FastAPI directly.
 - Test with both services running (`3000` and `8080`).
-- Reuse shadcn/ui + TypeScript patterns.
 - Use WebSocket for progress; fall back to polling only if needed.
 - Integrate artefact and fallback-report endpoints where relevant.
 

@@ -11,6 +11,13 @@
     - Streaming interface evolution
   - **Risk Assessment**: HIGH RISK - Current v1.109.1 setup is stable and supports all required features
   - **Recommendation**: Maintain backend on v1.109.1; frontend can use latest Node.js SDK
+- **🔴 CRITICAL WINDOWS ENVIRONMENT ISSUE IDENTIFIED**: 
+  - **Problem**: PlanExe works correctly on Railway (Linux deployment) but HANGS on Windows during OpenAI API calls
+  - **Symptoms**: Luigi pipeline starts successfully, but LLM executor calls to OpenAI timeout/hang on Windows only
+  - **Root Cause**: Windows-specific networking/OpenAI client issue, NOT an API key or model problem
+  - **Impact**: Development on Windows will experience pipeline stalls during LLM interactions
+  - **Workaround**: Use Railway deployment for full testing; develop on Linux/macOS for local testing
+  - **Status**: Documented known limitation - no fix available at this time
 - **Reasoning Effort UI**: Added visible reasoning effort selector to multiple entry points:
   - Landing page (`app/page.tsx`): Four-button selector with inline descriptions below Speed vs Detail section
   - Advanced form page (`app/create/page.tsx`): New route with full PlanForm component including dropdown selector

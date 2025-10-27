@@ -168,6 +168,7 @@ PlanExe/
 | No artefacts returned | Ensure database credentials are correct and `planexe_api/database.py` migrations ran. |
 | **🔴 OpenAI SDK import errors** | **CRITICAL**: Verify Python backend is using OpenAI SDK v1.109.1. Newer versions will break `client.responses` integration. Check with: `python -c "import openai; print(openai.__version__)"` |
 | **Responses API failures** | Ensure backend hasn't been accidentally upgraded beyond OpenAI SDK v1.x. The `simple_openai_llm.py` module requires v1.x APIs. |
+| **🔴 Pipeline hangs on Windows** | **KNOWN ISSUE**: PlanExe works on Railway (Linux) but hangs on Windows during OpenAI API calls. Luigi pipeline starts, but LLM executor calls timeout. This is a Windows-specific networking/OpenAI client issue, not API key or model problem. Use Railway for full testing or develop on Linux/macOS. |
 
 ## Further reading
 - `docs/pipeline_handoff_notes.md` – remaining migration tasks for the SimpleOpenAILLM refactor

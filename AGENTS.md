@@ -115,6 +115,7 @@ The API is served from the FastAPI backend on port `8080`.
 *   **File Modifications**: Prefer editing existing files over creating new ones.
 *   **Documentation**: Create or update `.md` files in the `/docs` directory to document significant changes or plans.
 *   **Local Environment**: Run both the Next.js (`port 3000`) and FastAPI (`port 8080`) services concurrently for development.
+*   **🔴 CRITICAL WINDOWS ENVIRONMENT ISSUE**: PlanExe works correctly on Railway (Linux deployment) but HANGS on Windows during OpenAI API calls. The Luigi pipeline starts successfully, but LLM executor calls to OpenAI timeout/hang on Windows only. This is a Windows-specific networking/OpenAI client issue, NOT an API key or model problem. Development on Windows will experience pipeline stalls during LLM interactions.
 
 ### 4.2. Frontend (`planexe-frontend/`)
 *   **API Fields**: Always use `snake_case` for fields in API payloads to match the backend.
