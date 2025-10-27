@@ -568,7 +568,7 @@ class IdentifyPurposeTask(PlanTask):
             # Execute LLM call
             import time
             start_time = time.time()
-            identify_purpose = IdentifyPurpose.execute(llm, plan_prompt)
+            identify_purpose = IdentifyPurpose.execute(llm, plan_prompt, reasoning_effort=self.reasoning_effort)
             duration_seconds = time.time() - start_time
 
             # Update LLM interaction COMPLETE
@@ -671,7 +671,7 @@ class PlanTypeTask(PlanTask):
             # Execute LLM call
             import time
             start_time = time.time()
-            identify_plan_type = IdentifyPlanType.execute(llm, query)
+            identify_plan_type = IdentifyPlanType.execute(llm, query, reasoning_effort=self.reasoning_effort)
             duration_seconds = time.time() - start_time
 
             # Update LLM interaction COMPLETE
