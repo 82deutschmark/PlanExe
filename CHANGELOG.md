@@ -32,8 +32,13 @@ Current version: **0.9.6** (Pre-release - features may change)
 - **Data Flow**: Updated `useResponsesConversation` hook to accept optional `reasoningEffort` parameter and use it in conversation turn payloads, while falling back to backend defaults only when not provided
 
 ### Fixed
-- **OpenAI Metadata Fix**: Fixed 512-character error from OpenAI's Responses API by truncating `initialPrompt` in metadata to 512 characters. The full prompt is still sent as the user message; metadata is only used for logging/context. This resolves the `string_above_max_length` error when users provided prompts longer than 512 characters
-- Fixed the gap where reasoning effort was configured via backend defaults but never exposed in the UI, making the setting invisible and unchangeable
+- **🔴 CRITICAL OpenAI Responses API Streaming Fix**: Fixed broken LLM reasoning streams on recovery page due to deprecated OpenAI API event names
+  - **Root Cause**: OpenAI changed reasoning streaming event from `response.reasoning_summary_text.delta` to `response.reasoning_summary.delta` in the Responses API
+  - **Impact**: Recovery page live LLM stream component was not displaying reasoning content during Luigi pipeline execution
+  - **Fix Applied**: Updated `planexe/llm_util/simple_openai_llm.py` to use the correct `response.reasoning_summary.delta` event name for pipeline streaming
+  - **Note**: Conversation system continues to use the old event name as it has different streaming requirements
+- **OpenAI Metadata Fix**: Fixed 512-character error from OpenAI's Responses API by truncating `initialPrompt` in metadata to 512 characters. The full prompt is still sent as the user message; metadata is only used for logging/context. This resolves the `string_above_max_length` error when users provided prompts longer than 512 characters.
+- Fixed the gap where reasoning effort was configured via backend defaults but never exposed in the UI, making the setting invisible and unchangeable.
 
 ### Security
 - **🔴 CRITICAL VERSION COMPATIBILITY DOCUMENTATION**: 

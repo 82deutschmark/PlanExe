@@ -848,7 +848,7 @@ class SimpleOpenAILLM(LLM):
                         aggregated_text.append(text_delta)
                         record_text_delta(text_delta)
                         yield text_delta
-                elif event_type == "response.reasoning_summary_text.delta":
+                elif event_type == "response.reasoning_summary.delta":
                     reasoning_delta = getattr(event, "delta", None)
                     if reasoning_delta is None and isinstance(event, dict):
                         reasoning_delta = event.get("delta") or event.get("text")
