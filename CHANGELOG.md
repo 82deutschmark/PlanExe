@@ -28,6 +28,18 @@ Current version: **0.9.11** (Pre-release - features may change)
   - Improved transparency about how reasoning effort affects real-time streaming vs batch processing
 
 ### Fixed
+- **🔴 CRITICAL Empty Levers Cascade Failure**: Fixed pipeline crash when no levers are identified during analysis, preventing 14+ downstream tasks from being left pending
+  - **Root Cause**: While `FocusOnVitalFewLeversTask` handled empty inputs gracefully, `CandidateScenariosTask` had a hard requirement for non-empty vital levers, causing `ValueError: The list of vital levers cannot be empty.`
+  - **Impact**: Pipeline would fail at scenario generation stage, preventing all subsequent tasks (WBS, governance, team, documents, reports) from running
+  - **Files Modified**:
+    - `planexe/lever/candidate_scenarios.py`: Added fallback scenario generation when no vital levers are provided
+    - `planexe/lever/enrich_potential_levers.py`: Added empty input handling to prevent upstream failures
+    - `planexe/lever/select_scenario.py`: Added defensive fallback for empty scenarios (edge case protection)
+  - **Fallback Behavior**: 
+    - When no levers are identified, `CandidateScenariosTask` now generates 3 standard implementation approaches (Standard, Conservative, Agile) instead of failing
+    - `EnrichPotentialLeversTask` returns empty characterized levers list instead of crashing
+    - `SelectScenarioTask` provides default scenario selection when scenarios are empty
+  - **Result**: Pipeline now completes successfully even when no strategic levers are identified, producing a functional plan with standard implementation approaches
 - **PlanResponse Validation**: Fixed HTTP 422 errors caused by missing fields in API endpoint responses
   - Added reasoning_effort field to POST /api/plans, GET /api/plans/{plan_id}, and GET /api/plans endpoints
   - Added missing llm_model and speed_vs_detail fields to GET /api/plans endpoint
