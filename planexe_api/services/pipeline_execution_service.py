@@ -134,6 +134,23 @@ class PipelineExecutionService:
             # Set up execution environment
             environment = self._setup_environment(plan_id, request, run_id_dir)
 
+            # Verify database connectivity before spawning Luigi
+            database_url = environment.get("DATABASE_URL")
+            if database_url and not self._verify_database_connectivity(database_url):
+                error_msg = "Database connectivity test failed. Cannot proceed with plan execution."
+                print(f"ERROR: {error_msg}")
+                db_service.update_plan(plan_id, {
+                    "status": PlanStatus.failed.value,
+                    "error_message": error_msg
+                })
+                await websocket_manager.broadcast_to_plan(plan_id, {
+                    "type": "status", 
+                    "status": "failed",
+                    "message": error_msg,
+                    "timestamp": _utcnow_iso()
+                })
+                return
+
             # Write pipeline input files
             self._write_pipeline_inputs(run_id_dir, request)
 
@@ -281,11 +298,32 @@ class PipelineExecutionService:
         if database_url:
             environment["DATABASE_URL"] = database_url
             print(f"DEBUG ENV: Explicitly set DATABASE_URL in subprocess environment")
+            # Log masked host info for telemetry
+            masked_url = database_url.split('@')[-1] if '@' in database_url else database_url
+            print(f"INFO ENV: Database target: {masked_url}")
         else:
-            print(f"WARNING ENV: DATABASE_URL not found in environment - Luigi will use SQLite fallback")
+            error_msg = "DATABASE_URL is required for plan execution but not found in environment"
+            print(f"ERROR ENV: {error_msg}")
+            raise RuntimeError(error_msg)
 
         print(f"DEBUG ENV: Pipeline environment configured with {len(environment)} variables")
         return environment
+
+    def _verify_database_connectivity(self, database_url: str) -> bool:
+        """Verify that the database connection is working before spawning Luigi"""
+        try:
+            from sqlalchemy import create_engine, text
+            print(f"DEBUG DB: Testing connectivity to: {database_url.split('@')[-1] if '@' in database_url else database_url}")
+            
+            # Create a temporary engine to test connectivity
+            test_engine = create_engine(database_url, connect_args={"connect_timeout": 10})
+            with test_engine.connect() as conn:
+                result = conn.execute(text("SELECT 1"))
+                print(f"DEBUG DB: Database connectivity test passed")
+                return True
+        except Exception as e:
+            print(f"ERROR DB: Database connectivity test failed: {e}")
+            return False
 
     def _write_pipeline_inputs(self, run_id_dir: Path, request: CreatePlanRequest) -> None:
         """Write input files required by Luigi pipeline"""
@@ -510,7 +548,9 @@ class PipelineExecutionService:
             """Periodically calculate and broadcast progress based on completed tasks"""
             TOTAL_TASKS = 61  # Total number of Luigi tasks in the pipeline (from CLAUDE.md)
             UPDATE_INTERVAL = 3.0  # Update progress every 3 seconds
+            STALL_THRESHOLD = 2  # Number of intervals with no progress before considering stalled
             last_progress = 0
+            stall_count = 0
 
             while process.poll() is None:  # While process is still running
                 try:
@@ -524,8 +564,26 @@ class PipelineExecutionService:
                     # (Final 100% is set in _finalize_plan_status)
                     progress_percentage = min(int((completed_count / TOTAL_TASKS) * 100), 99)
 
-                    # Only broadcast if progress has changed
-                    if progress_percentage != last_progress:
+                    # Check for stall detection
+                    if progress_percentage == last_progress:
+                        stall_count += 1
+                        if stall_count >= STALL_THRESHOLD:
+                            # Send stall warning
+                            stall_warning = {
+                                "type": "status",
+                                "status": "running",
+                                "message": f"Pipeline appears stalled (no progress for {STALL_THRESHOLD * UPDATE_INTERVAL}s). {completed_count}/{TOTAL_TASKS} tasks completed.",
+                                "progress_percentage": progress_percentage,
+                                "timestamp": _utcnow_iso(),
+                                "stall_warning": True
+                            }
+                            await websocket_manager.broadcast_to_plan(plan_id, stall_warning)
+                            print(f"[PROGRESS] STALL WARNING: Plan {plan_id} no progress for {stall_count * UPDATE_INTERVAL}s")
+                    else:
+                        stall_count = 0  # Reset stall counter on progress
+
+                    # Only broadcast if progress has changed or we have a stall warning
+                    if progress_percentage != last_progress or stall_count >= STALL_THRESHOLD:
                         last_progress = progress_percentage
 
                         # Update database

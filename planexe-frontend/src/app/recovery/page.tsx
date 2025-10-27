@@ -184,7 +184,6 @@ const RecoveryPageContent: React.FC = () => {
       <RecoveryHeader
         planId={planId}
         plan={plan.data}
-        planError={plan.error}
         planLoading={plan.loading}
         statusDisplay={plan.statusDisplay}
         connection={connection}

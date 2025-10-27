@@ -16,11 +16,18 @@ import uuid
 
 from planexe.llm_util import push_llm_stream_context, pop_llm_stream_context
 
-# Database URL from environment variable - default to SQLite for development
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "sqlite:///./planexe.db"
-)
+# Database URL from environment variable - REQUIRED for PlanExe operation
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL environment variable is required for PlanExe operation. "
+        "Please set DATABASE_URL to your PostgreSQL connection string."
+    )
+
+# Log masked database connection info for debugging
+masked_db_url = DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else DATABASE_URL
+print(f"[DATABASE] Connecting to: {masked_db_url}")
 
 # CRITICAL FIX: Add connection timeout and health checks to prevent Luigi worker thread deadlock
 # Without these, SQLAlchemy will hang indefinitely trying to connect to unreachable PostgreSQL
@@ -29,14 +36,9 @@ engine_kwargs = {
     "pool_pre_ping": True,  # Test connections before using them (detect dead connections)
     "pool_recycle": 3600,   # Recycle connections after 1 hour
     "connect_args": {
-        "connect_timeout": 10  # 10 second connection timeout (PostgreSQL and SQLite compatible)
+        "connect_timeout": 10  # 10 second connection timeout for PostgreSQL
     }
 }
-
-# SQLite doesn't support all PostgreSQL connection args
-if DATABASE_URL.startswith("sqlite"):
-    # SQLite timeout is in milliseconds (different from PostgreSQL!)
-    engine_kwargs["connect_args"] = {"timeout": 10.0}  # 10 seconds
 
 # Create engine with timeout and connection health checks
 engine = create_engine(DATABASE_URL, **engine_kwargs)

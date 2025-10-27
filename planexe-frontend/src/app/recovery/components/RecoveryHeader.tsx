@@ -11,7 +11,7 @@
 import React, { useMemo } from 'react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
-import { Home, Radio, RefreshCw, RotateCcw, Activity, Clock, Zap, Database, Wifi, WifiOff } from 'lucide-react';
+import { Home, RefreshCw, RotateCcw, Activity, Clock, Zap, Database, Wifi, WifiOff } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,7 +31,6 @@ import { LiveTaskTicker } from './LiveTaskTicker';
 interface RecoveryHeaderProps {
   planId: string;
   plan: PlanResponse | null;
-  planError: string | null;
   planLoading: boolean;
   statusDisplay: StatusDisplay | null;
   connection: RecoveryConnectionState;
@@ -79,7 +78,6 @@ const describeConnection = (connection: RecoveryConnectionState): { label: strin
 export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
   planId,
   plan,
-  planError,
   planLoading,
   statusDisplay,
   connection,

@@ -90,7 +90,7 @@ export const APITelemetryStrip: React.FC<APITelemetryStripProps> = ({
             )}
             <span className="text-sm font-medium">API Telemetry</span>
           </div>
-          {activeTimeoutCountdown !== null && activeTimeoutCountdown > 0 && (
+          {activeTimeoutCountdown !== undefined && activeTimeoutCountdown !== null && activeTimeoutCountdown > 0 && (
             <Badge variant="outline" className="text-xs">
               <Clock className="h-3 w-3 mr-1" />
               {activeTimeoutCountdown}s

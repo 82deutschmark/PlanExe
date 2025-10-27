@@ -8,21 +8,26 @@
 ## Key Findings
 1. **Progress telemetry**
    - Backend watchdog counts rows in `plan_content` and updates `plans.progress_percentage` every 3 seconds (`PipelineExecutionService.monitor_progress`).
-   - `_setup_environment` only warns when `DATABASE_URL` is missing, allowing Luigi to fall back to local SQLite on Windows. When deployed on Railway, env vars exist, but any mis-resolution leaves the API polling an empty Postgres table → progress stuck at 0%.
+   - **🔴 ROOT CAUSE FIXED**: `planexe_api/database.py` was providing SQLite fallback when `DATABASE_URL` missing, causing Luigi subprocess to write to SQLite while API polled PostgreSQL → progress stuck at 0%.
+   - **🔴 ROOT CAUSE FIXED**: Database connection now fails fast with clear error message instead of silent fallback.
 2. **UX layout**
    - `RecoveryHeader` dedicates the entire right column to a single % number (`plan.progress_percentage`).
    - `StageTimeline` already exposes per-stage counts + active stage but sits in a lower sidebar, creating redundant whitespace in the header while hiding critical context.
 
 ## Proposed Fixes
-### Backend (Reliability)
-1. **Fail fast without `DATABASE_URL`**
+### Backend (Reliability) ✅ COMPLETED
+1. ✅ **Fail fast without `DATABASE_URL`**
    - In `_setup_environment`, throw a descriptive exception when `DATABASE_URL` cannot be resolved. Prevent silent SQLite fallback.
-2. **Connection sanity check**
+2. ✅ **Connection sanity check**
    - After spawning the Luigi subprocess, run a `SELECT 1` against the resolved connection string (same credentials). Abort plan + surface failure if unreachable.
-3. **Stall detection**
+3. ✅ **Stall detection**
    - Extend `monitor_progress` to send a WebSocket warning (e.g., after 2 polling intervals with zero delta) so the UI reflects stalled pipelines instead of idling at 0%.
-4. **Telemetry**
+4. ✅ **Telemetry**
    - Log masked host info when configuring the environment to confirm the subprocess targets Railway Postgres in production logs.
+5. ✅ **🔴 CRITICAL FIX: Remove SQLite fallback**
+   - Fixed `planexe_api/database.py` to require `DATABASE_URL` and fail fast instead of silent SQLite fallback.
+   - Added masked database URL logging for debugging.
+   - Removed SQLite-specific connection handling since only PostgreSQL is used.
 
 ### Frontend (UX)
 1. **Compact header grid**
@@ -45,23 +50,23 @@
    - Reduce vertical padding, align badges, and ensure mobile breakpoint stacks modules without excessive whitespace.
 
 ## Implementation Steps
-1. **Backend**
-   1. Update `_setup_environment` to raise `RuntimeError` if `DATABASE_URL` missing.
-   2. Add helper to verify DB connectivity post-spawn; fail plan + broadcast error when check fails.
-   3. Enhance `monitor_progress` with stall detection + warning event, and ensure database writes include stall diagnostics.
-   4. Add structured log (`progress_env_info`) with masked DB host + mode.
-   5. **NEW: API telemetry tracking**
+1. **Backend** ✅ COMPLETED
+   1. ✅ Update `_setup_environment` to raise `RuntimeError` if `DATABASE_URL` missing.
+   2. ✅ Add helper to verify DB connectivity post-spawn; fail plan + broadcast error when check fails.
+   3. ✅ Enhance `monitor_progress` with stall detection + warning event, and ensure database writes include stall diagnostics.
+   4. ✅ Add structured log (`progress_env_info`) with masked DB host + mode.
+   5. ✅ **NEW: API telemetry tracking**
       - Add `api_calls` table to track LLM requests: timestamp, model, response_time, status, tokens_used.
       - Emit WebSocket events for each API call start/completion with response metrics.
       - Track Luigi task execution timestamps and durations in `plan_content`.
-2. **Frontend**
-   1. Update `useRecoveryPlan` return signature to expose `stageSummary` & `activeStageKey` to header.
-   2. Redesign `RecoveryHeader` layout, adding stage chips/mini bar and compact progress stats.
-   3. **NEW: API telemetry components**
+2. **Frontend** ✅ COMPLETED
+   1. ✅ Update `useRecoveryPlan` return signature to expose `stageSummary` & `activeStageKey` to header.
+   2. ✅ Redesign `RecoveryHeader` layout, adding stage chips/mini bar and compact progress stats.
+   3. ✅ **NEW: API telemetry components**
       - Create `APITelemetryStrip` component with real-time call counters, response time sparkline, and provider status.
       - Add `LiveTaskTicker` component showing current executing task, duration, and queued tasks.
       - Implement countdown timers for API timeouts and velocity calculations.
-   4. Adjust CSS classes for tighter spacing (header + card) and ensure accessibility labels on new elements.
+   4. ✅ Adjust CSS classes for tighter spacing (header + card) and ensure accessibility labels on new elements.
 3. **QA / Validation**
    - Run plan end-to-end on Railway staging; confirm progress % increments beyond 0% and stage tracker updates.
    - Test failure path by temporarily masking `DATABASE_URL` to observe fail-fast behavior.
