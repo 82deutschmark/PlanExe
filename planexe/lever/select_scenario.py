@@ -107,7 +107,7 @@ class SelectScenario:
     metadata: Dict[str, Any]
 
     @classmethod
-    def execute(cls, llm_executor: LLMExecutor, project_context: str, scenarios: List[Dict[str, Any]]) -> 'SelectScenario':
+    def execute(cls, llm_executor: LLMExecutor, project_context: str, scenarios: List[Dict[str, Any]], reasoning_effort: str) -> 'SelectScenario':
         if not project_context:
             raise ValueError("Project plan cannot be empty.")
         if not scenarios:
