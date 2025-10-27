@@ -30,6 +30,7 @@ class DocumentDetails(BaseModel):
     bullet_points: list[str] = Field(
         description="Answers to the questions in bullet points."
     )
+    model_config = {'extra': 'allow'}
 
 REGISTERED_SCHEMA = register_schema(DocumentDetails)
 

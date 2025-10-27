@@ -33,6 +33,7 @@ BATCH_SIZE = 5
 # --- Pydantic models ---
 class InputLever(BaseModel):
     lever_id: str
+    model_config = {'extra': 'allow'}
     name: str
     consequences: str
     options: List[str]

@@ -31,6 +31,7 @@ class DocumentDetails(BaseModel):
     monitoring_progress: list[MonitoringProgress] = Field(
         description="How the team monitors progress and adapts the plan over time."
     )
+    model_config = {'extra': 'allow'}
 
 GOVERNANCE_PHASE5_MONITORING_PROGRESS_SYSTEM_PROMPT = """
 You are an expert in project management, monitoring, and evaluation. Your task is to define how progress will be monitored and how the project plan will be adapted based on that monitoring for the described project.

@@ -31,6 +31,8 @@ class QuestionAnswerPair(BaseModel):
     rationale: str = Field(
         description="Explain why this particular question answer pair is suggested."
     )
+    
+    model_config = {'extra': 'allow'}
 
 class DocumentDetails(BaseModel):
     question_answer_pairs: list[QuestionAnswerPair] = Field(
@@ -39,6 +41,8 @@ class DocumentDetails(BaseModel):
     summary: str = Field(
         description="Providing a high level context."
     )
+    
+    model_config = {'extra': 'allow'}
 
 QUESTION_ANSWER_SYSTEM_PROMPT = """
 You are a world-class expert in analyzing project documentation and generating insightful Questions and Answers (Q&A) for a reader who needs clarification on key aspects of the project as presented in the document. Your goal is to analyze the user's provided project description (the plan document itself), identify key concepts, terms, strategies, risks, ethical considerations, and controversial aspects, and generate a JSON response that strictly follows the `DocumentDetails` and `QuestionAnswerPair` models provided below.

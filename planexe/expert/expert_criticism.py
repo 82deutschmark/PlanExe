@@ -27,6 +27,7 @@ class NegativeFeedbackItem(BaseModel):
 
 class ExpertConsultation(BaseModel):
     """
+    model_config = {'extra': 'allow'}
     Status after todays meeting with the client.
     """
     negative_feedback_list: list[NegativeFeedbackItem] = Field(description="Your negative feedback.")

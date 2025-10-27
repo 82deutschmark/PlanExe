@@ -45,6 +45,7 @@ class ExpertDetails(BaseModel):
 # Doesn't work with "google/gemini-2.0-flash-001", where the first LLM call works, but the subsequent LLM call fails.
 EXPERT_FINDER_SYSTEM_PROMPT_1 = """
 Professionals who can offer specialized perspectives and recommendations based on the document.
+    model_config = {'extra': 'allow'}
 
 Ensure that each expert role directly aligns with specific sections or themes within the document.
 This could involve linking particular strengths, weaknesses, opportunities, threats, extra sections, to the expertise required.

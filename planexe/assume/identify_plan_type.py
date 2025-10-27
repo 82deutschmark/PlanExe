@@ -31,6 +31,7 @@ class DocumentDetails(BaseModel):
     explanation: str = Field(
         description="Providing a high level context."
     )
+    model_config = {'extra': 'allow'}
     plan_type: PlanType = Field(
         description="Classify the type of plan."
     )

@@ -16,6 +16,7 @@ class ProjectPitch(BaseModel):
     pitch: str = Field(
         description="A compelling pitch for this project."
     )
+    model_config = {'extra': 'allow'}
     why_this_pitch_works: str = Field(
         description="Explanation why this pitch works."
     )

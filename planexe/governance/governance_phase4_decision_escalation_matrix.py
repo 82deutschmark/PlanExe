@@ -25,6 +25,7 @@ class DecisionEscalationItem(BaseModel):
     issue_type: str = Field(
         description="Type of issue (e.g., budget overruns, ethical concerns, strategic pivot)."
     )
+    model_config = {'extra': 'allow'}
     escalation_level: str = Field(
         description="Indicates the governance body or role to which the issue is escalated (e.g., Steering Committee)."
     )

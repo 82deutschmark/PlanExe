@@ -42,6 +42,8 @@ class SWOTAnalysis(BaseModel):
     user_questions: list[str] = Field(
         description="Five crucial, thought-provoking questions to guide the user in identifying and evaluating strengths, weaknesses, opportunities, and threats."
     )
+    
+    model_config = {'extra': 'allow'}
 
 CONDUCT_SWOT_ANALYSIS_BUSINESS_SYSTEM_PROMPT = """
 You are a universal strategic consultant with expertise in project management, business analysis, and innovation across various industries.

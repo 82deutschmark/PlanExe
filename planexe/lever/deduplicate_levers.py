@@ -28,6 +28,7 @@ class LeverDecision(BaseModel):
     lever_id: str = Field(
         description="The uuid of the lever."
     )
+    model_config = {'extra': 'allow'}
     classification: LeverClassification = Field(
         description="What should happen to this lever."
     )

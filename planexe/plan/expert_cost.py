@@ -63,6 +63,7 @@ class ExpertCostEstimationResponse(BaseModel):
     secondary_actions: list[str] = Field(description="Additional suggestions for cost management.")
     follow_up_consultation: str = Field(description="Topics for the next consultation.")
 
+    model_config = {'extra': 'allow'}
 @dataclass
 class Document:
     name: str

@@ -24,6 +24,7 @@ TARGET_VITAL_LEVER_COUNT = 5
 
 class StrategicImportance(str, Enum):
     """Enum to indicate the strategic importance of a lever for the project's outcome."""
+    model_config = {'extra': 'allow'}
     critical = 'Critical'  # A fundamental lever that defines the project's core strategy or viability.
     high = 'High'          # A lever controlling a major trade-off (e.g., cost, scope, quality) with significant impact.
     medium = 'Medium'      # A lever that offers meaningful optimization but doesn't alter the core strategy.

@@ -22,6 +22,7 @@ class SuggestionItem(BaseModel):
     item_index: int = Field(
         description="Enumeration, starting from 1."
     )
+    model_config = {'extra': 'allow'}
     project_name: str = Field(
         description="The name of the project."
     )

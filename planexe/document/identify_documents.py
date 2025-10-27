@@ -33,6 +33,7 @@ class CreateDocumentItem(BaseModel):
     document_name: str = Field(
         description="The specific name of the document to be created (e.g., 'Project Charter', 'Detailed Financial Model', 'Stakeholder Communication Plan')."
     )
+    model_config = {'extra': 'allow'}
     description: str = Field(
         description=(
             "A concise yet comprehensive description of the document, "

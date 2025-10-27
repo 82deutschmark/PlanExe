@@ -39,6 +39,7 @@ class DocumentDetails(BaseModel):
     audience_tailoring: str = Field(
         description="Adapt the tone and detail based on who will be reading this summary (individual hobbyist, corporate, government, etc.)."
     )
+    model_config = {'extra': 'allow'}
     focus_and_context: str = Field(
         description="A short statement about why this project or plan exists and its overall objectives."
     )

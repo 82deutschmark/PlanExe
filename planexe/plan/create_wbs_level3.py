@@ -36,6 +36,8 @@ class WBSSubtask(BaseModel):
     resources_needed: list[str] = Field(
         description="List of resources needed to complete the subtask. Example: ['Project manager', 'Architect', 'Engineer', 'Construction crew']."
     )
+    
+    model_config = {'extra': 'allow'}
 
 class WBSTaskDetails(BaseModel):
     """
@@ -44,6 +46,8 @@ class WBSTaskDetails(BaseModel):
     subtasks: list[WBSSubtask] = Field(
         description="List of subtasks."
     )
+    
+    model_config = {'extra': 'allow'}
 
 QUERY_PREAMBLE = """
 Decompose a big task into smaller, more manageable subtasks.

@@ -46,11 +46,15 @@ class TeamMember(BaseModel):
     justification: str = Field(
         description="Brief explanation for why that contract type was chosen. Helps justify decisions and allows for easy review."
     )
+    
+    model_config = {'extra': 'allow'}
 
 class DocumentDetails(BaseModel):
     team_members: list[TeamMember] = Field(
         description="The experts with domain knowledge about the problem."
     )
+    
+    model_config = {'extra': 'allow'}
 
 ENRICH_TEAM_MEMBERS_CONTRACT_TYPE_SYSTEM_PROMPT = """
 You are an expert at determining what contract type are needed for different job roles given a project description.

@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 class PlanCharacteristics(BaseModel):
     """A structured analysis of the input plan's core nature."""
+    model_config = {'extra': 'allow'}
     ambition_and_scale: str = Field(
         description="Analysis of the plan's level of ambition and its scale (e.g., personal, local, global, revolutionary)."
     )

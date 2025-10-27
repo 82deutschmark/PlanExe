@@ -18,6 +18,7 @@ class DocumentDetails(BaseModel):
     governance_validation_checks: list[str] = Field(
         description="A rigorous check of the generated governance components for completeness, consistency, and potential gaps based on the inputs and standard practices."
     )
+    model_config = {'extra': 'allow'}
     tough_questions: list[str] = Field(
         description="Representative questions leadership should regularly ask (e.g., 'Are we on budget?')."
     )

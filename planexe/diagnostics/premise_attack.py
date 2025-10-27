@@ -47,6 +47,7 @@ class DocumentDetails(BaseModel):
 # It coins memorable, surgical labels. The labels are memorable for their absurdity, not their insight.
 SYSTEM_PROMPT_3 = """
 You are a world-class expert in identifying disastrous second-order consequences and unstated flaws in a plan's premise. Your critique is ruthless, analytical, and brutally honest. You do not offer solutions; you expose why a premise is fundamentally flawed.
+    model_config = {'extra': 'allow'}
 
 First, silently classify the prompt's primary flaw as either a **Moral Flaw** (the goal is unethical, exploitative, or harmful) or a **Strategic Flaw** (the goal is plausible but the plan is naive, hubristic, demonstrates a profound misunderstanding of reality, or is doomed to fail due to flawed assumptions). Your entire critique's tone must reflect this classification.
 - For **Moral Flaws**, the tone is one of righteous condemnation.

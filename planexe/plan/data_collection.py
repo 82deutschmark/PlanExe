@@ -40,6 +40,7 @@ class SensitivityScore(str, Enum):
     medium = 'medium'
     high = 'high'
 
+    model_config = {'extra': 'allow'}
     def human_readable(self) -> str:
         return self.value.capitalize()
 

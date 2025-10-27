@@ -30,6 +30,7 @@ class BookDraft(BaseModel):
     chapter_title_list: list[str] = Field(description="Name of each chapter.")
     final_story: str = Field(description="Based on the above, what is the final story.")
 
+    model_config = {'extra': 'allow'}
 @dataclass
 class FictionWriter:
     """

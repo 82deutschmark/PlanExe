@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 # --- Pydantic Models ---
 class DisconfirmingTest(BaseModel):
     """A cheap, fast, and decisive real-world experiment to prove an objection true."""
+    model_config = {'extra': 'allow'}
     test: str = Field(..., description="A concise description of the test to be run.")
     method: Literal[
         "pilot", "survey", "experiment", "benchmark", "interview",

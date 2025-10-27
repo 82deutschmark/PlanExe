@@ -31,11 +31,15 @@ class TeamMember(BaseModel):
     typical_job_activities: str = Field(
         description="Describe some typical activities in the job."
     )
+    
+    model_config = {'extra': 'allow'}
 
 class TeamDetails(BaseModel):
     team_members: list[TeamMember] = Field(
         description="The experts with domain knowledge about the problem."
     )
+    
+    model_config = {'extra': 'allow'}
 
 ENRICH_TEAM_MEMBERS_SYSTEM_PROMPT = """
 For each team member provided, enrich them with a fictional background story and typical job activities.

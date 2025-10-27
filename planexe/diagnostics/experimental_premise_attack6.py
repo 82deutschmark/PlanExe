@@ -50,6 +50,7 @@ class DocumentDetails(BaseModel):
     problem_items: List[ProblemItem] = Field(
         description="List of 4 problem items."
     )
+    model_config = {'extra': 'allow'}
 
 SYSTEM_PROMPT_14 = """
 ROLE

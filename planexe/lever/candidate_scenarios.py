@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 # Represents a lever from the 'vital_levers' file
 class VitalLever(BaseModel):
     lever_id: str
+    model_config = {'extra': 'allow'}
     name: str
     options: List[str]
     review: str

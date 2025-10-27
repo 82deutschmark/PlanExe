@@ -52,6 +52,7 @@ class DocumentDetails(BaseModel):
     skeptical_items: List[SkepticalItem] = Field(
         description="List of 4 skeptical items."
     )
+    model_config = {'extra': 'allow'}
 
 
 PREMISE_ATTACK_SYSTEM_PROMPT_1 = """

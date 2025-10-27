@@ -22,6 +22,7 @@ class InternalGovernanceBody(BaseModel):
     rationale_for_inclusion: str = Field(
         description="Brief justification explaining *why* this specific type of internal governance body (e.g., Steering Committee, PMO, Ethics Committee) is necessary or appropriate for *this particular project*, based on its description, scale, or key challenges."
     )
+    model_config = {'extra': 'allow'}
     responsibilities: list[str] = Field(description="Key tasks or responsibilities of this internal body.")
     initial_setup_actions: list[str] = Field(description="Key initial actions this body needs to take upon formation (e.g., 'Finalize Terms of Reference', 'Elect Chair', 'Set meeting schedule').")
     membership: list[str] = Field(description="Roles or titles of individuals *within the project/organization* forming this internal body.")

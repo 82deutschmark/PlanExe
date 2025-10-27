@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 
 class IssueItem(BaseModel):
     """
+    model_config = {'extra': 'allow'}
     One adversarial challenge to a central project assumption.
     Fields are generalized so this works across many project types/domains.
     """

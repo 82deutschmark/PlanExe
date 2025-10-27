@@ -35,6 +35,7 @@ from planexe.plan.filenames import FilenameEnum
 
 class TaskDependencyDetail(BaseModel):
     """
+    model_config = {'extra': 'allow'}
     Details about the prerequisites for a task.
     """
     dependent_task_id: str = Field(

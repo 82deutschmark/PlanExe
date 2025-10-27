@@ -57,6 +57,7 @@ class FailureModeItem(BaseModel):
     risk_analysis: str = Field(
         description="Structured, factual breakdown of causes, contributing factors, and impacts for the failure mode. Use bullet points or short factual sentences. Avoid narratives or fictional elements."
     )
+    model_config = {'extra': 'allow'}
     early_warning_signs: List[str] = Field(
         description="Clear, measurable indicators that this failure mode may occur. Each must be objectively testable."
     )

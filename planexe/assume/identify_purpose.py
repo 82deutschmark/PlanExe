@@ -25,6 +25,7 @@ class PlanPurpose(str, Enum):
 
 class PlanPurposeInfo(BaseModel):
     """
+    model_config = {'extra': 'allow'}
     Identify the purpose of the plan to be performed.
     """
     topic: str = Field(description="The subject of the plan.")

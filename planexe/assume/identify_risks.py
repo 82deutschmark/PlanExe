@@ -28,6 +28,7 @@ class RiskItem(BaseModel):
     risk_area: str = Field(
         description="The category or domain of the risk, e.g., Regulatory, Financial, Technical."
     )
+    model_config = {'extra': 'allow'}
     risk_description: str = Field(
         description="A detailed explanation outlining the specific nature of the risk."
     )

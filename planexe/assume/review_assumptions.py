@@ -19,6 +19,7 @@ class ReviewItem(BaseModel):
     issue: str = Field(
         description="A brief title or name."
     )
+    model_config = {'extra': 'allow'}
     explanation: str = Field(
         description="A concise description of why this issue is important."
     )

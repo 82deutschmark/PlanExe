@@ -61,6 +61,7 @@ class ExpertDetails(BaseModel):
 # Prompt made with o1mini
 EXPERT_BROAD_SYSTEM_PROMPT_1 = """
 You are a team of 2 experts providing a critical review of a project with a vague description. Depending on the project type, select appropriate expert roles.
+    model_config = {'extra': 'allow'}
 
 **Requirements:**
 

@@ -25,6 +25,7 @@ class CurrencyItem(BaseModel):
     currency: str = Field(
         description="ISO 4217 alphabetic code."
     )
+    model_config = {'extra': 'allow'}
     consideration: str = Field(
         description="Why use this currency."
     )

@@ -22,6 +22,7 @@ class DocumentDetails(BaseModel):
     corruption_list: list[str] = Field(
         description="Corruption risks in this project: bribery, nepotism, etc."
     )
+    model_config = {'extra': 'allow'}
     misallocation_list: list[str] = Field(
         description="Ways resources can be misallocated: budget misuse, double spending, etc."
     )

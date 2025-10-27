@@ -34,6 +34,8 @@ class SubtaskDetails(BaseModel):
     subtask_title: str = Field(
         description="Start with a verb to clearly indicate the action required. Example: ['Secure funding', 'Obtain construction permits', 'Electrical installation', 'Commissioning and handover']."
     )
+    
+    model_config = {'extra': 'allow'}
 
 class MajorPhaseDetails(BaseModel):
     """
@@ -48,6 +50,8 @@ class MajorPhaseDetails(BaseModel):
     subtasks: list[SubtaskDetails] = Field(
         description="List of the subtasks or activities."
     )
+    
+    model_config = {'extra': 'allow'}
 
 class WorkBreakdownStructure(BaseModel):
     """
@@ -57,6 +61,8 @@ class WorkBreakdownStructure(BaseModel):
     major_phase_details: list[MajorPhaseDetails] = Field(
         description="List with each major phase broken down into subtasks or activities."
     )
+    
+    model_config = {'extra': 'allow'}
 
 QUERY_PREAMBLE = """
 Create a work breakdown structure level 2 for this project.

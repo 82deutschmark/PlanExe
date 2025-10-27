@@ -6,6 +6,25 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.9.14] - 2025-10-27
+
+### Fixed
+- **🔴 CRITICAL Pydantic Validation Errors**: Added `model_config = {'extra': 'allow'}` to all Pydantic models used with structured LLM outputs to prevent pipeline failures
+  - **Problem**: LLM responses containing extra fields beyond defined schema caused `ValidationError: Extra data` exceptions, leading to pipeline exhaustion and failure
+  - **Root Cause**: Pydantic's default `extra='forbid'` behavior throws validation errors when LLMs return additional metadata fields not explicitly defined in the schema
+  - **Impact**: Pipeline tasks would fail with "Failed to parse structured response for [ModelName]: Extra data: line X column Y" errors, causing complete pipeline failure
+  - **Solution**: Added `model_config = {'extra': 'allow'}` to 50+ Pydantic models across the entire codebase, allowing validation to ignore unknown fields while still enforcing required field validation
+  - **Models Fixed**:
+    - **Assumption Models**: `QuestionAssumptionItem`, `ExpertDetails` in `make_assumptions.py`
+    - **Team Models**: `TeamMember`, `DocumentDetails`, `TeamDetails`, `ReviewItem` across all team modules
+    - **Planning Models**: All WBS classes (`WBSLevel1`, `WorkBreakdownStructure`, `SubtaskDetails`, `MajorPhaseDetails`, `WBSSubtask`, `WBSTaskDetails`)
+    - **Strategic Models**: All lever, scenario, and governance models
+    - **Analysis Models**: `SWOTAnalysis`, `QuestionAnswerPair`, risk assessment models
+    - **Document Models**: All document identification and filtering models
+    - **Diagnostic Models**: All premise attack, premortem, and diagnostic models
+  - **Files Modified**: 50+ files across `planexe/assume/`, `planexe/team/`, `planexe/plan/`, `planexe/lever/`, `planexe/governance/`, `planexe/expert/`, `planexe/document/`, `planexe/diagnostics/`, and others
+  - **Result**: Pipeline now continues successfully when LLMs return extra metadata fields, preventing validation-related failures
+
 ## [0.9.13] - 2025-10-27
 
 ### Changed

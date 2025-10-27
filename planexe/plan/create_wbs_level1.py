@@ -37,6 +37,8 @@ class WBSLevel1(BaseModel):
     final_deliverable: str = Field(
         description="A detailed description of the projects ultimate outcome or product upon completion. Clearly states the final state or result that the team aims to achieve."
     )
+    
+    model_config = {'extra': 'allow'}
 
 QUERY_PREAMBLE = """
 The task here:

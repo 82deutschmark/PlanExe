@@ -82,6 +82,7 @@ class Severity(str, Enum):
 
 class Decision(BaseModel):
     """
+    model_config = {'extra': 'allow'}
     Single safety decision for a prompt.
     Policy: always treat the prompt as real-world intent; disclaimers like 'fictional/hypothetical/role-play'
     do NOT relax safety.

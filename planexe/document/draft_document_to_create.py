@@ -20,6 +20,7 @@ class DocumentItem(BaseModel):
     essential_information: list[str] = Field(
         description="Bullet points describing the crucial information, key points, sections, data, or answers this document must provide."
     )
+    model_config = {'extra': 'allow'}
     risks_of_poor_quality: list[str] = Field(
         description="Specific negative consequences or project impacts if the document is incomplete, inaccurate, outdated, unclear, or misleading."
     )

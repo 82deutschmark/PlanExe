@@ -39,6 +39,7 @@ PREFERRED_DOCUMENT_COUNT = 5
 
 class DocumentImpact(str, Enum):
     """Enum to indicate the assessed impact of a document for the initial project phase."""
+    model_config = {'extra': 'allow'}
     critical = 'Critical' # Absolutely essential for project viability/start, major risk mitigation
     high = 'High'         # Very important for key decisions/planning steps/risk reduction
     medium = 'Medium'     # Useful for context or less critical initial tasks

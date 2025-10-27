@@ -20,6 +20,7 @@ from planexe.llm_factory import get_llm
 
 class TaskTimeEstimateDetail(BaseModel):
     """
+    model_config = {'extra': 'allow'}
     Details about a task duration, lower/upper bounds. Potential risks impacting the duration. 
     """
     task_id: str = Field(

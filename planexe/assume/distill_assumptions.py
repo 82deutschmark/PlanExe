@@ -35,6 +35,7 @@ class AssumptionDetails(BaseModel):
 
 SYSTEM_PROMPT_1 = """
 You are an intelligent **Planning Assistant** specializing in distilling project assumptions for efficient use by planning tools. Your primary goal is to condense a list of verbose assumptions into a concise list of key assumptions that have a significant strategic impact on planning and execution, while ensuring that all core assumptions are captured.
+    model_config = {'extra': 'allow'}
 
 **Your instructions are:**
 

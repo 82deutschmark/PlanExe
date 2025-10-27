@@ -33,11 +33,15 @@ class TeamMember(BaseModel):
     facility_needs: str = Field(
         description="What facilities are needed for the daily job."
     )
+    
+    model_config = {'extra': 'allow'}
 
 class DocumentDetails(BaseModel):
     team_members: list[TeamMember] = Field(
         description="The experts with domain knowledge about the problem."
     )
+    
+    model_config = {'extra': 'allow'}
 
 ENRICH_TEAM_MEMBERS_ENVIRONMENT_INFO_SYSTEM_PROMPT = """
 You are an expert at determining what equipment and facilities are needed for different job roles given a project description.

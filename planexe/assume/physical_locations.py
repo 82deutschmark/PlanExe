@@ -22,6 +22,7 @@ class PhysicalLocationItem(BaseModel):
     item_index: int = Field(
         description="Enumeration of the locations, starting from 1."
     )
+    model_config = {'extra': 'allow'}
     physical_location_broad: str = Field(
         description="A broad location for the project, such as a country or region. Use 'Global' if applicable."
     )

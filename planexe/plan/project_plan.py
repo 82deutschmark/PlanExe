@@ -22,6 +22,7 @@ class SMARTCriteria(BaseModel):
     specific: str = Field(
         description="Clearly defines what is to be accomplished. Provides context and purpose behind the goal. Avoid vagueness, unrealistic targets, broad statements that lack direction."
     )
+    model_config = {'extra': 'allow'}
     measurable: str = Field(
         description="Establish how you will measure success. This could be quantitative (e.g., numbers, percentages) or qualitative (e.g., satisfaction levels). Without clear metrics, it’s difficult to track progress or determine success."
     )

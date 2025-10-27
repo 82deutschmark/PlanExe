@@ -46,6 +46,7 @@ class Lever(BaseModel):
     lever_index: int = Field(
         description="Index of this lever."
     )
+    model_config = {'extra': 'allow'}
     name: str = Field(
         description="Name of this lever."
     )
