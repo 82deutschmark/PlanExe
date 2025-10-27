@@ -127,10 +127,39 @@ class CandidateScenarios:
 
     @classmethod
     def execute(cls, llm_executor: LLMExecutor, project_context: str, raw_vital_levers: list[dict], reasoning_effort: str) -> 'CandidateScenarios':
+        # Gracefully handle empty vital levers list - create fallback scenarios instead of failing
+        if not raw_vital_levers:
+            logger.warning("No vital levers provided to CandidateScenarios. Creating fallback scenarios.")
+            fallback_scenarios = [
+                Scenario(
+                    scenario_name="Standard Implementation Approach",
+                    strategic_logic="A balanced approach focusing on proven methodologies with moderate risk and resource requirements.",
+                    lever_settings=[]
+                ),
+                Scenario(
+                    scenario_name="Conservative Risk-Managed Approach", 
+                    strategic_logic="A cautious approach prioritizing stability and risk mitigation over innovation or speed.",
+                    lever_settings=[]
+                ),
+                Scenario(
+                    scenario_name="Agile Innovation-First Approach",
+                    strategic_logic="An accelerated approach emphasizing rapid innovation and market entry with higher risk tolerance.",
+                    lever_settings=[]
+                )
+            ]
+            fallback_response = ScenarioAnalysisResult(
+                analysis_title="Fallback Strategic Analysis - No Vital Levers Identified",
+                core_tension="Since no strategic levers were identified, the scenarios represent standard implementation approaches across the risk-innovation spectrum.",
+                scenarios=fallback_scenarios
+            )
+            return cls(
+                system_prompt="",
+                user_prompt="",
+                response=fallback_response,
+                metadata={"llm_classname": "empty_input_fallback", "processing_time": 0.0}
+            )
+        
         vital_levers = [VitalLever(**lever) for lever in raw_vital_levers]
-
-        if not vital_levers:
-            raise ValueError("The list of vital levers cannot be empty.")
 
         logger.info(f"Generating strategic scenarios from {len(vital_levers)} vital levers.")
 

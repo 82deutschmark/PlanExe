@@ -98,8 +98,13 @@ class EnrichPotentialLevers:
         except ValidationError as e:
             raise ValueError(f"Invalid input lever data: {e}")
 
+        # Gracefully handle empty levers list - create empty result instead of failing
         if not input_levers:
-            raise ValueError("The list of levers to characterize cannot be empty.")
+            logger.warning("No levers provided to EnrichPotentialLevers. Creating empty characterized levers result.")
+            return cls(
+                characterized_levers=[],
+                metadata=[{"llm_classname": "empty_input", "processing_time": 0.0}]
+            )
 
         logger.info(f"Characterizing {len(input_levers)} levers in batches of {BATCH_SIZE}.")
 

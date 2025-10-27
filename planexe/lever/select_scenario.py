@@ -110,8 +110,29 @@ class SelectScenario:
     def execute(cls, llm_executor: LLMExecutor, project_context: str, scenarios: List[Dict[str, Any]], reasoning_effort: str) -> 'SelectScenario':
         if not project_context:
             raise ValueError("Project plan cannot be empty.")
+        
+        # Gracefully handle empty scenarios list - create fallback selection instead of failing
         if not scenarios:
-            raise ValueError("Scenarios list cannot be empty.")
+            logger.warning("No scenarios provided to SelectScenario. Creating fallback scenario selection.")
+            fallback_response = ScenarioSelectionResult(
+                plan_characteristics=PlanCharacteristics(
+                    complexity="Standard",
+                    time_horizon="Medium-term",
+                    resource_intensity="Moderate",
+                    strategic_focus="Balanced approach"
+                ),
+                scenario_assessments=[],
+                final_choice=FinalChoice(
+                    chosen_scenario="Standard Implementation Approach",
+                    rationale="No scenarios were provided for evaluation. Defaulting to a standard implementation approach as a safe fallback."
+                )
+            )
+            return cls(
+                system_prompt="",
+                user_prompt="",
+                response=fallback_response,
+                metadata={"llm_classname": "empty_input_fallback", "processing_time": 0.0}
+            )
 
         normalized_scenarios = [
             cls._normalize_scenario_payload(scenario) for scenario in scenarios
