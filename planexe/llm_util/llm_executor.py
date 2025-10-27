@@ -57,18 +57,19 @@ class LLMModelBase:
         raise NotImplementedError("Subclasses must implement this method")
 
 class LLMModelFromName(LLMModelBase):
-    def __init__(self, name: str):
+    def __init__(self, name: str, reasoning_effort: str = "medium"):
         self.name = name
+        self.reasoning_effort = reasoning_effort
 
     def create_llm(self) -> Any:
-        return get_llm(self.name)
+        return get_llm(self.name, reasoning_effort=self.reasoning_effort)
     
     def __repr__(self) -> str:
-        return f"LLMModelFromName(name='{self.name}')"
+        return f"LLMModelFromName(name='{self.name}', reasoning_effort='{self.reasoning_effort}')"
 
     @classmethod
-    def from_names(cls, names: list[str]) -> list['LLMModelBase']:
-        return [cls(name) for name in names]
+    def from_names(cls, names: list[str], reasoning_effort: str = "medium") -> list['LLMModelBase']:
+        return [cls(name, reasoning_effort) for name in names]
 
 class LLMModelWithInstance(LLMModelBase):
     def __init__(self, llm: Any):

@@ -187,7 +187,7 @@ class PlanTask(luigi.Task):
             total_duration = parameters.total_duration
             self._pipeline_executor_callback(self, total_duration)
 
-        llm_model_instances = LLMModelFromName.from_names(self.llm_models)
+        llm_model_instances = LLMModelFromName.from_names(self.llm_models, reasoning_effort=self.reasoning_effort)
 
         return LLMExecutor(
             llm_models=llm_model_instances,
@@ -475,7 +475,7 @@ class PremiseAttackTask(PlanTask):
             # Execute LLM call
             import time
             start_time = time.time()
-            premise_attack = PremiseAttack.execute(llm_executor, plan_prompt)
+            premise_attack = PremiseAttack.execute(llm_executor, plan_prompt, reasoning_effort=self.reasoning_effort)
             duration_seconds = time.time() - start_time
 
             # Update LLM interaction COMPLETE
