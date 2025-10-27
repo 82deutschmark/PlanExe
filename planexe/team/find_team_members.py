@@ -33,11 +33,15 @@ class TeamMember(BaseModel):
     consequences_of_not_having_this_role: str = Field(
         description="Consequences of not having this role."
     )
+    
+    model_config = {'extra': 'allow'}
 
 class DocumentDetails(BaseModel):
     brainstorm_of_needed_team_members: list[TeamMember] = Field(
         description="What experts may be needed with domain knowledge about the problem."
     )
+    
+    model_config = {'extra': 'allow'}
 
 FIND_TEAM_MEMBERS_SYSTEM_PROMPT = """
 You are a versatile project planning assistant and team architect. Your goal is to analyze the user's project description and decompose it into a comprehensive plan with a focus on human roles and resource allocation—**do not generate any code or technical implementation details.**
