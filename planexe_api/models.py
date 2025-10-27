@@ -33,7 +33,7 @@ class SpeedVsDetail(str, Enum):
 
 class CreatePlanRequest(BaseModel):
     """Request to create a new plan"""
-    prompt: str = Field(..., description="The planning prompt/idea", min_length=1, max_length=10000)
+    prompt: str = Field(..., description="The planning prompt/idea", min_length=1)
     llm_model: Optional[str] = Field(None, description="LLM model ID to use")
     speed_vs_detail: SpeedVsDetail = Field(SpeedVsDetail.ALL_DETAILS_BUT_SLOW, description="Speed vs detail preference")
     reasoning_effort: Optional[str] = Field(
@@ -209,7 +209,7 @@ class AnalysisStreamRequest(BaseModel):
 
     task_id: str = Field(..., description="Identifier for the analysis task or plan context")
     model_key: str = Field(..., description="LLM configuration key to execute the analysis")
-    prompt: str = Field(..., min_length=1, max_length=8000, description="Primary analysis instructions")
+    prompt: str = Field(..., min_length=1, description="Primary analysis instructions")
     context: Optional[str] = Field(None, description="Supplementary context to prepend to the prompt")
     metadata: Optional[Dict[str, Any]] = Field(None, description="Additional caller metadata for auditing")
     temperature: Optional[float] = Field(0.2, ge=0.0, le=2.0, description="Sampling temperature override")
@@ -305,7 +305,7 @@ class ConversationTurnRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     model_key: str = Field(..., description="Configured model key to execute the turn")
-    user_message: str = Field(..., min_length=1, max_length=6000, description="Latest user utterance")
+    user_message: str = Field(..., min_length=1, description="Latest user utterance")
     conversation_id: Optional[str] = Field(None, description="Existing conversation identifier")
     previous_response_id: Optional[str] = Field(
         None, description="Prior response identifier for lightweight chaining"

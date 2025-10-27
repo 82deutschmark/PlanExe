@@ -7,7 +7,12 @@
 - **Recovery Flow**: Updated recovery page to preserve reasoning effort when resuming plans, passing it through to both fallback and targeted resume operations.
 - **Data Flow**: Updated `useResponsesConversation` hook to accept optional `reasoningEffort` parameter and use it in conversation turn payloads, while falling back to backend defaults only when not provided.
 - **Visual Feedback**: Added reasoning effort badge to conversation modal header so users can see the active setting during intake conversations.
-- **Unlimited Intake**: Removed the 10,000 character limit on plan description field in `PlanFormSchema` to allow users to provide comprehensive project context without arbitrary truncation.
+- **Unlimited Intake**: Removed all character limits from intake fields across frontend and backend:
+  - Frontend: Removed 10,000 character limit from `PlanFormSchema` prompt validation
+  - Backend: Removed 10,000 character limit from `CreatePlanRequest.prompt` field
+  - Backend: Removed 6,000 character limit from `ConversationTurnRequest.user_message` field (conversation modal)
+  - Backend: Removed 8,000 character limit from `AnalysisStreamRequest.prompt` field
+  - Users can now provide unlimited project context and detailed intake information without truncation
 - Fixed the gap where reasoning effort was configured via backend defaults but never exposed in the UI, making the setting invisible and unchangeable.
 
 ## [0.9.5] - 2025-10-26
