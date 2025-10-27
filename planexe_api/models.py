@@ -66,6 +66,10 @@ class PlanResponse(BaseModel):
     prompt: str = Field(..., description="The original planning prompt")
     llm_model: Optional[str] = Field(None, description="LLM model used for this plan")
     speed_vs_detail: SpeedVsDetail = Field(..., description="Speed vs detail preference used for this plan")
+    reasoning_effort: str = Field(
+        RESPONSES_STREAMING_CONTROLS.reasoning_effort,
+        description="Reasoning effort level used for this plan (minimal, low, medium, high)"
+    )
     progress_percentage: int = Field(0, description="Completion percentage (0-100)")
     progress_message: str = Field("", description="Current progress description")
     error_message: Optional[str] = Field(None, description="Error message if failed")
