@@ -778,7 +778,7 @@ class PotentialLeversTask(PlanTask):
             # Execute LLM call
             import time
             start_time = time.time()
-            identify_potential_levers = IdentifyPotentialLevers.execute(llm_executor, query)
+            identify_potential_levers = IdentifyPotentialLevers.execute(llm_executor, query, reasoning_effort=self.reasoning_effort)
             duration_seconds = time.time() - start_time
 
             # Update LLM interaction COMPLETE

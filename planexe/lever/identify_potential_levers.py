@@ -147,7 +147,7 @@ class IdentifyPotentialLevers:
     metadata: dict
 
     @classmethod
-    def execute(cls, llm_executor: LLMExecutor, user_prompt: str) -> 'IdentifyPotentialLevers':
+    def execute(cls, llm_executor: LLMExecutor, user_prompt: str, reasoning_effort: str) -> 'IdentifyPotentialLevers':
         if not isinstance(llm_executor, LLMExecutor):
             raise ValueError("Invalid LLMExecutor instance.")
         if not isinstance(user_prompt, str):

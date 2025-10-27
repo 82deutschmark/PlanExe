@@ -86,7 +86,7 @@ class DeduplicateLevers:
     metadata: Dict[str, Any]
 
     @classmethod
-    def execute(cls, llm_executor: LLMExecutor, project_context: str, raw_levers_list: List[dict]) -> 'DeduplicateLevers':
+    def execute(cls, llm_executor: LLMExecutor, project_context: str, raw_levers_list: List[dict], reasoning_effort: str) -> 'DeduplicateLevers':
         """
         Executes the deduplication process.
 
