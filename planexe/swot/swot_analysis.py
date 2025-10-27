@@ -158,8 +158,8 @@ class SWOTAnalysis:
             rows.append("\n## Metadata 📊🔧💾")
             rows.append("```json")
             json_dict = self.metadata.copy()
-            json_dict['duration_response_type'] = self.response_purpose['metadata']['duration']
-            json_dict['duration_response_conduct'] = self.response_conduct['metadata']['duration']
+            json_dict['duration_response_type'] = self.response_purpose.get('metadata', {}).get('duration', 0)
+            json_dict['duration_response_conduct'] = self.response_conduct.get('metadata', {}).get('duration', 0)
             rows.append(json.dumps(json_dict, indent=2))
             rows.append("```")
 
