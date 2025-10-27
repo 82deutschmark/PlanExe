@@ -150,14 +150,15 @@ const RecoveryPageContent: React.FC = () => {
         open={resumeOpen}
         onOpenChange={setResumeOpen}
         missing={resumeMissing}
-        onConfirm={async ({ selectedFilenames, llmModel, speedVsDetail }) => {
+        defaultReasoningEffort={plan.data?.reasoning_effort}
+        onConfirm={async ({ selectedFilenames, llmModel, speedVsDetail, reasoningEffort }) => {
           if (!plan.data) return;
           try {
             const newPlan = await fastApiClient.createPlan({
               prompt: plan.data.prompt,
               llm_model: llmModel ?? undefined,
               speed_vs_detail: speedVsDetail,
-              reasoning_effort: plan.data.reasoning_effort,
+              reasoning_effort: reasoningEffort ?? plan.data.reasoning_effort,
               enriched_intake: {
                 project_title: 'Plan Resume',
                 refined_objective: 'Resume only selected missing sections to complete the plan.',
