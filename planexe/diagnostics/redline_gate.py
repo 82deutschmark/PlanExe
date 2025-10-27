@@ -560,7 +560,7 @@ class RedlineGate:
     markdown: str
 
     @classmethod
-    def execute(cls, llm: LLM, user_prompt: str) -> "RedlineGate":
+    def execute(cls, llm: LLM, user_prompt: str, reasoning_effort: str = "medium") -> "RedlineGate":
         if not isinstance(llm, LLM):
             raise ValueError("Invalid LLM instance.")
         if not isinstance(user_prompt, str):

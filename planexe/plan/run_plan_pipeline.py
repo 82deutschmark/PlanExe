@@ -361,7 +361,7 @@ class RedlineGateTask(PlanTask):
             logger.error(f"[PIPELINE] RedlineGateTask: About to call RedlineGate.execute() with LLM...")
             print(f"[PIPELINE] RedlineGateTask: About to call RedlineGate.execute() with LLM: {type(llm).__name__}")
             start_time = time.time()
-            redline_gate = RedlineGate.execute(llm, plan_prompt)
+            redline_gate = RedlineGate.execute(llm, plan_prompt, reasoning_effort=self.reasoning_effort)
             duration_seconds = time.time() - start_time
             logger.error(f"[PIPELINE] RedlineGateTask: RedlineGate.execute() completed in {duration_seconds:.2f}s")
             print(f"[PIPELINE] RedlineGateTask: RedlineGate.execute() completed in {duration_seconds:.2f}s")
