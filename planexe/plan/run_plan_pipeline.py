@@ -961,7 +961,26 @@ class EnrichLeversTask(PlanTask):
                 plan_type_markdown = f.read()
             with self.input()['deduplicate_levers']['raw'].open("r") as f:
                 json_dict = json.load(f)
-                lever_item_list = json_dict["deduplicated_levers"]
+                lever_item_list = json_dict.get("deduplicated_levers", [])
+                if not lever_item_list:
+                    logger.warning("No deduplicated levers found from DeduplicateLeversTask. Creating empty enriched levers output.")
+                    # Create empty enriched levers output
+                    empty_result = {
+                        "characterized_levers": [],
+                        "metadata": [{"llm_classname": "none", "note": "No levers to enrich"}]
+                    }
+                    raw_content = json.dumps(empty_result, indent=2)
+                    db_service.create_plan_content({
+                        "plan_id": plan_id,
+                        "filename": FilenameEnum.ENRICHED_LEVERS_RAW.value,
+                        "stage": "enrich_levers",
+                        "content_type": "json",
+                        "content": raw_content,
+                        "content_size_bytes": len(raw_content.encode('utf-8'))
+                    })
+                    with self.output()['raw'].open("w") as f:
+                        json.dump(empty_result, f, indent=2)
+                    return
             query = (
                 f"File 'plan.txt':\n{plan_prompt}\n\n"
                 f"File 'purpose.md':\n{identify_purpose_markdown}\n\n"
