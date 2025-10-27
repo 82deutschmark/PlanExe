@@ -37,11 +37,13 @@ export const ResumeDialog: React.FC<ResumeDialogProps> = ({
   missing,
   defaultModel = null,
   defaultSpeed = 'balanced_speed_and_detail',
+  defaultReasoningEffort = 'medium',
   onConfirm,
 }) => {
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [model, setModel] = useState<string>(defaultModel ?? '');
   const [speed, setSpeed] = useState<CreatePlanRequest['speed_vs_detail']>(defaultSpeed);
+  const [reasoningEffort, setReasoningEffort] = useState<CreatePlanRequest['reasoning_effort']>(defaultReasoningEffort);
 
   useEffect(() => {
     // Initialize all as selected by default when dialog opens
@@ -53,6 +55,7 @@ export const ResumeDialog: React.FC<ResumeDialogProps> = ({
       setSelected(initial);
       setModel(defaultModel ?? '');
       setSpeed(defaultSpeed);
+      setReasoningEffort(defaultReasoningEffort);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, JSON.stringify(missing)]);
@@ -82,7 +85,12 @@ export const ResumeDialog: React.FC<ResumeDialogProps> = ({
     const filenames = Object.entries(selected)
       .filter(([, v]) => v)
       .map(([k]) => k);
-    onConfirm({ selectedFilenames: filenames, llmModel: model.trim() || null, speedVsDetail: speed });
+    onConfirm({ 
+      selectedFilenames: filenames, 
+      llmModel: model.trim() || null, 
+      speedVsDetail: speed,
+      reasoningEffort 
+    });
   };
 
   return (
@@ -144,6 +152,20 @@ export const ResumeDialog: React.FC<ResumeDialogProps> = ({
                   <SelectItem value="fast_but_skip_details">Fast, fewer details</SelectItem>
                   <SelectItem value="balanced_speed_and_detail">Balanced (default)</SelectItem>
                   <SelectItem value="all_details_but_slow">All details, slower</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="resume-reasoning">Reasoning effort</Label>
+              <Select value={reasoningEffort} onValueChange={(v) => setReasoningEffort(v as CreatePlanRequest['reasoning_effort'])}>
+                <SelectTrigger id="resume-reasoning" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="minimal">Minimal (fastest)</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium (balanced)</SelectItem>
+                  <SelectItem value="high">High (most thorough)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
