@@ -113,7 +113,7 @@ class ReviewAssumptions:
     markdown: str
 
     @classmethod
-    def execute(cls, llm: LLM, user_prompt: str) -> 'ReviewAssumptions':
+    def execute(cls, llm: LLM, user_prompt: str, reasoning_effort: str) -> 'ReviewAssumptions':
         """
         Invoke LLM with the project description and assumptions to be reviewed.
         """

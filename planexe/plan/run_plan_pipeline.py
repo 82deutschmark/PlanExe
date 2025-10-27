@@ -1349,7 +1349,8 @@ class SelectScenarioTask(PlanTask):
             select_scenario = SelectScenario.execute(
                 llm_executor=llm_executor,
                 project_context=query,
-                scenarios=scenarios_list
+                scenarios=scenarios_list,
+                reasoning_effort=self.reasoning_effort
             )
             duration_seconds = time.time() - start_time
             response_dict = select_scenario.to_dict()
