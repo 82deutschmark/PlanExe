@@ -25,6 +25,8 @@ import { PlanResponse } from '@/lib/api/fastapi-client';
 import { parseBackendDate } from '@/lib/utils/date';
 
 import { RecoveryConnectionState, StatusDisplay, StageSummary } from '../useRecoveryPlan';
+import { APITelemetryStrip } from './APITelemetryStrip';
+import { LiveTaskTicker } from './LiveTaskTicker';
 
 interface RecoveryHeaderProps {
   planId: string;
@@ -106,6 +108,46 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
   }, [planCreatedAt, completedTasks]);
   
   const estimatedRemainingMinutes = pipelineVelocity > 0 ? Math.round((totalTasks - completedTasks) / pipelineVelocity) : null;
+
+  // Mock telemetry data (in real implementation, this would come from API/WebSocket)
+  const apiMetrics = useMemo(() => ({
+    totalCalls: 12,
+    successfulCalls: 11,
+    failedCalls: 1,
+    currentModel: plan?.llm_model || 'gpt-4o-mini',
+    lastResponseTime: 1250,
+    averageResponseTime: 980,
+    providerStatus: connection.status === 'connected' ? 'connected' as const : 'error' as const,
+    recentResponseTimes: [1200, 950, 1100, 800, 1300, 900, 1050, 1150, 850, 1250],
+  }), [plan?.llm_model, connection.status]);
+
+  const currentTask = useMemo(() => {
+    if (activeStageKey && stageSummary.length > 0) {
+      const activeStage = stageSummary.find(s => s.key === activeStageKey);
+      return {
+        id: 'task-current',
+        name: `Processing ${activeStage?.label || 'Unknown Stage'}`,
+        stage: activeStage?.label || 'Unknown',
+        status: 'running' as const,
+        startTime: new Date(Date.now() - 30000), // Started 30 seconds ago
+        duration: 30,
+        estimatedDuration: 45,
+      };
+    }
+    return null;
+  }, [activeStageKey, stageSummary]);
+
+  const queuedTasks = useMemo(() => {
+    return stageSummary.slice(0, 3).map((stage, index) => ({
+      id: `task-queued-${index}`,
+      name: `Process ${stage.label}`,
+      stage: stage.label,
+      status: 'queued' as const,
+      startTime: null,
+      duration: null,
+      estimatedDuration: 60,
+    }));
+  }, [stageSummary]);
 
   // Stage tracker component
   const StageTracker = ({ stages, activeKey }: { stages: StageSummary[], activeKey: string | null }) => {
@@ -265,6 +307,20 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
             </CardContent>
           )}
         </Card>
+        
+        {/* Enhanced telemetry strips */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+          <APITelemetryStrip 
+            metrics={apiMetrics}
+            activeTimeoutCountdown={connection.status === 'connected' ? 30 : null}
+          />
+          <LiveTaskTicker 
+            currentTask={currentTask}
+            queuedTasks={queuedTasks}
+            workerStatus={connection.status === 'connected' ? 'active' : 'idle'}
+            subprocessPid={12345} // Mock PID
+          />
+        </div>
       </div>
     </>
   );

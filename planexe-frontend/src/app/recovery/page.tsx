@@ -189,6 +189,8 @@ const RecoveryPageContent: React.FC = () => {
         statusDisplay={plan.statusDisplay}
         connection={connection}
         lastWriteAt={lastWriteAt}
+        stageSummary={stageSummary}
+        activeStageKey={activeStageKey}
         onRefreshPlan={plan.refresh}
         onRelaunch={handleRelaunch}
       />
