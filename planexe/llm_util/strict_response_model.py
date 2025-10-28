@@ -14,9 +14,18 @@ from planexe.llm_util.simple_openai_llm import _enforce_openai_schema_requiremen
 
 
 class StrictResponseModel(BaseModel):
-    """Base class that forces `extra='forbid'` and enforces OpenAI schema rules."""
+    """Base class that enforces OpenAI schema rules while tolerating runtime extras."""
 
-    model_config = ConfigDict(extra="forbid")
+    # Allow unexpected keys so Responses API drift does not crash tasks.
+    # We strip extras after validation to keep persisted payloads deterministic.
+    model_config = ConfigDict(extra="allow")
+
+    def model_post_init(self, __context: Any) -> None:  # type: ignore[override]
+        """Drop any runtime extras after validation so downstream dumps stay stable."""
+        model_extra = getattr(self, "model_extra", None)
+        if model_extra:
+            object.__setattr__(self, "model_extra", {})
+        super().model_post_init(__context)
 
     @classmethod
     def model_json_schema(cls, *args: Any, **kwargs: Any) -> Dict[str, Any]:
