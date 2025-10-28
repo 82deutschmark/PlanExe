@@ -28,7 +28,7 @@ class ExpertOrchestrator:
         self.expert_criticism_list: list[ExpertCriticism] = []
         self.max_expert_count = 2
 
-    def execute(self, llm_executor: LLMExecutor, query: str) -> None:
+    async def execute(self, llm_executor: LLMExecutor, query: str) -> None:
         """
         Execute the expert orchestration process using LLMExecutor.
         """
@@ -92,9 +92,9 @@ class ExpertOrchestrator:
                 logger.info(f"Expert {expert_index + 1} criticism completed.")
             
             return self.expert_criticism_list
-        
+
         # Run the concurrent execution
-        self.expert_criticism_list = asyncio.run(get_expert_criticism_concurrently())
+        self.expert_criticism_list = await get_expert_criticism_concurrently()
 
         logger.info(f"Finished collecting criticism from {expert_list_truncated_count} experts.")
     
@@ -163,6 +163,6 @@ if __name__ == "__main__":
     orchestrator = ExpertOrchestrator()
     orchestrator.phase1_post_callback = phase1_post_callback
     orchestrator.phase2_post_callback = phase2_post_callback
-    orchestrator.execute(llm_executor, plan_prompt)
+    asyncio.run(orchestrator.execute(llm_executor, plan_prompt))
     print("\n\nMarkdown:")
     print(orchestrator.to_markdown())

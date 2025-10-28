@@ -3919,7 +3919,7 @@ class ExpertReviewTask(PlanTask):
             expert_orchestrator = ExpertOrchestrator()
             expert_orchestrator.phase1_post_callback = phase1_post_callback
             expert_orchestrator.phase2_post_callback = phase2_post_callback
-            expert_orchestrator.execute(llm_executor, query)
+            await expert_orchestrator.execute(llm_executor, query)
             duration_seconds = time.time() - start_time
             expert_markdown = expert_orchestrator.to_markdown()
             db_service.update_llm_interaction(interaction_id, {"status": "completed", "response_text": expert_markdown[:10000], "completed_at": datetime.utcnow(), "duration_seconds": duration_seconds})
