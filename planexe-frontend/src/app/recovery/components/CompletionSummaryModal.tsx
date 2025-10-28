@@ -94,7 +94,7 @@ export const CompletionSummaryModal: React.FC<CompletionSummaryModalProps> = ({
           </div>
         </DialogHeader>
 
-        <Tabs value={selectedTab} onValueChange={(v) => setSelectedTab(v as any)} className="flex-1 flex flex-col min-h-0">
+        <Tabs value={selectedTab} onValueChange={(v) => setSelectedTab(v as 'artefacts' | 'failures')} className="flex-1 flex flex-col min-h-0">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="artefacts" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
