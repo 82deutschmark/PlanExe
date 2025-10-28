@@ -6,6 +6,19 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.10.12] - 2025-10-28
+
+### Fixed
+- Added `DatabaseService.reset_plan_run_state` and invoked it from the pipeline
+  executor so reruns clear stale `plan_content`/`plan_file` records before Luigi
+  starts, preventing the UI from misreporting immediate completion when old
+  artefacts still exist.
+
+## [0.10.11] - 2025-10-28
+
+### Fixed
+- Restored the missing `BaseModel` import in `planexe/plan/project_plan.py` so the Luigi pipeline no longer crashes with a `NameError` during startup, allowing run status tracking to proceed normally.
+
 ## [0.10.10] - 2025-10-28
 
 ### Added

@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from math import ceil
 from typing import TypeVar, Any
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 from planexe.llm_util.strict_response_model import StrictResponseModel
 
 logger = logging.getLogger(__name__)

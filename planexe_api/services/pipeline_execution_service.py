@@ -134,6 +134,14 @@ class PipelineExecutionService:
             # Set up execution environment
             environment = self._setup_environment(plan_id, request, run_id_dir)
 
+            # Reset any persisted artefacts from previous attempts so progress tracking
+            # starts at zero and Luigi regenerates every output file.
+            try:
+                db_service.reset_plan_run_state(plan_id)
+                print(f"DEBUG: Cleared persisted artefacts for plan {plan_id} before rerun")
+            except Exception as exc:
+                print(f"WARNING: Failed to reset stored artefacts for plan {plan_id}: {exc}")
+
             # Safety check: verify database connectivity before spawning Luigi
             db_url = environment.get("DATABASE_URL")
             if not db_url or not self._verify_database_connectivity(db_url):
