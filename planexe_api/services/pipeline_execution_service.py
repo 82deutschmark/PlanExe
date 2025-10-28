@@ -461,10 +461,16 @@ class PipelineExecutionService:
         # CRITICAL: Always use list format, NEVER shell=True to avoid encoding crashes
         # PERFORMANCE: Enable multiple workers for parallel task execution
         # This allows independent tasks to run simultaneously, providing 3-5x speedup
+        # HYGIENE: Add worker hygiene flags to prevent stale scheduler locks and improve reliability
         command = [
             python_executable, "-m", MODULE_PATH_PIPELINE,
             "--workers", str(parsed_workers),
             "--worker-pool-threads", str(parsed_workers),
+            "--worker-id", f"plan-{plan_id}",  # Unique worker identifier
+            "--worker-timeout", "160",  # Worker timeout in seconds
+            "--scheduler-disable-remove-delay", "5",  # Remove delay for stalled workers
+            "--retry-count", "2",  # Number of retries for failed tasks
+            "--retry-delay", "3",  # Delay between retries in seconds
             "--scheduler-host", "localhost"  # Ensure proper scheduler communication
         ]
         use_shell = False

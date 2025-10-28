@@ -213,7 +213,15 @@ class PlanTask(luigi.Task):
         print(f"[PIPELINE] {self.__class__.__name__}.run() CALLED - Luigi worker IS running!")
 
         try:
-            self.run_inner()
+            # Check if run_inner is async and handle appropriately
+            import inspect
+            if inspect.iscoroutinefunction(self.run_inner):
+                # For async run_inner methods, we need to handle them specially
+                # since Luigi's run() method is sync but we want to support async tasks
+                import asyncio
+                asyncio.run(self._run_async_wrapper())
+            else:
+                self.run_inner()
         except PipelineStopRequested as e:
             logger.debug(f"{self.__class__.__name__} -> PipelineStopRequested raised: {e}")
             # This exception is raised by the should_stop_callback
@@ -229,7 +237,19 @@ class PlanTask(luigi.Task):
             print(f"[PIPELINE] {self.__class__.__name__}.run() FAILED: {e}")
             raise Exception(f"Failed to run {self.__class__.__name__} with any of the LLMs in the list: {self.llm_models!r} for run_id_dir: {self.run_id_dir!r}") from e
 
-    def run_inner(self):
+    async def _run_async_wrapper(self):
+        """
+        Wrapper method for handling async run_inner execution.
+        This method allows async tasks to be executed within Luigi's sync framework.
+        """
+        try:
+            await self.run_inner()
+        except PipelineStopRequested as e:
+            logger.debug(f"{self.__class__.__name__} -> PipelineStopRequested raised in async context: {e}")
+            # Re-raise to be handled by the main run() method
+            raise
+
+    async def run_inner(self):
         """
         Override this method or the run_with_llm() method.
         """
@@ -452,7 +472,7 @@ class PremiseAttackTask(PlanTask):
             'markdown': self.local_target(FilenameEnum.PREMISE_ATTACK_MARKDOWN)
         }
 
-    def run_inner(self):
+    async def run_inner(self):
         db_service = None
         plan_id = self.get_plan_id()
 
@@ -745,7 +765,7 @@ class PotentialLeversTask(PlanTask):
             'clean': self.local_target(FilenameEnum.POTENTIAL_LEVERS_CLEAN),
         }
 
-    def run_inner(self):
+    async def run_inner(self):
         db_service = None
         plan_id = self.get_plan_id()
 
@@ -853,7 +873,7 @@ class DeduplicateLeversTask(PlanTask):
             'raw': self.local_target(FilenameEnum.DEDUPLICATED_LEVERS_RAW)
         }
 
-    def run_inner(self):
+    async def run_inner(self):
         db_service = None
         plan_id = self.get_plan_id()
 
@@ -954,7 +974,7 @@ class EnrichLeversTask(PlanTask):
             'raw': self.local_target(FilenameEnum.ENRICHED_LEVERS_RAW)
         }
 
-    def run_inner(self):
+    async def run_inner(self):
         db_service = None
         plan_id = self.get_plan_id()
         try:
@@ -1056,7 +1076,7 @@ class FocusOnVitalFewLeversTask(PlanTask):
             'raw': self.local_target(FilenameEnum.VITAL_FEW_LEVERS_RAW)
         }
 
-    def run_inner(self):
+    async def run_inner(self):
         db_service = None
         plan_id = self.get_plan_id()
         try:
@@ -1212,7 +1232,7 @@ class CandidateScenariosTask(PlanTask):
             'clean': self.local_target(FilenameEnum.CANDIDATE_SCENARIOS_CLEAN)
         }
 
-    def run_inner(self):
+    async def run_inner(self):
         db_service = None
         plan_id = self.get_plan_id()
         try:
@@ -1308,7 +1328,7 @@ class SelectScenarioTask(PlanTask):
             'clean': self.local_target(FilenameEnum.SELECTED_SCENARIO_CLEAN)
         }
 
-    def run_inner(self):
+    async def run_inner(self):
         db_service = None
         plan_id = self.get_plan_id()
         try:
@@ -2423,7 +2443,7 @@ class ConsolidateAssumptionsMarkdownTask(PlanTask):
             'short': self.local_target(FilenameEnum.CONSOLIDATE_ASSUMPTIONS_SHORT_MARKDOWN)
         }
 
-    def run_inner(self):
+    async def run_inner(self):
         db_service = None
         plan_id = self.get_plan_id()
 
@@ -3223,7 +3243,7 @@ class ConsolidateGovernanceTask(PlanTask):
     def output(self):
         return self.local_target(FilenameEnum.CONSOLIDATE_GOVERNANCE_MARKDOWN)
 
-    def run_inner(self):
+    async def run_inner(self):
         db_service = None
         plan_id = self.get_plan_id()
         try:
@@ -3762,7 +3782,7 @@ class TeamMarkdownTask(PlanTask):
     def output(self):
         return self.local_target(FilenameEnum.TEAM_MARKDOWN)
 
-    def run_inner(self):
+    async def run_inner(self):
         db_service = None
         plan_id = self.get_plan_id()
         try:
@@ -3867,7 +3887,7 @@ class ExpertReviewTask(PlanTask):
     def output(self):
         return self.local_target(FilenameEnum.EXPERT_CRITICISM_MARKDOWN)
 
-    def run_inner(self):
+    async def run_inner(self):
         db_service = None
         plan_id = self.get_plan_id()
         try:
@@ -4322,7 +4342,7 @@ class DraftDocumentsToFindTask(PlanTask):
             'filter_documents_to_find': self.clone(FilterDocumentsToFindTask),
         }
     
-    def run_inner(self):
+    async def run_inner(self):
         db_service = None
         plan_id = self.get_plan_id()
         try:
@@ -4365,7 +4385,7 @@ class DraftDocumentsToFindTask(PlanTask):
                 # Execute all document drafting concurrently
                 results = await llm_executor.run_batch_async(execute_functions)
                 
-                # Process results and update database
+                # Process results and update database in deterministic order
                 for index, (draft_document, interaction_id) in enumerate(zip(results, interaction_ids)):
                     try:
                         json_response = draft_document.to_dict()
@@ -4385,8 +4405,8 @@ class DraftDocumentsToFindTask(PlanTask):
                 
                 return accumulated_documents
             
-            # Run the concurrent execution
-            accumulated_documents = asyncio.run(draft_documents_concurrently())
+            # Run the concurrent execution with await instead of asyncio.run()
+            accumulated_documents = await draft_documents_concurrently()
             consolidated_content = json.dumps(accumulated_documents, indent=2)
             db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.DRAFT_DOCUMENTS_TO_FIND_CONSOLIDATED.value, "stage": "draft_docs_find_consolidated", "content_type": "json", "content": consolidated_content, "content_size_bytes": len(consolidated_content.encode('utf-8'))})
             with self.output().open("w") as f:
@@ -4414,7 +4434,7 @@ class DraftDocumentsToCreateTask(PlanTask):
             'filter_documents_to_create': self.clone(FilterDocumentsToCreateTask),
         }
     
-    def run_inner(self):
+    async def run_inner(self):
         db_service = None
         plan_id = self.get_plan_id()
         try:
@@ -4457,7 +4477,7 @@ class DraftDocumentsToCreateTask(PlanTask):
                 # Execute all document drafting concurrently
                 results = await llm_executor.run_batch_async(execute_functions)
                 
-                # Process results and update database
+                # Process results and update database in deterministic order
                 for index, (draft_document, interaction_id) in enumerate(zip(results, interaction_ids)):
                     try:
                         json_response = draft_document.to_dict()
@@ -4477,8 +4497,8 @@ class DraftDocumentsToCreateTask(PlanTask):
                 
                 return accumulated_documents
             
-            # Run the concurrent execution
-            accumulated_documents = asyncio.run(draft_documents_concurrently())
+            # Run the concurrent execution with await instead of asyncio.run()
+            accumulated_documents = await draft_documents_concurrently()
             consolidated_content = json.dumps(accumulated_documents, indent=2)
             db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.DRAFT_DOCUMENTS_TO_CREATE_CONSOLIDATED.value, "stage": "draft_docs_create_consolidated", "content_type": "json", "content": consolidated_content, "content_size_bytes": len(consolidated_content.encode('utf-8'))})
             with self.output().open("w") as f:
@@ -4502,7 +4522,7 @@ class MarkdownWithDocumentsToCreateAndFindTask(PlanTask):
             'draft_documents_to_find': self.clone(DraftDocumentsToFindTask),
         }
     
-    def run_inner(self):
+    async def run_inner(self):
         db_service = None
         plan_id = self.get_plan_id()
         try:
@@ -4751,7 +4771,7 @@ class WBSProjectLevel1AndLevel2Task(PlanTask):
             'wbs_level2': self.clone(CreateWBSLevel2Task),
         }
     
-    def run_inner(self):
+    async def run_inner(self):
         db_service = None
         plan_id = self.get_plan_id()
         try:
@@ -4958,7 +4978,7 @@ class EstimateTaskDurationsTask(PlanTask):
             'wbs_project': self.clone(WBSProjectLevel1AndLevel2Task),
         }
     
-    def run_inner(self):
+    async def run_inner(self):
         db_service = None
         plan_id = self.get_plan_id()
         try:
@@ -5067,7 +5087,7 @@ class EstimateTaskDurationsTask(PlanTask):
                 return accumulated_task_duration_list
             
             # Run the concurrent execution
-            accumulated_task_duration_list = asyncio.run(estimate_durations_concurrently())
+            accumulated_task_duration_list = await estimate_durations_concurrently()
             aggregated_content = json.dumps(accumulated_task_duration_list, indent=2)
             aggregated_path = self.file_path(FilenameEnum.TASK_DURATIONS)
             db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.TASK_DURATIONS.value, "stage": "estimate_durations_aggregated", "content_type": "json", "content": aggregated_content, "content_size_bytes": len(aggregated_content.encode('utf-8'))})
@@ -5105,7 +5125,7 @@ class CreateWBSLevel3Task(PlanTask):
             'data_collection': self.clone(DataCollectionTask),
         }
     
-    def run_inner(self):
+    async def run_inner(self):
         db_service = None
         plan_id = self.get_plan_id()
         try:
@@ -5197,7 +5217,7 @@ class CreateWBSLevel3Task(PlanTask):
                 return wbs_level3_result_accumulated
             
             # Run the concurrent execution
-            wbs_level3_result_accumulated = asyncio.run(decompose_tasks_concurrently())
+            wbs_level3_result_accumulated = await decompose_tasks_concurrently()
             aggregated_content = json.dumps(wbs_level3_result_accumulated, indent=2)
             db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.WBS_LEVEL3.value, "stage": "wbs_level3_aggregated", "content_type": "json", "content": aggregated_content, "content_size_bytes": len(aggregated_content.encode('utf-8'))})
             aggregated_path = self.file_path(FilenameEnum.WBS_LEVEL3)
@@ -5230,7 +5250,7 @@ class WBSProjectLevel1AndLevel2AndLevel3Task(PlanTask):
             'wbs_level3': self.clone(CreateWBSLevel3Task),
         }
     
-    def run_inner(self):
+    async def run_inner(self):
         db_service = None
         plan_id = self.get_plan_id()
         try:
@@ -5272,7 +5292,7 @@ class CreateScheduleTask(PlanTask):
             'wbs_project123': self.clone(WBSProjectLevel1AndLevel2AndLevel3Task)
         }
     
-    def run_inner(self):
+    async def run_inner(self):
         db_service = None
         plan_id = self.get_plan_id()
         try:
@@ -5342,7 +5362,7 @@ class ReviewPlanTask(PlanTask):
             'wbs_project123': self.clone(WBSProjectLevel1AndLevel2AndLevel3Task)
         }
     
-    def run_inner(self):
+    async def run_inner(self):
         db_service = None
         plan_id = self.get_plan_id()
         try:
@@ -5691,7 +5711,7 @@ class PremortemTask(PlanTask):
             'questions_and_answers': self.clone(QuestionsAndAnswersTask)
         }
     
-    def run_inner(self):
+    async def run_inner(self):
         db_service = None
         plan_id = self.get_plan_id()
         try:
@@ -5800,7 +5820,7 @@ class ReportTask(PlanTask):
 
         return requirements
     
-    def run_inner(self):
+    async def run_inner(self):
         db_service = None
         plan_id = self.get_plan_id()
         try:
@@ -5979,7 +5999,7 @@ class FullPlanPipeline(PlanTask):
     def output(self):
         return self.local_target(FilenameEnum.PIPELINE_COMPLETE)
 
-    def run_inner(self):
+    async def run_inner(self):
         with self.output().open("w") as f:
             f.write("Full pipeline executed successfully.\n")
 

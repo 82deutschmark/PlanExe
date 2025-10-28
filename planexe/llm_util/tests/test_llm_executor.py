@@ -1,4 +1,5 @@
 import unittest
+import asyncio
 import tempfile
 import importlib.util
 from pathlib import Path
@@ -403,3 +404,160 @@ def bad_function(wrong_type: str) -> str:
             # Clean up the temporary file
             if tmp_path.exists():
                 tmp_path.unlink()
+
+    def test_run_batch_async_basic(self):
+        """Test basic async batch functionality with stub async functions"""
+        # Arrange
+        llm = ResponseMockLLM(responses=["Result 1", "Result 2", "Result 3"])
+        llm_model = LLMModelWithInstance(llm)
+        executor = LLMExecutor(llm_models=[llm_model])
+        
+        async def execute_function_1(llm: LLM) -> str:
+            return llm.complete("Query 1").text
+            
+        async def execute_function_2(llm: LLM) -> str:
+            return llm.complete("Query 2").text
+            
+        async def execute_function_3(llm: LLM) -> str:
+            return llm.complete("Query 3").text
+        
+        execute_functions = [execute_function_1, execute_function_2, execute_function_3]
+        
+        # Act
+        result = asyncio.run(executor.run_batch_async(execute_functions))
+        
+        # Assert
+        self.assertEqual(result, ["Result 1", "Result 2", "Result 3"])
+        
+    def test_run_batch_async_preserves_order(self):
+        """Test that async batch execution preserves deterministic order"""
+        # Arrange
+        llm = ResponseMockLLM(responses=["First", "Second", "Third"])
+        llm_model = LLMModelWithInstance(llm)
+        executor = LLMExecutor(llm_models=[llm_model])
+        
+        async def execute_first(llm: LLM) -> str:
+            return "First"
+            
+        async def execute_second(llm: LLM) -> str:
+            return "Second"
+            
+        async def execute_third(llm: LLM) -> str:
+            return "Third"
+        
+        execute_functions = [execute_third, execute_first, execute_second]  # Intentionally out of order
+        
+        # Act
+        result = asyncio.run(executor.run_batch_async(execute_functions))
+        
+        # Assert - Results should match input order, not sorted
+        self.assertEqual(result, ["Third", "First", "Second"])  # Corrected
+        
+    def test_run_batch_async_empty_list(self):
+        """Test that empty function list returns empty result"""
+        # Arrange
+        llm = ResponseMockLLM(responses=["test"])
+        llm_model = LLMModelWithInstance(llm)
+        executor = LLMExecutor(llm_models=[llm_model])
+        
+        # Act
+        result = asyncio.run(executor.run_batch_async([]))
+        
+        # Assert
+        self.assertEqual(result, [])
+        
+    def test_run_batch_async_with_exceptions(self):
+        """Test that exceptions in batch execution are properly handled"""
+        # Arrange
+        llm = ResponseMockLLM(responses=["Good", "raise:BAD", "Good"])
+        llm_model = LLMModelWithInstance(llm)
+        executor = LLMExecutor(llm_models=[llm_model])
+        
+        async def execute_good(llm: LLM) -> str:
+            return llm.complete("Good query").text
+            
+        async def execute_bad(llm: LLM) -> str:
+            return llm.complete("Bad query").text  # This will raise
+            
+        async def execute_good_2(llm: LLM) -> str:
+            return llm.complete("Good query 2").text
+        
+        execute_functions = [execute_good, execute_bad, execute_good_2]
+        
+        # Act & Assert
+        with self.assertRaises(Exception) as context:
+            asyncio.run(executor.run_batch_async(execute_functions))
+        
+        self.assertIn("BAD", str(context.exception))
+        
+    def test_run_batch_async_concurrency_limiting(self):
+        """Test that concurrency limiting works with environment variable"""
+        # Arrange
+        import os
+        old_limit = os.environ.get('PLANEXE_MAX_CONCURRENT_LLM')
+        os.environ['PLANEXE_MAX_CONCURRENT_LLM'] = '2'
+        
+        try:
+            llm = ResponseMockLLM(responses=["Result 1", "Result 2", "Result 3"])
+            llm_model = LLMModelWithInstance(llm)
+            executor = LLMExecutor(llm_models=[llm_model])
+            
+            # Create proper async functions with single LLM parameter
+            async def execute_function_0(llm: LLM) -> str:
+                await asyncio.sleep(0.01)
+                return llm.complete("Query 0").text
+                
+            async def execute_function_1(llm: LLM) -> str:
+                await asyncio.sleep(0.01)
+                return llm.complete("Query 1").text
+                
+            async def execute_function_2(llm: LLM) -> str:
+                await asyncio.sleep(0.01)
+                return llm.complete("Query 2").text
+            
+            execute_functions = [execute_function_0, execute_function_1, execute_function_2]
+            
+            # Act
+            result = asyncio.run(executor.run_batch_async(execute_functions))
+            
+            # Assert
+            self.assertEqual(len(result), 3)
+            self.assertTrue(all(r.startswith("Result") for r in result))
+            
+        finally:
+            # Clean up environment variable
+            if old_limit is not None:
+                os.environ['PLANEXE_MAX_CONCURRENT_LLM'] = old_limit
+            else:
+                os.environ.pop('PLANEXE_MAX_CONCURRENT_LLM', None)
+                
+    def test_validate_async_execute_function(self):
+        """Test that async execute functions are properly validated"""
+        # Arrange
+        llm = ResponseMockLLM(responses=["test"])
+        llm_model = LLMModelWithInstance(llm)
+        executor = LLMExecutor(llm_models=[llm_model])
+        
+        async def good_async_function(llm: LLM) -> str:
+            return llm.complete("test").text
+            
+        def bad_sync_function() -> str:  # Wrong signature
+            return "bad"
+            
+        async def bad_async_function_wrong_params(a: str, b: int) -> str:
+            return "bad"
+        
+        # Act & Assert - Good function should work
+        try:
+            result = asyncio.run(executor.run_batch_async([good_async_function]))
+            self.assertEqual(result, ["test"])
+        except Exception:
+            self.fail("Valid async function should not raise validation error")
+        
+        # Act & Assert - Bad sync function should fail
+        with self.assertRaises(TypeError):
+            asyncio.run(executor.run_batch_async([bad_sync_function]))
+            
+        # Act & Assert - Bad async function with wrong params should fail
+        with self.assertRaises(TypeError):
+            asyncio.run(executor.run_batch_async([bad_async_function_wrong_params]))

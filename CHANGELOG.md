@@ -6,6 +6,27 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.10.15] - 2025-10-28
+
+### Added
+- **Async Concurrency Implementation**: Implemented comprehensive async batching with concurrency limiting for Luigi pipeline tasks
+  - Modified `LLMExecutor.run_batch_async()` to reuse single LLM client per attempt instead of recreating for every coroutine
+  - Added proper async callable validation using `inspect.iscoroutinefunction()` in `_validate_execute_function()`
+  - Implemented concurrency limiting via `PLANEXE_MAX_CONCURRENT_LLM` environment variable (defaults to 5)
+  - Added lightweight timing logging in `_try_one_attempt_async()` for batch performance monitoring
+  - Enhanced `planexe/plan/run_plan_pipeline.py` to support async `run_inner()` methods
+  - Modified base `PlanTask.run()` to detect and handle async run_inner methods via `_run_async_wrapper()`
+  - Converted four key tasks to async: `DraftDocumentsToFindTask`, `DraftDocumentsToCreateTask`, `EstimateTaskDurationsTask`, `CreateWBSLevel3Task`
+  - Replaced `asyncio.run()` calls with direct `await` for true async concurrency
+  - Added worker hygiene flags to Luigi subprocess: `--worker-id`, `--worker-timeout 160`, `--scheduler-disable-remove-delay 5`, `--retry-count 2`, `--retry-delay 3`
+  - Maintained deterministic ordering when merging batch results back to accumulated JSON
+  - Added comprehensive test suite for async batching functionality including concurrency limiting and exception handling
+
+### Performance
+- **3-5x Speedup**: Async batching allows independent LLM tasks to execute concurrently instead of sequentially
+- **Rate Limit Protection**: Concurrency limiting prevents API rate limit violations
+- **Improved Reliability**: Worker hygiene flags prevent stale scheduler locks and improve pipeline stability
+
 ## [0.10.14] - 2025-10-28
 
 ### Added

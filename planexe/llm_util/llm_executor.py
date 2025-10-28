@@ -33,6 +33,7 @@ import logging
 import inspect
 import typing
 import asyncio
+import os
 from uuid import uuid4
 from typing import Any, Callable, Optional, List
 from dataclasses import dataclass
@@ -243,7 +244,7 @@ class LLMExecutor:
 
     async def run_batch_async(self, execute_functions: List[Callable[[Any], Any]]) -> List[Any]:
         """
-        Run multiple execute functions concurrently using asyncio.gather.
+        Run multiple execute functions concurrently using asyncio.gather with concurrency limiting.
         
         Args:
             execute_functions: List of callables that each accept an LLM instance.
@@ -259,8 +260,18 @@ class LLMExecutor:
         for func in execute_functions:
             self._validate_execute_function(func)
         
-        # Create tasks for concurrent execution
-        tasks = [self.run_async(func) for func in execute_functions]
+        # Get concurrency limit from environment variable
+        max_concurrent = int(os.environ.get('PLANEXE_MAX_CONCURRENT_LLM', '5'))
+        
+        # Create semaphore to limit concurrent executions
+        semaphore = asyncio.Semaphore(max_concurrent)
+        
+        async def run_with_semaphore(func):
+            async with semaphore:
+                return await self.run_async(func)
+        
+        # Create tasks with concurrency limiting
+        tasks = [run_with_semaphore(func) for func in execute_functions]
         
         # Execute all tasks concurrently and wait for completion
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -278,6 +289,7 @@ class LLMExecutor:
     def _validate_execute_function(self, execute_function: Callable[[Any], Any]) -> None:
         """
         Validate that the execute_function is callable with exactly one positional parameter.
+        Also check if it's an async coroutine function for proper handling.
         """
         if not callable(execute_function):
             raise TypeError("execute_function must be callable")
@@ -287,6 +299,11 @@ class LLMExecutor:
         params = list(sig.parameters.values())
         if len(params) != 1:
             raise TypeError("execute_function must accept exactly one argument")
+        
+        # Check if function is async for first-class citizen treatment
+        is_async = inspect.iscoroutinefunction(execute_function)
+        if not is_async:
+            logger.debug(f"execute_function {execute_function.__name__} is not async, will be wrapped")
 
     def _try_one_attempt(self, llm_model: LLMModelBase, execute_function: Callable[[Any], Any]) -> LLMAttempt:
         """
@@ -335,11 +352,13 @@ class LLMExecutor:
             A detailed result of the attempt.
         """
         attempt_start_time = time.perf_counter()
+        logger.info(f"Starting async attempt with LLM {llm_model!r}")
+        
         try:
             llm = llm_model.create_llm()
         except Exception as e:
             duration = time.perf_counter() - attempt_start_time
-            logger.error(f"Error creating LLM {llm_model!r}: {e!r}")
+            logger.error(f"Error creating LLM {llm_model!r} after {duration:.2f}s: {e!r}")
             return LLMAttempt(stage='create', llm_model=llm_model, success=False, duration=duration, exception=e)
 
         llm_executor_uuid = str(uuid4())

@@ -31,7 +31,7 @@ import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Optional
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
 from pydantic import Field, conlist, field_serializer, field_validator
@@ -47,6 +47,11 @@ class VitalLever(StrictResponseModel):
     name: str
     options: List[str]
     review: str
+    consequences: Optional[str] = None
+    description: Optional[str] = None
+    synergy_text: Optional[str] = None
+    conflict_text: Optional[str] = None
+    deduplication_justification: Optional[str] = None
 
 # Represents the lever selection for a scenario without relying on dynamic object maps.
 class LeverSetting(StrictResponseModel):
