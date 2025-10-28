@@ -6,6 +6,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.10.13] - 2025-10-28
+
+### Fixed
+- Added database session rollback in `PipelineExecutionService.execute_plan()` when `reset_plan_run_state` fails to prevent `PendingRollbackError` on subsequent database operations. The SQLAlchemy session is now properly cleaned up before continuing with plan execution.
+
 ## [0.10.12] - 2025-10-28
 
 ### Fixed

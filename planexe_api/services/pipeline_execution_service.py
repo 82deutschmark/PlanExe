@@ -141,6 +141,15 @@ class PipelineExecutionService:
                 print(f"DEBUG: Cleared persisted artefacts for plan {plan_id} before rerun")
             except Exception as exc:
                 print(f"WARNING: Failed to reset stored artefacts for plan {plan_id}: {exc}")
+                # CRITICAL FIX: Roll back the session to prevent PendingRollbackError
+                # on subsequent database operations (e.g., update_plan calls)
+                try:
+                    db_service.db.rollback()
+                    print(f"DEBUG: Rolled back database session for plan {plan_id}")
+                except Exception as rollback_exc:
+                    print(f"ERROR: Failed to rollback database session for plan {plan_id}: {rollback_exc}")
+                    # If rollback fails, we cannot proceed safely as subsequent DB operations will fail
+                    return
 
             # Safety check: verify database connectivity before spawning Luigi
             db_url = environment.get("DATABASE_URL")
