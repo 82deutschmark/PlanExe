@@ -6,7 +6,22 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.11.1] - 2025-10-28
+
+### Fixed
+- **SWOT identify purpose fallback**: Hardened `SWOTAnalysisTask` so malformed `identify_purpose` payloads no longer crash the pipeline. When parsing fails we now synthesize a safe default `PlanPurposeInfo`, log the degradation, and continue producing SWOT artifacts. @planexe/swot/swot_analysis.py#65-87
+
 ## [0.11.0] - 2025-10-28
+
+### Documentation
+- **Recovery UI Enhancement Plan**: Comprehensive implementation plan for pipeline visualization and completion UX
+  - Documented Luigi DAG structure and how to present all 61 tasks to users
+  - Detailed plan for interactive pipeline visualization showing current task, dependencies, and progress
+  - Designed completion modal to replace automatic navigation with celebration and summary
+  - Mapped LLM stream architecture from Luigi tasks → stdout → WebSocket → frontend
+  - Created 4-phase implementation roadmap with specific file references and time estimates
+  - No backend or database changes required - all solutions use existing WebSocket infrastructure
+  - See `docs/recovery-ui-enhancement-plan.md` for complete specification
 
 ### Fixed
 - **Progress Display Issue**: Fixed progress staying at 0% in RecoveryHeader component by using existing streaming data
@@ -18,6 +33,16 @@ This project follows [Semantic Versioning](https://semver.org/):
   - No backend or database changes required - solution uses only existing WebSocket streaming data
 
 ### Added
+- **Live Pipeline DAG Visualization**: Real-time visual display of all 61 Luigi tasks being assembled and completed
+  - Shows complete Luigi pipeline structure grouped by stage (Setup, Analysis, Strategic, WBS, Scheduling, Team, etc.)
+  - Real-time status for each task: pending (gray), running (blue pulse), completed (green check), failed (red X)
+  - Click any completed/failed task to view full stream details in modal
+  - Task cards show: task number (#1-61), name, description, and dependencies
+  - Stage groups highlight when active with spinning loader icon
+  - Auto-scrolls to active task, tracks progress (X/61 completed)
+  - Pure frontend visualization using existing LLM stream data - zero backend changes
+  - Integrated into left column of recovery page alongside stage timeline
+
 - **Current Activity Strip**: Ultra-dense real-time display showing what's running NOW with live timing
   - Shows current task name, elapsed time in seconds (updating 10x/second), token usage, and tokens/second rate
   - Live progress counter showing completed/total tasks with percentage

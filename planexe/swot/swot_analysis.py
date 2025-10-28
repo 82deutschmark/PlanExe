@@ -62,13 +62,29 @@ class SWOTAnalysis:
         else:
             logging.info("identify_purpose_dict provided, using it.")
 
-        # Parse the identify_purpose_dict
+        # Parse the identify_purpose_dict with defensive fallback
         logging.debug(f"IdentifyPurpose json {json.dumps(identify_purpose_dict, indent=2)}")
         try:
             purpose_info = PlanPurposeInfo(**identify_purpose_dict)
         except Exception as e:
             logging.error(f"Error parsing identify_purpose_dict: {e}")
-            raise ValueError("Error parsing identify_purpose_dict.") from e
+            # Defensive fallback: synthesize a valid PlanPurposeInfo from available fields
+            try:
+                fallback_topic = identify_purpose_dict.get('topic', 'Unknown')
+                fallback_purpose_detailed = identify_purpose_dict.get('purpose_detailed', 'general analysis')
+                fallback_purpose_raw = identify_purpose_dict.get('purpose', 'other')
+                # Ensure purpose is a valid PlanPurpose enum
+                if fallback_purpose_raw not in ['business', 'personal', 'other']:
+                    fallback_purpose_raw = 'other'
+                purpose_info = PlanPurposeInfo(
+                    topic=fallback_topic,
+                    purpose_detailed=fallback_purpose_detailed,
+                    purpose=PlanPurpose(fallback_purpose_raw)
+                )
+                logging.warning(f"Used fallback PlanPurposeInfo: {purpose_info}")
+            except Exception as fallback_error:
+                logging.error(f"Fallback parsing also failed: {fallback_error}")
+                raise ValueError("Error parsing identify_purpose_dict and fallback failed.") from e
 
         # Select the appropriate system prompt based on the purpose
         logging.info(f"SWOTAnalysis.execute: purpose: {purpose_info.purpose}")

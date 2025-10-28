@@ -25,6 +25,7 @@ import { LiveStreamPanel } from './components/LiveStreamPanel';
 import { StreamHistoryGrid } from './components/StreamHistoryGrid';
 import { CurrentActivityStrip } from './components/CurrentActivityStrip';
 import { PipelineInsights } from './components/PipelineInsights';
+import { LuigiPipelineView } from '@/components/monitoring/LuigiPipelineView';
 import { useRecoveryPlan } from './useRecoveryPlan';
 import { ResumeDialog } from './components/ResumeDialog';
 import type { MissingSectionResponse } from '@/lib/api/fastapi-client';
@@ -216,14 +217,10 @@ const RecoveryPageContent: React.FC = () => {
         />
         
         <PipelineLogsPanel planId={planId} className="h-fit" />
-        <div className="grid gap-2 lg:grid-cols-[320px_minmax(0,1fr)]">
+        <div className="grid gap-2 lg:grid-cols-[400px_minmax(0,1fr)]">
           <div className="flex flex-col gap-2">
-            <StageTimeline
-              stages={stageSummary}
-              isLoading={artefacts.loading && stageSummary.length === 0}
-              connection={connection}
-              activeStageKey={activeStageKey}
-            />
+            {/* Luigi Pipeline showing all 61 tasks via log parsing */}
+            <LuigiPipelineView planId={planId} />
           </div>
           <div className="flex flex-col gap-2">
             <LiveStreamPanel stream={llmStreams.active} />
