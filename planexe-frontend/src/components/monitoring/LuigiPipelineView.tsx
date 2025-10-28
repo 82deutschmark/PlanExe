@@ -43,7 +43,7 @@ export const LuigiPipelineView: React.FC<LuigiPipelineViewProps> = ({
 
   const wsClientRef = useRef<ReturnType<typeof fastApiClient.streamProgress> | null>(null);
 
-  const updateTaskStatus = useCallback((taskId: string, status: TaskStatus) => {
+  const updateTaskStatus = useCallback((taskId: string, status: TaskStatus, error?: string) => {
     setPhases(prevPhases => {
       return prevPhases.map(phase => {
         const updatedTasks = phase.tasks.map(task => {
@@ -61,7 +61,7 @@ export const LuigiPipelineView: React.FC<LuigiPipelineViewProps> = ({
                 }
               }, 100);
             }
-            return { ...task, status };
+            return { ...task, status, error };
           }
           return task;
         });
@@ -99,11 +99,29 @@ export const LuigiPipelineView: React.FC<LuigiPipelineViewProps> = ({
       }
     }
 
-    // Look for failed task patterns
+    // Look for failed task patterns and extract error message
     if (message.includes('FAILED') || message.includes('ERROR') || message.includes('Exception')) {
       const taskMatch = message.match(/(\w+Task)/);
       if (taskMatch) {
-        updateTaskStatus(taskMatch[1], 'failed');
+        // Extract error message - try multiple patterns
+        let errorMessage = message;
+
+        // Pattern 1: "ERROR: <message>" or "FAILED: <message>"
+        const errorPattern1 = message.match(/(?:ERROR|FAILED|Exception):\s*(.+)/i);
+        if (errorPattern1) {
+          errorMessage = errorPattern1[1].trim();
+        } else {
+          // Pattern 2: Everything after task name
+          const taskNameIndex = message.indexOf(taskMatch[1]);
+          if (taskNameIndex !== -1) {
+            const afterTaskName = message.substring(taskNameIndex + taskMatch[1].length).trim();
+            if (afterTaskName.length > 0) {
+              errorMessage = afterTaskName;
+            }
+          }
+        }
+
+        updateTaskStatus(taskMatch[1], 'failed', errorMessage);
       }
     }
   }, [updateTaskStatus]);
@@ -296,17 +314,27 @@ export const LuigiPipelineView: React.FC<LuigiPipelineViewProps> = ({
                           {statusIcons[task.status]}
                         </div>
 
-                        <span className={`flex-1 transition-all duration-200 ${
-                          task.status === 'completed'
-                            ? 'text-gray-500 line-through'
-                            : task.status === 'running'
-                            ? 'font-semibold text-blue-700'
-                            : task.status === 'failed'
-                            ? 'text-red-600 font-medium'
-                            : 'text-gray-700'
-                        }`}>
-                          {task.name}
-                        </span>
+                        <div className="flex-1 flex flex-col">
+                          <span className={`transition-all duration-200 ${
+                            task.status === 'completed'
+                              ? 'text-gray-500 line-through'
+                              : task.status === 'running'
+                              ? 'font-semibold text-blue-700'
+                              : task.status === 'failed'
+                              ? 'text-red-600 font-medium'
+                              : 'text-gray-700'
+                          }`}>
+                            {task.name}
+                          </span>
+
+                          {/* Show error message for failed tasks */}
+                          {task.status === 'failed' && task.error && (
+                            <div className="mt-1 ml-1 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-900">
+                              <div className="font-semibold mb-0.5">Error:</div>
+                              <div className="whitespace-pre-wrap break-words">{task.error}</div>
+                            </div>
+                          )}
+                        </div>
 
                         <TooltipProvider>
                           <Tooltip>

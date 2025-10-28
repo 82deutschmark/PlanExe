@@ -6,6 +6,40 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.14.0] - 2025-10-28
+
+### Changed
+- **StreamHistoryGrid Visual Redesign**: Made completed tasks the visual star of the recovery page
+  - Vibrant gradient backgrounds (emerald for success, rose for failures, amber for other)
+  - Larger grid cards with increased padding (3px instead of 2px) and larger fonts
+  - Prominent 2px colored borders (emerald/rose/amber-400) with enhanced hover effects
+  - Hover animations: scale-105 transform, colored shadows, saturated borders
+  - Added "Click for details" hint with mouse pointer icon in header
+  - Indigo gradient header background with larger, bolder title
+  - Improved spacing with gap-3 grid layout and rounded-lg cards
+  - Bolder fonts (font-bold, font-semibold) and larger icons (h-4 w-4 instead of h-3 w-3)
+  - Error messages now display in rose-800 text with rose-200 background pill
+  - File: `planexe-frontend/src/app/recovery/components/StreamHistoryGrid.tsx`
+
+- **LiveStreamPanel Minimization**: Reduced visual prominence to avoid distracting from completed tasks
+  - Replaced dark slate-900 background with clean white/gray design
+  - Removed amber borders; now uses subtle gray-300 border
+  - Reduced all font sizes (title: text-xs, content: text-[10px])
+  - Compact 2-column grid with max-h-24 scroll areas (reduced from max-h-40)
+  - Removed verbose usage metadata section that consumed vertical space
+  - Renamed from "Live LLM Stream" to simpler "Current Task Stream"
+  - Subtle idle state with gray tones instead of prominent amber alert box
+  - Overall height reduced by ~40% through tighter spacing
+  - File: `planexe-frontend/src/app/recovery/components/LiveStreamPanel.tsx`
+
+### Added
+- **Reasoning Effort Badge**: Displays LLM reasoning effort level in the mega info strip
+  - Shows as purple badge with values: MINIMAL/LOW/MEDIUM/HIGH
+  - Retrieved from `plan.data.reasoning_effort` field
+  - Located between total tokens and plan status in CurrentActivityStrip
+  - Helps users understand the reasoning depth being used for their plan
+  - File: `planexe-frontend/src/app/recovery/components/CurrentActivityStrip.tsx` lines 171-178
+
 ## [0.13.1] - 2025-10-28
 
 ### Fixed

@@ -29,6 +29,7 @@ export interface TaskState {
   id: string; // The technical task name, e.g., 'IdentifyPurposeTask'
   name: string; // The user-friendly name, e.g., 'Identifying Plan Purpose'
   status: TaskStatus;
+  error?: string; // Error message if task failed
 }
 
 // Represents a logical grouping of tasks
