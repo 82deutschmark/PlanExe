@@ -11,7 +11,7 @@ from math import ceil
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from planexe.plan.pipeline_environment import PipelineEnvironment
 from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
@@ -32,7 +32,7 @@ class QuestionAnswerPair(BaseModel):
         description="Explain why this particular question answer pair is suggested."
     )
     
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 class DocumentDetails(BaseModel):
     question_answer_pairs: list[QuestionAnswerPair] = Field(
@@ -42,7 +42,7 @@ class DocumentDetails(BaseModel):
         description="Providing a high level context."
     )
     
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 QUESTION_ANSWER_SYSTEM_PROMPT = """
 You are a world-class expert in analyzing project documentation and generating insightful Questions and Answers (Q&A) for a reader who needs clarification on key aspects of the project as presented in the document. Your goal is to analyze the user's provided project description (the plan document itself), identify key concepts, terms, strategies, risks, ethical considerations, and controversial aspects, and generate a JSON response that strictly follows the `DocumentDetails` and `QuestionAnswerPair` models provided below.

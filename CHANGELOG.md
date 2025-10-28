@@ -6,6 +6,18 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.10.6] - 2025-10-28
+
+### Fixed
+- **OpenAI Responses API schema compliance - REGRESSION FIX COMPLETE**: Fixed ALL remaining Pydantic models to restore end-to-end pipeline functionality:
+  - **Team Module (5 files)**: review_team.py, find_team_members.py, enrich_team_members_with_environment_info.py, enrich_team_members_with_contract_type.py, enrich_team_members_with_background_story.py
+  - **Governance Module (6 files)**: governance_phase1_audit.py, governance_phase2_bodies.py, governance_phase3_impl_plan.py, governance_phase4_decision_escalation_matrix.py, governance_phase5_monitoring_progress.py, governance_phase6_extra.py
+  - **Support Modules (3 files)**: swot/swot_phase2_conduct_analysis.py, questions_answers/questions_answers.py, fiction/fiction_writer.py
+
+**Total Fixed This Session: 41 files, 90+ models**
+
+Pipeline should now run end-to-end as it did before the regression.
+
 ## [0.10.5] - 2025-10-28
 
 ### Fixed

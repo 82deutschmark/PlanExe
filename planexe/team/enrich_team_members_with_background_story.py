@@ -13,7 +13,7 @@ import logging
 from math import ceil
 from dataclasses import dataclass
 from typing import Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
 from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
@@ -32,14 +32,14 @@ class TeamMember(BaseModel):
         description="Describe some typical activities in the job."
     )
     
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 class TeamDetails(BaseModel):
     team_members: list[TeamMember] = Field(
         description="The experts with domain knowledge about the problem."
     )
     
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 ENRICH_TEAM_MEMBERS_SYSTEM_PROMPT = """
 For each team member provided, enrich them with a fictional background story and typical job activities.

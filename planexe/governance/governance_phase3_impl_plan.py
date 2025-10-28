@@ -12,7 +12,7 @@ import time
 import logging
 from math import ceil
 from dataclasses import dataclass
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
 
@@ -30,7 +30,7 @@ class DocumentDetails(BaseModel):
     governance_implementation_plan: list[ImplementationStep] = Field(
         description="Actionable steps required to establish and operationalize the described governance framework."
     )
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 GOVERNANCE_PHASE3_IMPL_PLAN_SYSTEM_PROMPT = """
 You are an expert in project management and governance implementation. Your task is to create a practical, detailed, step-by-step implementation plan for establishing the project governance structure that has already been defined. **Think critically about the logical workflow and WHO is responsible at each stage of forming a new governance body.**

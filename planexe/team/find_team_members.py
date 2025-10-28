@@ -14,7 +14,7 @@ from math import ceil
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 
@@ -34,14 +34,14 @@ class TeamMember(BaseModel):
         description="Consequences of not having this role."
     )
     
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 class DocumentDetails(BaseModel):
     brainstorm_of_needed_team_members: list[TeamMember] = Field(
         description="What experts may be needed with domain knowledge about the problem."
     )
     
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 FIND_TEAM_MEMBERS_SYSTEM_PROMPT = """
 You are a versatile project planning assistant and team architect. Your goal is to analyze the user's project description and decompose it into a comprehensive plan with a focus on human roles and resource allocation—**do not generate any code or technical implementation details.**

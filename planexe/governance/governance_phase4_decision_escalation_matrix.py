@@ -15,7 +15,7 @@ import time
 import logging
 from math import ceil
 from dataclasses import dataclass
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
 
@@ -25,7 +25,7 @@ class DecisionEscalationItem(BaseModel):
     issue_type: str = Field(
         description="Type of issue (e.g., budget overruns, ethical concerns, strategic pivot)."
     )
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     escalation_level: str = Field(
         description="Indicates the governance body or role to which the issue is escalated (e.g., Steering Committee)."
     )

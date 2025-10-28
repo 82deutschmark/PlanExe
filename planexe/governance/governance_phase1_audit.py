@@ -12,7 +12,7 @@ import time
 import logging
 from math import ceil
 from dataclasses import dataclass
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
 
@@ -22,7 +22,7 @@ class DocumentDetails(BaseModel):
     corruption_list: list[str] = Field(
         description="Corruption risks in this project: bribery, nepotism, etc."
     )
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     misallocation_list: list[str] = Field(
         description="Ways resources can be misallocated: budget misuse, double spending, etc."
     )

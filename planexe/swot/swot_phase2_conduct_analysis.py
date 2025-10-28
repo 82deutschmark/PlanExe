@@ -13,7 +13,7 @@ import logging
 from math import ceil
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 
@@ -43,7 +43,7 @@ class SWOTAnalysis(BaseModel):
         description="Five crucial, thought-provoking questions to guide the user in identifying and evaluating strengths, weaknesses, opportunities, and threats."
     )
     
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 CONDUCT_SWOT_ANALYSIS_BUSINESS_SYSTEM_PROMPT = """
 You are a universal strategic consultant with expertise in project management, business analysis, and innovation across various industries.

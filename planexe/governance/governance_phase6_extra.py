@@ -8,7 +8,7 @@ import time
 import logging
 from math import ceil
 from dataclasses import dataclass
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
 
@@ -18,7 +18,7 @@ class DocumentDetails(BaseModel):
     governance_validation_checks: list[str] = Field(
         description="A rigorous check of the generated governance components for completeness, consistency, and potential gaps based on the inputs and standard practices."
     )
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     tough_questions: list[str] = Field(
         description="Representative questions leadership should regularly ask (e.g., 'Are we on budget?')."
     )

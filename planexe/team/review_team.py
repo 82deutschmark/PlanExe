@@ -17,7 +17,7 @@ from math import ceil
 from dataclasses import dataclass
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
 from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole, StructuredLLMResponse
@@ -36,7 +36,7 @@ class ReviewItem(BaseModel):
         description="Specific suggestions on how to address the issue."
     )
     
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 class DocumentDetails(BaseModel):
     omissions: list[ReviewItem] = Field(
@@ -46,7 +46,7 @@ class DocumentDetails(BaseModel):
         description="Suggestions and recommendations."
     )
     
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 REVIEW_TEAM_SYSTEM_PROMPT = """
 You are an expert in designing and evaluating team structures for projects of all scales—from personal or trivial endeavors to large, complex initiatives. Your task is to review a team document that includes a project plan, detailed team roles, and sections on omissions and potential improvements.

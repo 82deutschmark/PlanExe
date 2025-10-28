@@ -15,7 +15,7 @@ from math import ceil
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
 from planexe.llm_factory import get_llm
@@ -47,14 +47,14 @@ class TeamMember(BaseModel):
         description="Brief explanation for why that contract type was chosen. Helps justify decisions and allows for easy review."
     )
     
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 class DocumentDetails(BaseModel):
     team_members: list[TeamMember] = Field(
         description="The experts with domain knowledge about the problem."
     )
     
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 ENRICH_TEAM_MEMBERS_CONTRACT_TYPE_SYSTEM_PROMPT = """
 You are an expert at determining what contract type are needed for different job roles given a project description.
