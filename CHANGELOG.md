@@ -6,6 +6,24 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.10.9] - 2025-10-28
+
+### Documentation
+- **🔴 CRITICAL ARCHITECTURAL INSIGHT**: Discovered that 90+ manual Pydantic model fixes (v0.10.1-0.10.8) were UNNECESSARY
+  - **Root Cause**: `_enforce_openai_schema_requirements()` in `simple_openai_llm.py` line 50-139 ALREADY automatically adds `additionalProperties: false` to all schemas before sending to OpenAI
+  - **What Happened**: Developer didn't realize automatic enforcement existed, manually added `json_schema_extra={"additionalProperties": False}` to 90+ models across 41 files
+  - **Schema/Runtime Contradiction**: v0.9.14 added `extra='allow'` (permissive runtime) to fix validation errors, then v0.10.x added `extra='forbid'` + `json_schema_extra` (strict schema) creating contradictory validation rules
+  - **The Circular Loop**:
+    1. LLM returns extra fields → ValidationError
+    2. Fix: `extra='allow'` (accept everything)
+    3. OpenAI rejects schema → HTTP 400 invalid_json_schema  
+    4. Fix: `extra='forbid'` + `json_schema_extra` (reject everything)
+    5. LLM returns extra fields → ValidationError (back to step 1)
+  - **Evidence**: Created `test_schema_enforcement.py` proving automatic enforcement works WITHOUT any manual `json_schema_extra`
+  - **Architectural Fix Needed**: Choose ONE policy (strict vs permissive), apply consistently, remove redundant manual configurations
+  - **Documentation**: Created comprehensive analysis at `docs/SCHEMA-CONTRADICTION-ANALYSIS.md` with timeline, evidence, and recommendations
+  - **Impact**: 15+ files still have inconsistent `extra='allow'` from v0.9.14, creating schema/runtime mismatches
+
 ## [0.10.8] - 2025-10-28
 
 ### Fixed
