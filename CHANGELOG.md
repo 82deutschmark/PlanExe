@@ -6,6 +6,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.10.16] - 2025-10-28
+
+### Fixed
+- Ensured `_enforce_openai_schema_requirements()` always lists every object property in `required`, preventing the OpenAI Responses API from rejecting the `CurrencyStrategy.DocumentDetails` schema when `primary_currency` was omitted during enforcement. @planexe/llm_util/simple_openai_llm.py#105-137
+
 ## [0.10.15] - 2025-10-28
 
 ### Added
