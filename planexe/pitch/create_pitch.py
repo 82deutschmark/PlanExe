@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.pitch.create_pitch consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 """
 Create a pitch for this project.
 
@@ -8,15 +13,15 @@ import json
 import time
 from math import ceil
 from dataclasses import dataclass
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 from llama_index.core.llms.llm import LLM
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
 
-class ProjectPitch(BaseModel):
+class ProjectPitch(StrictResponseModel):
     pitch: str = Field(
         description="A compelling pitch for this project."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     why_this_pitch_works: str = Field(
         description="Explanation why this pitch works."
     )

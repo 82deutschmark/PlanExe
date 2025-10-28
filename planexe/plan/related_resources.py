@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.plan.related_resources consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 # Author: Cascade
 # Date: 2025-10-25T17:45:00Z
 # PURPOSE: Recommend related resources using SimpleOpenAILLM structured outputs, removing legacy llama_index dependencies.
@@ -14,15 +19,15 @@ from math import ceil
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 
 logger = logging.getLogger(__name__)
 
-class SuggestionItem(BaseModel):
+class SuggestionItem(StrictResponseModel):
     item_index: int = Field(
         description="Enumeration, starting from 1."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     project_name: str = Field(
         description="The name of the project."
     )
@@ -45,14 +50,13 @@ class SuggestionItem(BaseModel):
         description="Explain why this particular project is suggested."
     )
 
-class DocumentDetails(BaseModel):
+class DocumentDetails(StrictResponseModel):
     suggestion_list: list[SuggestionItem] = Field(
         description="List of suggestions."
     )
     summary: str = Field(
         description="Providing a high level context."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 RELATED_RESOURCES_SYSTEM_PROMPT = """
 You are an expert project analyst tasked with recommending highly relevant past or existing projects as references for a user's described project.

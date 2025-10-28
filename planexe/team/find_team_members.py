@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.team.find_team_members consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 # Author: Cascade
 # Date: 2025-10-25T18:05:00Z
 # PURPOSE: Generate team member suggestions using SimpleOpenAILLM structured outputs, decoupling from llama_index message classes.
@@ -14,13 +19,14 @@ from math import ceil
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 
 from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 
 logger = logging.getLogger(__name__)
 
-class TeamMember(BaseModel):
+class TeamMember(StrictResponseModel):
     job_category_title: str = Field(
         description="Human readable title"
     )
@@ -33,15 +39,11 @@ class TeamMember(BaseModel):
     consequences_of_not_having_this_role: str = Field(
         description="Consequences of not having this role."
     )
-    
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
-class DocumentDetails(BaseModel):
+class DocumentDetails(StrictResponseModel):
     brainstorm_of_needed_team_members: list[TeamMember] = Field(
         description="What experts may be needed with domain knowledge about the problem."
     )
-    
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 FIND_TEAM_MEMBERS_SYSTEM_PROMPT = """
 You are a versatile project planning assistant and team architect. Your goal is to analyze the user's project description and decompose it into a comprehensive plan with a focus on human roles and resource allocation—**do not generate any code or technical implementation details.**

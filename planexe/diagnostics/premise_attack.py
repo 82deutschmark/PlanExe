@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.diagnostics.premise_attack consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 """
 Premise Attack (ensemble) — kill bad ideas early.
 
@@ -30,19 +35,19 @@ from math import ceil
 from dataclasses import dataclass
 from typing import List, Any
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 from planexe.llm_util.llm_executor import LLMExecutor, PipelineStopRequested
 
 logger = logging.getLogger(__name__)
 
-class DocumentDetails(BaseModel):
+class DocumentDetails(StrictResponseModel):
     core_thesis: str = Field(..., description="Summary of the fundamental, unfixable flaw in the prompt's premise.")
     reasons: List[str] = Field(..., description="Reasons to reject, 3-5 items.")
     second_order_effects: List[str] = Field(..., description="Second-Order Effects, 3-5 items.")
     evidence: List[str] = Field(..., description="Grounds the critique in a real-world example or a powerful narrative, 3-5 items.")
     bottom_line: str = Field(..., description="Final Judgment, 1-2 sentences.")
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 # The Master Storyteller. Telling a compelling story of how the initial flawed premise will inevitably lead to ruin. The Gimmicky Critic. invent clever-sounding jargon. Arrogant.
 # It coins memorable, surgical labels. The labels are memorable for their absurdity, not their insight.
@@ -168,7 +173,7 @@ Non‑negotiables
 - **Drama with discipline.** Brutal, surgical voice. Two metaphors max. No buzzwords. Be specific to the prompt’s facts. No hedging.
 
 Output format — JSON **only**, matching exactly this Pydantic model (no extra keys, no commentary):
-class DocumentDetails(BaseModel):
+class DocumentDetails(StrictResponseModel):
     core_thesis: str = Field(..., description="Summary of the fundamental, unfixable flaw in the prompt's premise.")
     reasons: List[str] = Field(..., description="Reasons to reject, 3-5 items.")
     second_order_effects: List[str] = Field(..., description="Second-Order Effects, 3-5 items.")
@@ -211,7 +216,7 @@ Non‑negotiables
 - **Amnesia protocol.** Treat each prompt as a clean room. Coin **one** short, punchy **Named Flaw** (Title Case) bespoke to THIS prompt in `core_thesis`; do not reuse across answers.
 
 Output format — JSON **only**, matching exactly this Pydantic model (no extra keys, no commentary):
-class DocumentDetails(BaseModel):
+class DocumentDetails(StrictResponseModel):
     core_thesis: str = Field(..., description="Summary of the fundamental, unfixable flaw in the prompt's premise.")
     reasons: List[str] = Field(..., description="Reasons to reject, 4 items.")
     second_order_effects: List[str] = Field(..., description="Second-Order Effects, 4 items.")

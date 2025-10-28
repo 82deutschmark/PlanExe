@@ -15,7 +15,8 @@ from enum import Enum
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 
 from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 
@@ -27,11 +28,10 @@ class PlanType(str, Enum):
     # A plan that requires a physical location.
     physical = 'physical'
 
-class DocumentDetails(BaseModel):
+class DocumentDetails(StrictResponseModel):
     explanation: str = Field(
         description="Providing a high level context."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     plan_type: PlanType = Field(
         description="Classify the type of plan."
     )

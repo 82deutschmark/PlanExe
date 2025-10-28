@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.assume.identify_risks consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 """
 Identify risks in the project plan.
 
@@ -13,7 +18,8 @@ import logging
 from math import ceil
 from enum import Enum
 from dataclasses import dataclass
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
 
@@ -23,13 +29,11 @@ class LowMediumHigh(str, Enum):
     low = 'low'
     medium = 'medium'
     high = 'high'
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
-class RiskItem(BaseModel):
+class RiskItem(StrictResponseModel):
     risk_area: str = Field(
         description="The category or domain of the risk, e.g., Regulatory, Financial, Technical."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     risk_description: str = Field(
         description="A detailed explanation outlining the specific nature of the risk."
     )
@@ -46,14 +50,13 @@ class RiskItem(BaseModel):
         description="Recommended mitigation strategies or steps to reduce the likelihood or impact of the risk."
     )
 
-class DocumentDetails(BaseModel):
+class DocumentDetails(StrictResponseModel):
     risks: list[RiskItem] = Field(
         description="A list of identified project risks."
     )
     risk_assessment_summary: str = Field(
         description="Providing a high level context."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 IDENTIFY_RISKS_SYSTEM_PROMPT = """
 You are a world-class planning expert with extensive experience in risk management for a wide range of projects, from small personal tasks to large-scale business ventures. Your objective is to identify potential risks that could jeopardize the success of a project based on its description. When analyzing the project plan, please consider and include the following aspects:

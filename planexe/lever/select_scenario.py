@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.lever.select_scenario consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 # Author: Cascade
 # Date: 2025-10-28
 # PURPOSE: Select and justify the best strategic scenario with strict-schema compatibility for OpenAI Responses API.
@@ -23,15 +28,15 @@ from pathlib import Path
 from typing import Any, Dict, List
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 from planexe.llm_util.llm_executor import LLMExecutor, PipelineStopRequested
 from planexe.lever.lever_setting_utils import lever_settings_to_mapping
 
 logger = logging.getLogger(__name__)
 
-class PlanCharacteristics(BaseModel):
+class PlanCharacteristics(StrictResponseModel):
     """A structured analysis of the input plan's core nature."""
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     ambition_and_scale: str = Field(
         description="Analysis of the plan's level of ambition and its scale (e.g., personal, local, global, revolutionary)."
     )
@@ -48,7 +53,7 @@ class PlanCharacteristics(BaseModel):
         description="A concise, holistic summary synthesizing the above characteristics into a single profile of the plan's strategic intent."
     )
 
-class ScenarioFitAssessment(BaseModel):
+class ScenarioFitAssessment(StrictResponseModel):
     """An assessment of how well a single scenario fits the plan."""
     scenario_name: str = Field(description="The name of the scenario being assessed.")
     fit_score: int = Field(
@@ -57,24 +62,21 @@ class ScenarioFitAssessment(BaseModel):
     fit_assessment: str = Field(
         description="A brief (1-2 sentences) rationale for the assigned fit score."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
-class FinalChoice(BaseModel):
+class FinalChoice(StrictResponseModel):
     """The final selection and justification."""
     chosen_scenario_name: str = Field(description="The name of the single best-fit scenario.")
     justification: str = Field(
         description="A comprehensive justification (100-150 words) for the chosen scenario. This text MUST explain *why* it's the best fit by explicitly referencing the plan's characteristics (ambition, risk, etc.) and why the other scenarios are less suitable. Use markdown bullet points for clarity."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
-class ScenarioSelectionResult(BaseModel):
+class ScenarioSelectionResult(StrictResponseModel):
     """The root model for the entire analysis output."""
     plan_characteristics: PlanCharacteristics
     scenario_assessments: List[ScenarioFitAssessment] = Field(
         description="An assessment for every single scenario provided."
     )
     final_choice: FinalChoice
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 SELECT_SCENARIO_SYSTEM_PROMPT = """
 You are a master Strategic Analyst AI. Your task is to perform a final strategic recommendation by analyzing a project plan and selecting the most fitting scenario from a predefined set. You must provide a clear, evidence-based justification for your choice.
