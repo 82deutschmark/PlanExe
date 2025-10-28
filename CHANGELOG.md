@@ -40,6 +40,19 @@ This project follows [Semantic Versioning](https://semver.org/):
   - Helps users understand the reasoning depth being used for their plan
   - File: `planexe-frontend/src/app/recovery/components/CurrentActivityStrip.tsx` lines 171-178
 
+- **Luigi Pipeline Error Messages**: Failed tasks now show actual error messages inline
+  - Extended `TaskState` interface to include optional `error?: string` field
+  - Enhanced log parsing to extract error messages from WebSocket events
+  - Parses multiple error patterns: "ERROR: <msg>", "FAILED: <msg>", "Exception: <msg>"
+  - Falls back to extracting message content after task name if no pattern matches
+  - Displays errors inline below failed tasks with red background and border
+  - Consistent with LivePipelineDAG error display pattern
+  - Users can now see WHAT went wrong in Luigi tasks without checking logs
+  - Files modified:
+    - `planexe-frontend/src/lib/types/pipeline.ts` line 32 (added error field)
+    - `planexe-frontend/src/components/monitoring/LuigiPipelineView.tsx` lines 46, 102-127 (extraction)
+    - `planexe-frontend/src/components/monitoring/LuigiPipelineView.tsx` lines 330-337 (display)
+
 ## [0.13.1] - 2025-10-28
 
 ### Fixed
