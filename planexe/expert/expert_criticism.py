@@ -17,6 +17,9 @@ from pydantic import BaseModel, Field
 from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 
 class NegativeFeedbackItem(BaseModel):
+    """Individual feedback item with lenient field handling."""
+    model_config = {"extra": "ignore"}  # Ignore extra fields from creative LLMs
+
     feedback_index: int = Field(description="Incrementing index, such as 1, 2, 3, 4, 5.")
     feedback_title: str = Field(description="Constructive criticism. What is the problem?")
     feedback_verbose: str = Field(description="Elaborate on the criticism. Provide more context and details.")
@@ -27,9 +30,11 @@ class NegativeFeedbackItem(BaseModel):
 
 class ExpertConsultation(BaseModel):
     """
-    model_config = {'extra': 'allow'}
-    Status after todays meeting with the client.
+    Expert consultation response schema with lenient field handling.
+    Accepts extra fields from LLMs to prevent schema validation failures.
     """
+    model_config = {"extra": "ignore"}  # Ignore extra fields, don't fail on them
+
     negative_feedback_list: list[NegativeFeedbackItem] = Field(description="Your negative feedback.")
     user_primary_actions: list[str] = Field(description="List of actionable steps the user MUST take.")
     user_secondary_actions: list[str] = Field(description="List of actionable steps the user should take.")
@@ -142,17 +147,36 @@ class ExpertCriticism:
         metadata["llm_classname"] = getattr(llm, "class_name", lambda: llm.__class__.__name__)()
         metadata["duration"] = duration
 
-        # Cleanup the json response from the LLM model.
+        # Cleanup the json response from the LLM model - be lenient with missing fields
         result_feedback_list = []
-        for item in json_response['negative_feedback_list']:
-            d = {
-                'title': item.get('feedback_title', ''),
-                'verbose': item.get('feedback_verbose', ''),
-                'tags': item.get('feedback_problem_tags', []),
-                'mitigation': item.get('feedback_mitigation', ''),
-                'consequence': item.get('feedback_consequence', ''),
-                'root_cause': item.get('feedback_root_cause', ''),
-            }
+        negative_feedback = json_response.get('negative_feedback_list', [])
+
+        # Handle case where negative_feedback_list might be missing or None
+        if negative_feedback is None:
+            negative_feedback = []
+
+        for item in negative_feedback:
+            # Be lenient - accept dict or object, handle missing fields gracefully
+            if hasattr(item, 'get'):
+                # It's already a dict
+                d = {
+                    'title': item.get('feedback_title', ''),
+                    'verbose': item.get('feedback_verbose', ''),
+                    'tags': item.get('feedback_problem_tags', []),
+                    'mitigation': item.get('feedback_mitigation', ''),
+                    'consequence': item.get('feedback_consequence', ''),
+                    'root_cause': item.get('feedback_root_cause', ''),
+                }
+            else:
+                # It's an object, use getattr
+                d = {
+                    'title': getattr(item, 'feedback_title', ''),
+                    'verbose': getattr(item, 'feedback_verbose', ''),
+                    'tags': getattr(item, 'feedback_problem_tags', []),
+                    'mitigation': getattr(item, 'feedback_mitigation', ''),
+                    'consequence': getattr(item, 'feedback_consequence', ''),
+                    'root_cause': getattr(item, 'feedback_root_cause', ''),
+                }
             result_feedback_list.append(d)
 
         result = ExpertCriticism(
@@ -205,17 +229,36 @@ class ExpertCriticism:
         metadata["llm_classname"] = getattr(llm, "class_name", lambda: llm.__class__.__name__)()
         metadata["duration"] = duration
 
-        # Cleanup the json response from the LLM model.
+        # Cleanup the json response from the LLM model - be lenient with missing fields
         result_feedback_list = []
-        for item in json_response['negative_feedback_list']:
-            d = {
-                'title': item.get('feedback_title', ''),
-                'verbose': item.get('feedback_verbose', ''),
-                'tags': item.get('feedback_problem_tags', []),
-                'mitigation': item.get('feedback_mitigation', ''),
-                'consequence': item.get('feedback_consequence', ''),
-                'root_cause': item.get('feedback_root_cause', ''),
-            }
+        negative_feedback = json_response.get('negative_feedback_list', [])
+
+        # Handle case where negative_feedback_list might be missing or None
+        if negative_feedback is None:
+            negative_feedback = []
+
+        for item in negative_feedback:
+            # Be lenient - accept dict or object, handle missing fields gracefully
+            if hasattr(item, 'get'):
+                # It's already a dict
+                d = {
+                    'title': item.get('feedback_title', ''),
+                    'verbose': item.get('feedback_verbose', ''),
+                    'tags': item.get('feedback_problem_tags', []),
+                    'mitigation': item.get('feedback_mitigation', ''),
+                    'consequence': item.get('feedback_consequence', ''),
+                    'root_cause': item.get('feedback_root_cause', ''),
+                }
+            else:
+                # It's an object, use getattr
+                d = {
+                    'title': getattr(item, 'feedback_title', ''),
+                    'verbose': getattr(item, 'feedback_verbose', ''),
+                    'tags': getattr(item, 'feedback_problem_tags', []),
+                    'mitigation': getattr(item, 'feedback_mitigation', ''),
+                    'consequence': getattr(item, 'feedback_consequence', ''),
+                    'root_cause': getattr(item, 'feedback_root_cause', ''),
+                }
             result_feedback_list.append(d)
 
         result = ExpertCriticism(

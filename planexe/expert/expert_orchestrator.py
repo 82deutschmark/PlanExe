@@ -82,15 +82,46 @@ class ExpertOrchestrator:
             
             # Execute all expert criticisms concurrently
             results = await llm_executor.run_batch_async(execute_functions)
-            
-            # Process results
+
+            # Process results - handle partial failures gracefully
+            successful_count = 0
+            failed_count = 0
+
             for expert_criticism, expert_info in zip(results, expert_data):
                 expert_index = expert_info['expert_index']
+                expert_title = expert_info['expert_title']
+
+                # Check if this expert's execution failed
+                if isinstance(expert_criticism, Exception):
+                    failed_count += 1
+                    logger.warning(
+                        f"Expert {expert_index + 1} ({expert_title}) failed: {expert_criticism}. "
+                        f"Skipping and continuing with remaining experts.",
+                        exc_info=expert_criticism
+                    )
+                    continue  # Skip this expert, continue with others
+
+                # Expert succeeded
+                successful_count += 1
                 if self.phase2_post_callback:
                     self.phase2_post_callback(expert_criticism, expert_index)
                 self.expert_criticism_list.append(expert_criticism)
-                logger.info(f"Expert {expert_index + 1} criticism completed.")
-            
+                logger.info(f"Expert {expert_index + 1} ({expert_title}) criticism completed successfully.")
+
+            # Log summary
+            logger.info(
+                f"Expert criticism collection completed: {successful_count} succeeded, "
+                f"{failed_count} failed out of {expert_list_truncated_count} total experts."
+            )
+
+            # If all experts failed, log critical warning but don't raise
+            # Downstream tasks will receive minimal fallback markdown
+            if successful_count == 0 and expert_list_truncated_count > 0:
+                logger.error(
+                    "All experts failed to provide criticism! "
+                    "Fallback markdown will be generated to prevent pipeline stall."
+                )
+
             return self.expert_criticism_list
 
         # Run the concurrent execution
@@ -104,6 +135,28 @@ class ExpertOrchestrator:
         rows.append("## A Compilation of Professional Feedback for Project Planning and Execution\n\n")
 
         number_of_experts_with_criticism = len(self.expert_criticism_list)
+
+        # Fallback when no experts succeeded - provide minimal but valid output
+        if number_of_experts_with_criticism == 0:
+            logger.warning("Generating fallback markdown: no expert criticism available")
+            rows.append("⚠️ **Status**: Expert review could not be completed at this time.\n\n")
+            rows.append("## Summary\n\n")
+            rows.append("The expert review process encountered technical difficulties and was unable to ")
+            rows.append("collect feedback from the selected experts. The pipeline will continue with the ")
+            rows.append("available project information.\n\n")
+            rows.append("## Impact\n\n")
+            rows.append("- **Experts Consulted**: 0\n")
+            rows.append("- **Feedback Received**: None\n")
+            rows.append("- **Recommendations**: This section will be populated when expert review becomes available.\n\n")
+            rows.append("## Next Steps\n\n")
+            rows.append("Consider the following actions:\n\n")
+            rows.append("1. Review the project plan using internal team expertise\n")
+            rows.append("2. Conduct stakeholder reviews to identify potential risks\n")
+            rows.append("3. Schedule follow-up expert consultation when technical issues are resolved\n")
+            rows.append("4. Proceed with caution and maintain flexibility in planning assumptions\n\n")
+            rows.append("---\n\n")
+            rows.append("*This fallback report was generated to ensure pipeline continuity.*\n")
+            return "\n".join(rows)
         for expert_index, expert_criticism in enumerate(self.expert_criticism_list):
             section_index = expert_index + 1
             if expert_index > 0:

@@ -245,46 +245,46 @@ class LLMExecutor:
     async def run_batch_async(self, execute_functions: List[Callable[[Any], Any]]) -> List[Any]:
         """
         Run multiple execute functions concurrently using asyncio.gather with concurrency limiting.
-        
+
         Args:
             execute_functions: List of callables that each accept an LLM instance.
                               Each callable should use async LLM methods.
-        
+
         Returns:
-            List of results from the successful execute_function calls.
+            List of results from the successful execute_function calls OR exceptions.
+            Caller must check isinstance(result, Exception) to handle partial failures.
+            This allows graceful degradation when some but not all tasks fail.
         """
         if not execute_functions:
             return []
-        
+
         # Validate all execute functions
         for func in execute_functions:
             self._validate_execute_function(func)
-        
+
         # Get concurrency limit from environment variable
         max_concurrent = int(os.environ.get('PLANEXE_MAX_CONCURRENT_LLM', '5'))
-        
+
         # Create semaphore to limit concurrent executions
         semaphore = asyncio.Semaphore(max_concurrent)
-        
+
         async def run_with_semaphore(func):
             async with semaphore:
                 return await self.run_async(func)
-        
+
         # Create tasks with concurrency limiting
         tasks = [run_with_semaphore(func) for func in execute_functions]
-        
+
         # Execute all tasks concurrently and wait for completion
+        # Return exceptions as results for the caller to handle gracefully
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        # Handle exceptions in results
-        final_results = []
+
+        # Log exceptions but don't raise - allow partial success
         for i, result in enumerate(results):
             if isinstance(result, Exception):
-                logger.error(f"Batch execution failed for function {i}: {result}")
-                raise result
-            final_results.append(result)
-        
-        return final_results
+                logger.warning(f"Batch execution failed for function {i}: {result}", exc_info=result)
+
+        return results
 
     def _validate_execute_function(self, execute_function: Callable[[Any], Any]) -> None:
         """

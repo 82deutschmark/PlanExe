@@ -80,12 +80,13 @@ class CreateWBSLevel1:
 
         system_prompt = (
             "You generate concise Work Breakdown Structure level 1 summaries. "
-            "Return valid JSON with snake_case keys: project_title and final_deliverable. "
-            "Both values must be short strings (3-10 words)."
+            "Return **only** a JSON object with exactly two snake_case keys: "
+            "project_title and final_deliverable. Both values must be short strings "
+            "(3-10 words). Do not include markdown, prose, bullet lists, or explanation."
         )
 
         start_time = time.perf_counter()
-        response = llm.complete(QUERY_PREAMBLE + query)
+        response = llm.complete(QUERY_PREAMBLE + query, system_prompt=system_prompt)
         raw_text = response.text if hasattr(response, "text") else str(response)
         json_response, wbs_model, warnings = cls._parse_llm_response(raw_text)
 
@@ -191,6 +192,20 @@ class CreateWBSLevel1:
                         kv[key] = val
             if kv:
                 payload = kv
+            elif lines and all(ln.startswith("-") for ln in lines):
+                # Handle bullet lists like "- project_title: ..."
+                derived: Dict[str, Any] = {}
+                for ln in lines:
+                    ln = ln.lstrip("- ")
+                    if ":" not in ln:
+                        continue
+                    key, val = ln.split(":", 1)
+                    key = key.strip().strip('"\'')
+                    val = val.strip().strip('"\'')
+                    if key in {"project_title", "final_deliverable", "title", "name", "deliverable", "primary_output"}:
+                        derived[key] = val
+                if derived:
+                    payload = derived
 
         # 4) Safe defaults if still missing
         if not isinstance(payload, dict):

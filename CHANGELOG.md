@@ -6,6 +6,64 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.15.0] - 2025-10-28
+
+### Fixed
+- **Expert Review Async Execution Error**: Fixed `asyncio.run() cannot be called from a running event loop` error
+  - Root cause: `ExpertOrchestrator.execute()` was using `asyncio.run()` inside an already-async Luigi task
+  - Made `ExpertOrchestrator.execute()` async and replaced `asyncio.run()` with `await`
+  - Updated `ExpertReviewTask.run_inner()` to properly await the orchestrator
+  - Updated standalone `__main__` block to use `asyncio.run()` for CLI usage
+  - Files: `planexe/expert/expert_orchestrator.py` lines 31, 97; `planexe/plan/run_plan_pipeline.py` line 3922
+
+### Changed
+- **Maximum Lenient Error Handling for Expert Review**: Pipeline now gracefully degrades when expert LLM calls fail
+  - **LLMExecutor.run_batch_async()**: Returns exceptions as results instead of raising immediately
+    - Allows partial success (e.g., 1 of 2 experts succeeds)
+    - Logs warnings for failures but doesn't abort entire batch
+    - Caller checks `isinstance(result, Exception)` to handle failures
+    - File: `planexe/llm_util/llm_executor.py` lines 245-287
+
+  - **ExpertOrchestrator.execute()**: Skips individual expert failures, continues with others
+    - Checks each result for exceptions and logs detailed warnings
+    - Tracks `successful_count` and `failed_count` statistics
+    - Logs critical error if all experts fail but doesn't raise exception
+    - Continues pipeline execution even with zero successful experts
+    - File: `planexe/expert/expert_orchestrator.py` lines 86-125
+
+  - **ExpertOrchestrator.to_markdown()**: Generates fallback report when no experts succeed
+    - Returns minimal but valid markdown with warning status
+    - Includes next steps and recommendations for manual review
+    - Prevents downstream pipeline tasks from stalling on empty input
+    - File: `planexe/expert/expert_orchestrator.py` lines 139-159
+
+  - **Schema Validation**: Made Pydantic schemas maximally lenient
+    - Added `model_config = {"extra": "ignore"}` to `ExpertConsultation` and `NegativeFeedbackItem`
+    - Tolerates extra fields from creative LLMs without validation errors
+    - File: `planexe/expert/expert_criticism.py` lines 21, 36
+
+  - **Response Parsing**: Enhanced defensive handling of LLM responses
+    - Uses `.get()` with defaults for all dict accesses
+    - Handles both dict and object attribute access patterns
+    - Gracefully handles missing or None `negative_feedback_list`
+    - Never fails on unexpected response structure
+    - File: `planexe/expert/expert_criticism.py` lines 150-192
+
+### Impact
+- **Pipeline Resilience**: Expert review failures no longer cascade to 7+ downstream tasks
+  - Tasks that depend on ExpertReviewTask: DataCollectionTask, RelatedResourcesTask, PitchTask, ReviewPlanTask, QuestionsAndAnswersTask, RisksTask, Report generation
+  - Partial expert feedback (1 of 2 experts) is now valuable instead of total failure
+  - Database `llm_interactions` properly tracks degradation with warnings
+  - Production reliability significantly improved for flaky LLM providers
+
+### Philosophy
+- **Accept Everything, Fail Nothing**: Maximum leniency in LLM response handling
+  - Extra fields in JSON responses are silently ignored
+  - Missing fields default to empty strings/arrays
+  - Individual expert failures don't block others
+  - Zero successful experts still produces valid pipeline output
+  - Database-first architecture ensures observability of all degradation
+
 ## [0.14.0] - 2025-10-28
 
 ### Changed
