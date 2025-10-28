@@ -8,7 +8,7 @@
  */
 'use client';
 
-import React, { Suspense, useMemo, useState } from 'react';
+import React, { Suspense, useMemo, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Home } from 'lucide-react';
@@ -25,6 +25,7 @@ import { CurrentActivityStrip } from './components/CurrentActivityStrip';
 import { LuigiPipelineView } from '@/components/monitoring/LuigiPipelineView';
 import { useRecoveryPlan } from './useRecoveryPlan';
 import { ResumeDialog } from './components/ResumeDialog';
+import { CompletionSummaryModal } from './components/CompletionSummaryModal';
 
 const MissingPlanMessage: React.FC = () => (
   <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
@@ -64,6 +65,8 @@ const RecoveryPageContent: React.FC = () => {
   const rawPlanId = searchParams?.get('planId') ?? '';
   const planId = useMemo(() => rawPlanId.replace(/\s+/g, '').trim(), [rawPlanId]);
   const [resumeOpen, setResumeOpen] = useState(false);
+  const [completionModalOpen, setCompletionModalOpen] = useState(false);
+  const hasShownCompletionRef = useRef(false);
 
   const recovery = useRecoveryPlan(planId);
   const {
@@ -74,6 +77,32 @@ const RecoveryPageContent: React.FC = () => {
     lastWriteAt,
     llmStreams,
   } = recovery;
+
+  // Detect pipeline completion and show summary modal
+  useEffect(() => {
+    if (plan.data?.status === 'completed' && !hasShownCompletionRef.current) {
+      // Small delay to ensure all data is loaded
+      const timer = setTimeout(() => {
+        setCompletionModalOpen(true);
+        hasShownCompletionRef.current = true;
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [plan.data?.status]);
+
+  // Reset the completion modal shown flag when planId changes
+  useEffect(() => {
+    hasShownCompletionRef.current = false;
+  }, [planId]);
+
+  const handleViewReport = () => {
+    setCompletionModalOpen(false);
+    // Scroll to report section
+    const reportSection = document.querySelector('[data-report-section]');
+    if (reportSection) {
+      reportSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   if (!planId) {
     return <MissingPlanMessage />;
@@ -116,7 +145,15 @@ const RecoveryPageContent: React.FC = () => {
           }
         }}
       />
-      
+
+      <CompletionSummaryModal
+        open={completionModalOpen}
+        onClose={() => setCompletionModalOpen(false)}
+        plan={plan.data}
+        llmStreams={llmStreams}
+        onViewReport={handleViewReport}
+      />
+
       {/* MEGA INFO STRIP - All status in one ultra-dense bar */}
       <CurrentActivityStrip
         activeStream={llmStreams.active}
@@ -137,16 +174,18 @@ const RecoveryPageContent: React.FC = () => {
           <div className="flex flex-col gap-2">
             <LiveStreamPanel stream={llmStreams.active} />
             <StreamHistoryGrid streams={llmStreams.history} />
-            <RecoveryReportPanel
-              canonicalHtml={reports.canonicalHtml}
-              fallbackPlanId={planId}
-              isRefreshing={reports.loading || artefacts.loading}
-              onRefresh={() => {
-                void reports.refresh();
-                void artefacts.refresh();
-              }}
-              lastUpdated={lastWriteAt}
-            />
+            <div data-report-section>
+              <RecoveryReportPanel
+                canonicalHtml={reports.canonicalHtml}
+                fallbackPlanId={planId}
+                isRefreshing={reports.loading || artefacts.loading}
+                onRefresh={() => {
+                  void reports.refresh();
+                  void artefacts.refresh();
+                }}
+                lastUpdated={lastWriteAt}
+              />
+            </div>
           </div>
         </div>
         {plan.data?.prompt && (
