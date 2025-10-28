@@ -207,8 +207,14 @@ const recoveryReducer = (state: RecoveryState, action: RecoveryAction): Recovery
       return { ...state, planError: action.error, planLoading: false, plan: null };
     case 'plan:update':
       if (!state.plan) {
+        console.log('[Recovery] plan:update ignored - no existing plan');
         return state;
       }
+      console.log('[Recovery] plan:update reducer:', {
+        existingProgress: state.plan.progress_percentage,
+        newProgress: action.payload.progress_percentage,
+        payload: action.payload,
+      });
       return {
         ...state,
         plan: {
@@ -740,6 +746,11 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
             lastEventAt: timestamp,
             error: null,
           }));
+          console.log('[Recovery] Received status update:', {
+            status: message.status,
+            progress_percentage: message.progress_percentage,
+            progress_message: message.message,
+          });
           dispatch({
             type: 'plan:update',
             payload: {

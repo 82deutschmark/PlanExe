@@ -101,16 +101,29 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
   }, [lastWriteAt]);
   const planCreatedAt = useMemo(() => parseBackendDate(plan?.created_at ?? null), [plan?.created_at]);
 
-  // Calculate enhanced telemetry - use actual task count from stage summary
-  const totalTasks = stageSummary.reduce((sum, stage) => sum + stage.count, 0);
-  const completedTasks = Math.round((plan?.progress_percentage ?? 0) * totalTasks / 100);
+  // Calculate progress from LLM streams - each stream represents a task execution
+  const TOTAL_EXPECTED_TASKS = 61;
+  
+  // Count completed LLM interactions (each represents a completed task)
+  const completedLLMTasks = llmStreams.history.filter(s => s.status === 'completed').length;
+  
+  // Calculate progress from different sources
+  const backendProgress = plan?.progress_percentage ?? 0;
+  const llmProgress = Math.round((completedLLMTasks / TOTAL_EXPECTED_TASKS) * 100);
+  const artefactCount = stageSummary.reduce((sum, stage) => sum + stage.count, 0);
+  const artefactProgress = Math.round((artefactCount / TOTAL_EXPECTED_TASKS) * 100);
+  
+  // Use the maximum progress from all sources (most reliable indicator)
+  const calculatedProgress = Math.max(backendProgress, llmProgress, artefactProgress);
+  
+  const completedTasks = Math.max(completedLLMTasks, artefactCount, Math.round((backendProgress / 100) * TOTAL_EXPECTED_TASKS));
   const pipelineVelocity = useMemo(() => {
     if (!planCreatedAt || completedTasks === 0) return 0;
     const elapsedMinutes = (Date.now() - planCreatedAt.getTime()) / (1000 * 60);
     return elapsedMinutes > 0 ? Math.round(completedTasks / elapsedMinutes * 10) / 10 : 0;
   }, [planCreatedAt, completedTasks]);
   
-  const estimatedRemainingMinutes = pipelineVelocity > 0 ? Math.round((totalTasks - completedTasks) / pipelineVelocity) : null;
+  const estimatedRemainingMinutes = pipelineVelocity > 0 ? Math.round((TOTAL_EXPECTED_TASKS - completedTasks) / pipelineVelocity) : null;
 
   // Calculate real token usage from streams
   const totalTokenUsage = useMemo(() => {
@@ -332,14 +345,23 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
                 <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg p-3 border border-amber-200">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-semibold text-amber-900">Progress</span>
-                    <span className="text-lg font-bold text-amber-900">{Math.round(plan?.progress_percentage ?? 0)}%</span>
+                    <span className="text-lg font-bold text-amber-900">{calculatedProgress}%</span>
+                  </div>
+                  
+                  {/* Progress source indicators */}
+                  <div className="flex items-center gap-2 mb-2 text-xs text-amber-600">
+                    <span>Backend: {backendProgress}%</span>
+                    <span>•</span>
+                    <span>LLM: {llmProgress}%</span>
+                    <span>•</span>
+                    <span>Files: {artefactProgress}%</span>
                   </div>
                   
                   {/* Progress details */}
                   <div className="space-y-1 text-xs text-amber-700">
                     <div className="flex justify-between">
                       <span>Tasks completed:</span>
-                      <span className="font-medium">{completedTasks}/{totalTasks}</span>
+                      <span className="font-medium">{completedTasks}/61</span>
                     </div>
                     {pipelineVelocity > 0 && (
                       <div className="flex justify-between">

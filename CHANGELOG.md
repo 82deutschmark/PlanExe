@@ -6,6 +6,17 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.10.17] - 2025-10-28
+
+### Fixed
+- **Progress Display Issue**: Fixed progress staying at 0% in RecoveryHeader component by using existing streaming data
+  - Enhanced progress calculation to count completed LLM stream interactions (each represents a completed task)
+  - Calculate progress from multiple streaming sources: completed LLM tasks, artifact count, and backend percentage
+  - Use maximum progress from all sources as the most reliable indicator
+  - Added progress source breakdown showing Backend/LLM/Artifacts percentages for transparency
+  - Added debugging logs to WebSocket message handling and progress reducer in useRecoveryPlan.ts
+  - No backend or database changes required - solution uses only existing WebSocket streaming data
+
 ## [0.10.16] - 2025-10-28
 
 ### Fixed
