@@ -2,16 +2,17 @@ This document outlines the technical specifications, architecture, and developme
 
 ### Python File Header Template
 
-All new or modified Python files must include the following header:
+All new or modified Python files should include the following header:
 
 ```python
-# Author: {model name}
+# Author: {your model name}
 # Date: {timestamp}
 # PURPOSE: {Detailed description of file functionality and its interactions with other components.}
 # SRP and DRY check: Pass/Fail. Justification for the check result, including verification that functionality does not already exist elsewhere in the project.
 ```
 
 ---
+You should update the `CHANGELOG.md` file with a new entry at the top that uses the proper semantic versioning format. The entry should briefly describe the changes you have made to the file without jargon or marketing speak.
 
 ## 1. System Overview
 
