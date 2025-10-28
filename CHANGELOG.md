@@ -6,6 +6,14 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.10.1] - 2025-10-28
+
+### Fixed
+- **PlanTypeTask Responses schema regression**: Restored `additionalProperties=false` for the structured output model so the OpenAI Responses API accepts the schema again, eliminating the `HTTP 400 invalid_json_schema` failures that stopped the Luigi pipeline during `PlanTypeTask`. @planexe/assume/identify_plan_type.py
+
+### Changed
+- **Pipeline log viewer**: Removed automatic scroll-to-bottom behaviour from the recovery UI so investigators can leave the log view at specific historical positions without being pulled back to the end on each update. @planexe-frontend/src/components/PipelineDetails.tsx
+
 ## [0.10.0] - 2025-10-27
 
 ### Added
