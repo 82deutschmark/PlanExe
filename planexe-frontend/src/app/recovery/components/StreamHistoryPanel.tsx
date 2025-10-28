@@ -104,9 +104,8 @@ export const StreamHistoryPanel: FC<StreamHistoryPanelProps> = ({ streams, activ
           streams.map((stream) => {
             const isActive = activeStreamId != null && stream.interactionId === activeStreamId;
             const isExpanded = expandedIds.has(stream.interactionId);
-            const assembledText = stream.finalText ?? stream.textBuffer ?? stream.textDeltas.join('');
-            const assembledReasoning =
-              stream.finalReasoning ?? stream.reasoningBuffer ?? stream.reasoningDeltas.join('\n');
+            const assembledText = stream.finalText ?? stream.textBuffer ?? '';
+            const assembledReasoning = stream.finalReasoning ?? stream.reasoningBuffer ?? '';
 
             return (
               <div
