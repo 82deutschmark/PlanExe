@@ -6,7 +6,18 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
-## [0.11.1] - 2025-10-28
+## [0.12.0] - 2025-10-28
+
+### Changed
+- **BREAKING UX OVERHAUL**: Removed wasteful components and consolidated into ultra-dense information display
+  - **DELETED** `PipelineInsights` component - was duplicating info shown elsewhere with poor density
+  - **DELETED** `RecoveryHeader` component - showed mostly useless info with massive wasted space
+  - **MERGED** All critical status into enhanced `CurrentActivityStrip` mega info bar
+  - **New mega strip shows**: Active task with live timing, progress with visual bar, connection status, API metrics (success/fail counts), total token usage, plan status - ALL in one compact horizontal strip
+  - Larger fonts (base size increased from 10px to 12-16px), better contrast (dark slate-900 background)
+  - Information density increased ~5x: Every pixel serves a purpose, zero nested scroll boxes
+  - Left `LuigiPipelineView` in place - log-based task tracking works well alongside LLM streams
+  - Left other new components intact: `StreamHistoryGrid`, `StreamDetailModal`, `LiveStreamPanel` all good
 
 ### Fixed
 - **SWOT identify purpose fallback**: Hardened `SWOTAnalysisTask` so malformed `identify_purpose` payloads no longer crash the pipeline. When parsing fails we now synthesize a safe default `PlanPurposeInfo`, log the degradation, and continue producing SWOT artifacts. @planexe/swot/swot_analysis.py#65-87

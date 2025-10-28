@@ -18,13 +18,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { fastApiClient, CreatePlanRequest } from '@/lib/api/fastapi-client';
 
-import { RecoveryHeader } from './components/RecoveryHeader';
-import { StageTimeline } from './components/StageTimeline';
 import { RecoveryReportPanel } from './components/ReportPanel';
 import { LiveStreamPanel } from './components/LiveStreamPanel';
 import { StreamHistoryGrid } from './components/StreamHistoryGrid';
 import { CurrentActivityStrip } from './components/CurrentActivityStrip';
-import { PipelineInsights } from './components/PipelineInsights';
 import { LuigiPipelineView } from '@/components/monitoring/LuigiPipelineView';
 import { useRecoveryPlan } from './useRecoveryPlan';
 import { ResumeDialog } from './components/ResumeDialog';
@@ -184,38 +181,18 @@ const RecoveryPageContent: React.FC = () => {
           }
         }}
       />
-      <RecoveryHeader
-        planId={planId}
-        plan={plan.data}
-        planLoading={plan.loading}
-        statusDisplay={plan.statusDisplay}
-        connection={connection}
-        lastWriteAt={lastWriteAt}
-        stageSummary={stageSummary}
-        activeStageKey={activeStageKey}
-        llmStreams={{
-          active: llmStreams.active,
-          history: llmStreams.history,
-        }}
-        onRefreshPlan={plan.refresh}
-        onRelaunch={handleRelaunch}
-      />
       
-      {/* Ultra-dense current activity strip */}
+      {/* MEGA INFO STRIP - All status in one ultra-dense bar */}
       <CurrentActivityStrip
         activeStream={llmStreams.active}
         completedCount={llmStreams.history.filter(s => s.status === 'completed').length}
         totalTasks={61}
+        plan={plan.data}
+        connection={connection}
+        llmStreams={llmStreams}
       />
       
       <main className="mx-auto flex max-w-7xl flex-col gap-2 px-2 py-2">
-        {/* Pipeline Insights - Extracted metrics and activity */}
-        <PipelineInsights
-          llmStreams={llmStreams}
-          stageSummary={stageSummary}
-          planCreatedAt={plan.data?.created_at ? new Date(plan.data.created_at) : null}
-        />
-        
         <PipelineLogsPanel planId={planId} className="h-fit" />
         <div className="grid gap-2 lg:grid-cols-[400px_minmax(0,1fr)]">
           <div className="flex flex-col gap-2">

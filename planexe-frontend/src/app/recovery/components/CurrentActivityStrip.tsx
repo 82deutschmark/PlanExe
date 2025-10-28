@@ -1,34 +1,43 @@
 /**
  * Author: Cascade
  * Date: 2025-10-28
- * PURPOSE: Ultra-dense real-time display of current pipeline activity with live timing
- * SRP and DRY check: Pass - Focuses only on current activity display
+ * PURPOSE: MEGA INFO STRIP - Combines activity + header data into ONE ultra-dense bar
+ * SRP and DRY check: Pass - Single unified status bar
  */
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { Activity, Clock, Zap, TrendingUp } from 'lucide-react';
-import type { LLMStreamState } from '../useRecoveryPlan';
+import React, { useEffect, useState, useMemo } from 'react';
+import { Activity, Clock, Zap, Wifi, WifiOff, CheckCircle, Database } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import type { LLMStreamState, RecoveryConnectionState } from '../useRecoveryPlan';
+import type { PlanResponse } from '@/lib/api/fastapi-client';
 
 interface CurrentActivityStripProps {
   activeStream: LLMStreamState | null;
   completedCount: number;
   totalTasks: number;
+  plan: PlanResponse | null;
+  connection: RecoveryConnectionState;
+  llmStreams: {
+    active: LLMStreamState | null;
+    history: LLMStreamState[];
+  };
 }
 
 export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
   activeStream,
   completedCount,
   totalTasks,
+  plan,
+  connection,
+  llmStreams,
 }) => {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   
-  // Calculate start time from lastUpdated
   const startTime = activeStream?.lastUpdated 
     ? new Date(activeStream.lastUpdated).getTime() 
     : Date.now();
   
-  // Update elapsed time every 100ms for smooth updates
   useEffect(() => {
     if (!activeStream) {
       setElapsedSeconds(0);
@@ -43,7 +52,6 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
     return () => clearInterval(interval);
   }, [activeStream, startTime]);
   
-  // Extract token info from active stream
   const currentTokens = activeStream?.usage && typeof activeStream.usage === 'object'
     ? (activeStream.usage as Record<string, unknown>).total_tokens as number || 0
     : 0;
@@ -52,58 +60,118 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
     ? (currentTokens / elapsedSeconds).toFixed(1)
     : '0';
   
-  if (!activeStream) {
-    return (
-      <div className="bg-slate-800 text-slate-300 px-2 py-1 text-[10px] flex items-center gap-2">
-        <Activity className="h-3 w-3" />
-        <span>IDLE • Waiting for next task</span>
-        <span className="ml-auto">Progress: {completedCount}/{totalTasks}</span>
-      </div>
-    );
-  }
+  // Calculate API metrics from LLM streams
+  const apiMetrics = useMemo(() => {
+    const failed = llmStreams.history.filter(s => s.status === 'failed').length;
+    const succeeded = llmStreams.history.filter(s => s.status === 'completed').length;
+    const totalTokens = llmStreams.history.reduce((sum, s) => {
+      const tokens = s.usage && typeof s.usage === 'object' 
+        ? (s.usage as Record<string, unknown>).total_tokens as number || 0
+        : 0;
+      return sum + tokens;
+    }, 0);
+    return { failed, succeeded, totalTokens };
+  }, [llmStreams]);
+  
+  const connectionIcon = connection.status === 'connected' && connection.mode === 'websocket'
+    ? <Wifi className="h-4 w-4 text-green-400" />
+    : <WifiOff className="h-4 w-4 text-yellow-400" />;
+  
+  const planStatus = plan?.status || 'unknown';
+  const statusColor = planStatus === 'completed' ? 'text-green-400'
+    : planStatus === 'failed' ? 'text-red-400'
+    : planStatus === 'running' ? 'text-blue-400'
+    : 'text-gray-400';
+  
+  const progressPercent = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
   
   return (
-    <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-2 py-1 flex items-center gap-3 text-[10px] font-mono">
-      <div className="flex items-center gap-1">
-        <Activity className="h-3 w-3 animate-pulse" />
-        <span className="font-bold">ACTIVE</span>
-      </div>
-      
-      <div className="h-3 w-px bg-white/30" />
-      
-      <div className="flex items-center gap-1">
-        <span className="text-blue-100">TASK:</span>
-        <span className="font-bold">{activeStream.stage}</span>
-      </div>
-      
-      <div className="h-3 w-px bg-white/30" />
-      
-      <div className="flex items-center gap-1">
-        <Clock className="h-3 w-3" />
-        <span className="font-bold tabular-nums">{elapsedSeconds.toFixed(1)}s</span>
-      </div>
-      
-      <div className="h-3 w-px bg-white/30" />
-      
-      <div className="flex items-center gap-1">
-        <Zap className="h-3 w-3" />
-        <span>{currentTokens.toLocaleString()} tokens</span>
-        {parseFloat(tokensPerSecond) > 0 && (
-          <span className="text-blue-200">({tokensPerSecond}/s)</span>
-        )}
-      </div>
-      
-      <div className="h-3 w-px bg-white/30" />
-      
-      <div className="flex items-center gap-1">
-        <TrendingUp className="h-3 w-3" />
-        <span>#{activeStream.interactionId}</span>
-      </div>
-      
-      <div className="ml-auto flex items-center gap-1">
-        <span className="text-blue-100">Progress:</span>
-        <span className="font-bold">{completedCount}/{totalTasks}</span>
-        <span className="text-blue-200">({Math.round((completedCount / totalTasks) * 100)}%)</span>
+    <div className="bg-slate-900 text-white px-4 py-2 border-b border-slate-700">
+      <div className="flex items-center justify-between gap-4">
+        {/* LEFT: Current Activity */}
+        <div className="flex items-center gap-3">
+          {activeStream ? (
+            <>
+              <Activity className="h-5 w-5 text-blue-400 animate-pulse" />
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-blue-300">RUNNING:</span>
+                <span className="text-base font-mono font-semibold">{activeStream.stage}</span>
+              </div>
+              <div className="h-5 w-px bg-slate-600" />
+              <div className="flex items-center gap-1.5">
+                <Clock className="h-4 w-4 text-slate-400" />
+                <span className="text-sm font-mono tabular-nums font-semibold">{elapsedSeconds.toFixed(1)}s</span>
+              </div>
+              {currentTokens > 0 && (
+                <>
+                  <div className="h-5 w-px bg-slate-600" />
+                  <div className="flex items-center gap-1.5">
+                    <Zap className="h-4 w-4 text-yellow-400" />
+                    <span className="text-sm font-mono">{currentTokens.toLocaleString()}</span>
+                    {parseFloat(tokensPerSecond) > 0 && (
+                      <span className="text-xs text-slate-400">({tokensPerSecond}/s)</span>
+                    )}
+                  </div>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <CheckCircle className="h-5 w-5 text-gray-400" />
+              <span className="text-sm text-gray-300">IDLE - Waiting for next task</span>
+            </>
+          )}
+        </div>
+        
+        {/* CENTER: Progress */}
+        <div className="flex items-center gap-3">
+          <div className="flex flex-col items-end">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400">PROGRESS</span>
+              <span className="text-lg font-bold font-mono tabular-nums">{completedCount}/{totalTasks}</span>
+              <span className="text-sm text-slate-400">({progressPercent}%)</span>
+            </div>
+            <div className="w-48 h-1.5 bg-slate-700 rounded-full overflow-hidden mt-0.5">
+              <div 
+                className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+          </div>
+        </div>
+        
+        {/* RIGHT: System Status */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            {connectionIcon}
+            <span className="text-xs text-slate-400">
+              {connection.status === 'connected' ? 'LIVE' : connection.mode.toUpperCase()}
+            </span>
+          </div>
+          
+          <div className="h-5 w-px bg-slate-600" />
+          
+          <div className="flex items-center gap-1.5">
+            <Database className="h-4 w-4 text-slate-400" />
+            <span className="text-xs">
+              {apiMetrics.succeeded}<span className="text-slate-500">/</span>
+              <span className="text-red-400">{apiMetrics.failed}</span>
+            </span>
+          </div>
+          
+          <div className="h-5 w-px bg-slate-600" />
+          
+          <div className="flex items-center gap-1.5">
+            <Zap className="h-4 w-4 text-yellow-400" />
+            <span className="text-xs font-mono">{(apiMetrics.totalTokens / 1000).toFixed(1)}k</span>
+          </div>
+          
+          <div className="h-5 w-px bg-slate-600" />
+          
+          <Badge variant="outline" className={`text-xs font-semibold ${statusColor} border-current`}>
+            {planStatus.toUpperCase()}
+          </Badge>
+        </div>
       </div>
     </div>
   );
