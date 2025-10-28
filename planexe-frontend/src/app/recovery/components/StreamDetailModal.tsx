@@ -26,8 +26,8 @@ export const StreamDetailModal: React.FC<StreamDetailModalProps> = ({
 }) => {
   if (!stream) return null;
   
-  const assembledText = stream.finalText ?? stream.textBuffer ?? stream.textDeltas.join('');
-  const assembledReasoning = stream.finalReasoning ?? stream.reasoningBuffer ?? stream.reasoningDeltas.join('\n');
+  const assembledText = stream.finalText ?? stream.textBuffer ?? '';
+  const assembledReasoning = stream.finalReasoning ?? stream.reasoningBuffer ?? '';
   
   // Calculate duration
   const duration = stream.usage && typeof stream.usage === 'object'
