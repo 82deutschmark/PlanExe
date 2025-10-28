@@ -8,7 +8,7 @@
  */
 'use client';
 
-import React, { Suspense, useCallback, useMemo, useState } from 'react';
+import React, { Suspense, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Home } from 'lucide-react';
@@ -16,7 +16,7 @@ import { Home } from 'lucide-react';
 import { PipelineLogsPanel } from '@/components/PipelineDetails';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { fastApiClient, CreatePlanRequest } from '@/lib/api/fastapi-client';
+import { fastApiClient } from '@/lib/api/fastapi-client';
 
 import { RecoveryReportPanel } from './components/ReportPanel';
 import { LiveStreamPanel } from './components/LiveStreamPanel';
@@ -25,7 +25,6 @@ import { CurrentActivityStrip } from './components/CurrentActivityStrip';
 import { LuigiPipelineView } from '@/components/monitoring/LuigiPipelineView';
 import { useRecoveryPlan } from './useRecoveryPlan';
 import { ResumeDialog } from './components/ResumeDialog';
-import type { MissingSectionResponse } from '@/lib/api/fastapi-client';
 
 const MissingPlanMessage: React.FC = () => (
   <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
@@ -65,80 +64,16 @@ const RecoveryPageContent: React.FC = () => {
   const rawPlanId = searchParams?.get('planId') ?? '';
   const planId = useMemo(() => rawPlanId.replace(/\s+/g, '').trim(), [rawPlanId]);
   const [resumeOpen, setResumeOpen] = useState(false);
-  const [resumeMissing, setResumeMissing] = useState<MissingSectionResponse[]>([]);
 
   const recovery = useRecoveryPlan(planId);
   const {
     plan,
     reports,
     artefacts,
-    stageSummary,
     connection,
     lastWriteAt,
     llmStreams,
-    activeStageKey,
   } = recovery;
-
-  const handleRelaunch = useCallback(async () => {
-    if (!plan.data) return;
-
-    try {
-      // 1) Inspect what’s missing to make relaunch targeted
-      let missing: MissingSectionResponse[] = [];
-      try {
-        const fallback = await fastApiClient.getFallbackReport(planId);
-        missing = fallback?.missing_sections ?? [];
-      } catch (e) {
-        // If fallback not available, proceed but inform via console; backend may still resume via DB-first logic.
-        console.warn('Fallback report unavailable; proceeding with best-effort resume.', e);
-      }
-
-      if ((missing?.length ?? 0) === 0 && plan.data.status === 'completed') {
-        // Nothing to resume; take user to the final report page instead of relaunching everything.
-        router.replace(`/plan?planId=${encodeURIComponent(planId)}&from=recovery`);
-        return;
-      }
-
-      // If we have missing items, open modal for per-task selection
-      if ((missing?.length ?? 0) > 0) {
-        setResumeMissing(missing);
-        setResumeOpen(true);
-        return;
-      }
-
-      // No missing list available (e.g., fallback 404). Proceed best-effort with defaults.
-      const speed_vs_detail: CreatePlanRequest['speed_vs_detail'] = 'balanced_speed_and_detail';
-      const newPlan = await fastApiClient.createPlan({
-        prompt: plan.data.prompt,
-        speed_vs_detail,
-        reasoning_effort: plan.data.reasoning_effort,
-        enriched_intake: {
-          project_title: 'Plan Resume',
-          refined_objective: 'Resume to complete the plan without explicit missing list.',
-          original_prompt: plan.data.prompt,
-          scale: 'personal',
-          risk_tolerance: 'moderate',
-          domain: 'general',
-          budget: {},
-          timeline: {},
-          geography: { is_digital_only: true },
-          conversation_summary: 'Resume request without explicit missing artefacts (fallback unavailable).',
-          confidence_score: 0.7,
-        },
-      });
-
-      router.replace(`/recovery?planId=${encodeURIComponent(newPlan.plan_id)}`);
-    } catch (error) {
-      console.error('Failed to relaunch (resume) from recovery workspace', error);
-    }
-  }, [plan.data, planId, router]);
-
-  // Redirect to a dedicated report page on completion to improve UX
-  React.useEffect(() => {
-    if (plan.data?.status === 'completed') {
-      router.replace(`/plan?planId=${encodeURIComponent(planId)}&from=recovery`);
-    }
-  }, [plan.data?.status, planId, router]);
 
   if (!planId) {
     return <MissingPlanMessage />;
@@ -149,7 +84,7 @@ const RecoveryPageContent: React.FC = () => {
       <ResumeDialog
         open={resumeOpen}
         onOpenChange={setResumeOpen}
-        missing={resumeMissing}
+        missing={[]}
         defaultReasoningEffort={plan.data?.reasoning_effort}
         onConfirm={async ({ selectedFilenames, llmModel, speedVsDetail, reasoningEffort }) => {
           if (!plan.data) return;
