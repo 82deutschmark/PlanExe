@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.governance.governance_phase3_impl_plan consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 """
 Governance Implementation Plan - How to set it up.
 
@@ -12,13 +17,14 @@ import time
 import logging
 from math import ceil
 from dataclasses import dataclass
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
 
 logger = logging.getLogger(__name__)
 
-class ImplementationStep(BaseModel):
+class ImplementationStep(StrictResponseModel):
     step_description: str = Field(description="Specific action required to set up or implement a governance component (e.g., 'Draft Steering Committee ToR', 'Select External Auditor').")
     responsible_body_or_role: str = Field(description="The committee or role primarily responsible for executing or overseeing this step.")
     suggested_timeframe: str = Field(description="A suggested target for completing this step, relative to project start (e.g., 'Within 1 week of kickoff', 'By end of Month 1', 'Ongoing Quarterly').")
@@ -26,11 +32,10 @@ class ImplementationStep(BaseModel):
     dependencies: list[str] = Field(description="Prerequisite steps or decisions needed before this step can be effectively started or completed.")
 
 
-class DocumentDetails(BaseModel):
+class DocumentDetails(StrictResponseModel):
     governance_implementation_plan: list[ImplementationStep] = Field(
         description="Actionable steps required to establish and operationalize the described governance framework."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 GOVERNANCE_PHASE3_IMPL_PLAN_SYSTEM_PROMPT = """
 You are an expert in project management and governance implementation. Your task is to create a practical, detailed, step-by-step implementation plan for establishing the project governance structure that has already been defined. **Think critically about the logical workflow and WHO is responsible at each stage of forming a new governance body.**

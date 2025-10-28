@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.assume.make_assumptions consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 """
 Author: Codex using GPT-5
 Date: `2025-10-02T18:49:00Z`
@@ -16,24 +21,21 @@ import logging
 from math import ceil
 from typing import Optional
 from dataclasses import dataclass
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 from llama_index.core.llms.llm import LLM
 from llama_index.core.llms import ChatMessage, MessageRole
 
 logger = logging.getLogger(__name__)
 
-class QuestionAssumptionItem(BaseModel):
+class QuestionAssumptionItem(StrictResponseModel):
     item_index: int = Field(description="Index in the list")
     question: str = Field(description="Question to clarify and refine the user's description")
     assumptions: str = Field(description="Reasonable assumptions made to fill in the gaps or missing details in the user's description.")
     assessments: str = Field(description="Detailed information about the assessments, including key findings and recommendations. *max 3 assessments*.")
-    
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
-class ExpertDetails(BaseModel):
+class ExpertDetails(StrictResponseModel):
     question_assumption_list: list[QuestionAssumptionItem] = Field(description="Questions and assumptions")
-    
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 SYSTEM_PROMPT_1 = """
 You are an intelligent **Planning Assistant** designed to help users develop detailed plans from vague or high-level descriptions.

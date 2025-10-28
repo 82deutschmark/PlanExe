@@ -34,33 +34,32 @@ from pathlib import Path
 from typing import List, Dict
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
-from pydantic import BaseModel, Field, conlist, field_serializer, field_validator, ConfigDict
+from pydantic import Field, conlist, field_serializer, field_validator
+from planexe.llm_util.strict_response_model import StrictResponseModel
 from planexe.llm_util.llm_executor import LLMExecutor, PipelineStopRequested
 from planexe.lever.lever_setting_utils import lever_settings_to_mapping
 
 logger = logging.getLogger(__name__)
 
 # Represents a lever from the 'vital_levers' file
-class VitalLever(BaseModel):
+class VitalLever(StrictResponseModel):
     lever_id: str
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     name: str
     options: List[str]
     review: str
 
 # Represents the lever selection for a scenario without relying on dynamic object maps.
-class LeverSetting(BaseModel):
+class LeverSetting(StrictResponseModel):
     lever_name: str = Field(
         description="The name of the vital lever (e.g., 'Governance Model')."
     )
     selected_option: str = Field(
         description="The chosen option for this lever drawn from its allowed options."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 
 # The final output models for a strategic scenario
-class Scenario(BaseModel):
+class Scenario(StrictResponseModel):
     scenario_name: str = Field(
         description="A descriptive, memorable name for the scenario (e.g., 'The Pioneer's Gambit', 'The Pragmatic Foundation')."
     )
@@ -70,7 +69,6 @@ class Scenario(BaseModel):
     lever_settings: List[LeverSetting] = Field(
         description="A list of lever decisions. Each item ties a vital lever to the selected option for this scenario."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
     @field_validator("lever_settings", mode="before")
     def _coerce_lever_settings(cls, value):
@@ -86,7 +84,7 @@ class Scenario(BaseModel):
     def _serialize_lever_settings(self, value: List[LeverSetting]):
         return lever_settings_to_mapping(value)
 
-class ScenarioAnalysisResult(BaseModel):
+class ScenarioAnalysisResult(StrictResponseModel):
     """The complete set of strategic scenarios."""
     analysis_title: str = Field(description="A fitting title for the overall strategic analysis.")
     core_tension: str = Field(
@@ -95,7 +93,6 @@ class ScenarioAnalysisResult(BaseModel):
     scenarios: conlist(Scenario, min_length=3, max_length=3) = Field(
         description="A list of exactly 3 distinct strategic scenarios."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 # --- LLM Prompt ---
 

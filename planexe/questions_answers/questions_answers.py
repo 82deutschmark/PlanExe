@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.questions_answers.questions_answers consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 """
 For a reader of the plan that is unfamiliar with the domain, provide a list of Q&A pairs that are relevant to the plan.
 
@@ -11,14 +16,15 @@ from math import ceil
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 
 from planexe.plan.pipeline_environment import PipelineEnvironment
 from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 
 logger = logging.getLogger(__name__)
 
-class QuestionAnswerPair(BaseModel):
+class QuestionAnswerPair(StrictResponseModel):
     item_index: int = Field(
         description="Enumeration of the question answer pairs, starting from 1."
     )
@@ -31,18 +37,14 @@ class QuestionAnswerPair(BaseModel):
     rationale: str = Field(
         description="Explain why this particular question answer pair is suggested."
     )
-    
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
-class DocumentDetails(BaseModel):
+class DocumentDetails(StrictResponseModel):
     question_answer_pairs: list[QuestionAnswerPair] = Field(
         description="List of question answer pairs."
     )
     summary: str = Field(
         description="Providing a high level context."
     )
-    
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 QUESTION_ANSWER_SYSTEM_PROMPT = """
 You are a world-class expert in analyzing project documentation and generating insightful Questions and Answers (Q&A) for a reader who needs clarification on key aspects of the project as presented in the document. Your goal is to analyze the user's provided project description (the plan document itself), identify key concepts, terms, strategies, risks, ethical considerations, and controversial aspects, and generate a JSON response that strictly follows the `DocumentDetails` and `QuestionAnswerPair` models provided below.
@@ -277,5 +279,4 @@ if __name__ == "__main__":
     print(json.dumps(json_response, indent=2))
 
     print(f"\n\nMarkdown:\n{physical_locations.markdown}")
-
 

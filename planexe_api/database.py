@@ -1,3 +1,11 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T05:45:00Z
+# PURPOSE: Provide SQLAlchemy models and helpers for persisting plan runs,
+#          including lifecycle utilities shared by API services and Luigi
+#          pipeline orchestration.
+# SRP and DRY check: Pass. Centralizes database concerns so callers avoid
+#          duplicating schema management or session control logic.
+
 """Database models and connection utilities for the PlanExe API.
 
 This module centralizes the SQLAlchemy setup, including telemetry-aware helpers that
@@ -400,12 +408,31 @@ class DatabaseService:
             self.db.query(PlanFile).filter(PlanFile.plan_id == plan_id).delete()
             self.db.query(PlanMetrics).filter(PlanMetrics.plan_id == plan_id).delete()
             self.db.query(PlanContent).filter(PlanContent.plan_id == plan_id).delete()
-            
+
             # Delete the plan itself
             self.db.delete(plan)
             self.db.commit()
             return True
         return False
+
+    def reset_plan_run_state(self, plan_id: str) -> None:
+        """Remove persisted artefacts for a plan while keeping the plan record."""
+
+        # Wipe historical execution data so reruns do not inherit stale progress
+        self.db.query(LLMInteraction).filter(
+            LLMInteraction.plan_id == plan_id
+        ).delete(synchronize_session=False)
+        self.db.query(PlanFile).filter(
+            PlanFile.plan_id == plan_id
+        ).delete(synchronize_session=False)
+        self.db.query(PlanMetrics).filter(
+            PlanMetrics.plan_id == plan_id
+        ).delete(synchronize_session=False)
+        self.db.query(PlanContent).filter(
+            PlanContent.plan_id == plan_id
+        ).delete(synchronize_session=False)
+
+        self.db.commit()
 
     @retry_database_operation(max_retries=3, backoff_factor=1.0)
     def create_plan_content(self, content_data: dict) -> PlanContent:

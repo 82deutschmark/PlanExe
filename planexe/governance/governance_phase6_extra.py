@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.governance.governance_phase6_extra consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 """
 Governance extra fields
 
@@ -8,17 +13,17 @@ import time
 import logging
 from math import ceil
 from dataclasses import dataclass
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
 
 logger = logging.getLogger(__name__)
 
-class DocumentDetails(BaseModel):
+class DocumentDetails(StrictResponseModel):
     governance_validation_checks: list[str] = Field(
         description="A rigorous check of the generated governance components for completeness, consistency, and potential gaps based on the inputs and standard practices."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     tough_questions: list[str] = Field(
         description="Representative questions leadership should regularly ask (e.g., 'Are we on budget?')."
     )

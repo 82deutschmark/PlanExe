@@ -17,7 +17,8 @@ from typing import Any, Optional
 from dataclasses import dataclass
 import uuid
 from llama_index.core.llms.llm import LLM
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 from llama_index.core.llms import ChatMessage, MessageRole
 from planexe.llm_util.llm_executor import LLMExecutor, PipelineStopRequested
 
@@ -42,11 +43,10 @@ def _to_json_serialisable(value: Any) -> Any:
 
     return str(value)
 
-class Lever(BaseModel):
+class Lever(StrictResponseModel):
     lever_index: int = Field(
         description="Index of this lever."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     name: str = Field(
         description="Name of this lever."
     )
@@ -60,7 +60,7 @@ class Lever(BaseModel):
         description="Critique this lever. State the core trade-off it controls (e.g., 'Controls Speed vs. Quality'). Then, identify one specific weakness in how its options address that trade-off."
     )
 
-class DocumentDetails(BaseModel):
+class DocumentDetails(StrictResponseModel):
     strategic_rationale: str = Field(
         description="A concise strategic analysis (around 100 words) of the project's core tensions and trade-offs. This rationale must JUSTIFY why the selected levers are the most critical levers for decision-making. For example, explain how the chosen levers navigate the fundamental conflicts between speed, cost, scope, and quality."
     )
@@ -70,9 +70,8 @@ class DocumentDetails(BaseModel):
     summary: str = Field(
         description="Are these levers well picked? Are they well balanced? Are they well thought out? Point out flaws. 100 words."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
-class LeverCleaned(BaseModel):
+class LeverCleaned(StrictResponseModel):
     """
     The Lever class has some ugly field names, that guide the LLM for what to generate. Changing them and the LLM can't generate as good results.
     This class has nicer field names for the final output.

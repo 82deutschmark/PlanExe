@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.governance.governance_phase2_bodies consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 """
 Internal Governance Bodies: 
 
@@ -11,18 +16,18 @@ import time
 import logging
 from math import ceil
 from dataclasses import dataclass
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
 
 logger = logging.getLogger(__name__)
 
-class InternalGovernanceBody(BaseModel):
+class InternalGovernanceBody(StrictResponseModel):
     name: str = Field(description="Name of the internal governance body.")
     rationale_for_inclusion: str = Field(
         description="Brief justification explaining *why* this specific type of internal governance body (e.g., Steering Committee, PMO, Ethics Committee) is necessary or appropriate for *this particular project*, based on its description, scale, or key challenges."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     responsibilities: list[str] = Field(description="Key tasks or responsibilities of this internal body.")
     initial_setup_actions: list[str] = Field(description="Key initial actions this body needs to take upon formation (e.g., 'Finalize Terms of Reference', 'Elect Chair', 'Set meeting schedule').")
     membership: list[str] = Field(description="Roles or titles of individuals *within the project/organization* forming this internal body.")
@@ -32,7 +37,7 @@ class InternalGovernanceBody(BaseModel):
     typical_agenda_items: list[str] = Field(description="Example recurring items for this internal body's meetings.")
     escalation_path: str = Field(description="Where or to which *other internal body or senior project/organization role* issues exceeding authority are escalated.")
 
-class DocumentDetails(BaseModel):
+class DocumentDetails(StrictResponseModel):
     internal_governance_bodies: list[InternalGovernanceBody] = Field(
         description="List of all internal governance bodies with roles, responsibilities, and membership."
     )

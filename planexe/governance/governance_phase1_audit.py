@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.governance.governance_phase1_audit consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 """
 Governance - Audit Framework: 
 - Corruption.
@@ -12,17 +17,17 @@ import time
 import logging
 from math import ceil
 from dataclasses import dataclass
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
 
 logger = logging.getLogger(__name__)
 
-class DocumentDetails(BaseModel):
+class DocumentDetails(StrictResponseModel):
     corruption_list: list[str] = Field(
         description="Corruption risks in this project: bribery, nepotism, etc."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     misallocation_list: list[str] = Field(
         description="Ways resources can be misallocated: budget misuse, double spending, etc."
     )

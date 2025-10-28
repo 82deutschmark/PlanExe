@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.assume.identify_purpose consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 """
 Determine what kind of plan is to be conducted.
 - **Business:** Profit-Driven, aimed at generating profit.
@@ -12,7 +17,8 @@ import logging
 import json
 from enum import Enum
 from dataclasses import dataclass
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
 
@@ -23,7 +29,7 @@ class PlanPurpose(str, Enum):
     business = 'business'
     other = 'other'
 
-class PlanPurposeInfo(BaseModel):
+class PlanPurposeInfo(StrictResponseModel):
     """
     Identify the purpose of the plan to be performed.
     """
@@ -34,7 +40,6 @@ class PlanPurposeInfo(BaseModel):
     purpose: PlanPurpose = Field(
         description="Purpose of the plan."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 IDENTIFY_PURPOSE_SYSTEM_PROMPT = """
 You are an expert analyst tasked with categorizing the purpose of user-described plans strictly based on their provided prompt. Your classifications must be clear, objective, and unbiased. Categorize each plan into exactly one of the following three types:

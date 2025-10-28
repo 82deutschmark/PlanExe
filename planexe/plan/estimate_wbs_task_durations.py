@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.plan.estimate_wbs_task_durations consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 # Author: Cascade
 # Date: 2025-10-25T18:05:00Z
 # PURPOSE: Structured schema and execution helpers for estimating WBS task durations via SimpleOpenAILLM responses, removing llama_index dependencies.
@@ -13,12 +18,13 @@ from math import ceil
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
 from planexe.llm_factory import get_llm
 
-class TaskTimeEstimateDetail(BaseModel):
+class TaskTimeEstimateDetail(StrictResponseModel):
     """
     Details about a task duration, lower/upper bounds. Potential risks impacting the duration. 
     """
@@ -40,9 +46,8 @@ class TaskTimeEstimateDetail(BaseModel):
     days_realistic: int = Field(
         description="Number of days, in the realistic scenario. If not applicable use minus 1."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
-class TimeEstimates(BaseModel):
+class TimeEstimates(StrictResponseModel):
     """
     Estimating realistic durations for each task and appropriately assigning resources 
     ensures that the project stays on schedule and within budget.
@@ -51,7 +56,6 @@ class TimeEstimates(BaseModel):
         default_factory=list,
         description="List with tasks with time estimates."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 QUERY_PREAMBLE = """
 Assign estimated durations for each task and subtask.

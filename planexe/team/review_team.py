@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 # Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.team.review_team consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
+# Author: gpt-5-codex
 # Date: 2025-10-26T00:00:00Z
 # PURPOSE: Stabilize team review structured outputs by adding resilient parsing, defensive fallbacks, and explicit sanitation of enriched team data.
 # SRP and DRY check: Pass. Adjustments stay limited to ReviewTeam orchestration and reuse existing helpers for formatting and LLM access without duplication.
@@ -17,7 +22,8 @@ from math import ceil
 from dataclasses import dataclass
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
 from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole, StructuredLLMResponse
@@ -25,7 +31,7 @@ from planexe.llm_util.schema_registry import register_schema
 
 logger = logging.getLogger(__name__)
 
-class ReviewItem(BaseModel):
+class ReviewItem(StrictResponseModel):
     issue: str = Field(
         description="A brief title or name for the omission/improvement."
     )
@@ -35,18 +41,14 @@ class ReviewItem(BaseModel):
     recommendation: str = Field(
         description="Specific suggestions on how to address the issue."
     )
-    
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
-class DocumentDetails(BaseModel):
+class DocumentDetails(StrictResponseModel):
     omissions: list[ReviewItem] = Field(
         description="The most significant omissions."
     )
     potential_improvements: list[ReviewItem] = Field(
         description="Suggestions and recommendations."
     )
-    
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 REVIEW_TEAM_SYSTEM_PROMPT = """
 You are an expert in designing and evaluating team structures for projects of all scales—from personal or trivial endeavors to large, complex initiatives. Your task is to review a team document that includes a project plan, detailed team roles, and sections on omissions and potential improvements.

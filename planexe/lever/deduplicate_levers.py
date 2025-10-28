@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.lever.deduplicate_levers consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 """
 The identify_potential_levers.py script creates a list of levers, some of which are duplicates.
 This script deduplicates the list.
@@ -13,7 +18,8 @@ from pathlib import Path
 from typing import List, Dict, Any
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
-from pydantic import BaseModel, Field, ValidationError, ConfigDict
+from pydantic import Field, ValidationError
+from planexe.llm_util.strict_response_model import StrictResponseModel
 from planexe.llm_util.llm_executor import LLMExecutor, PipelineStopRequested
 from planexe.plan.pipeline_environment import PipelineEnvironment
 
@@ -24,11 +30,10 @@ class LeverClassification(str, Enum):
     absorb = "absorb"
     remove = "remove"
 
-class LeverDecision(BaseModel):
+class LeverDecision(StrictResponseModel):
     lever_id: str = Field(
         description="The uuid of the lever."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     classification: LeverClassification = Field(
         description="What should happen to this lever."
     )
@@ -36,13 +41,12 @@ class LeverDecision(BaseModel):
         description="A concise justification for the classification. Use the lever_id to reference the lever that is being kept in its place. Use ~80 words."
     )
 
-class DeduplicationAnalysis(BaseModel):
+class DeduplicationAnalysis(StrictResponseModel):
     decisions: List[LeverDecision] = Field(
         description="A list of all levers with their classification and justification."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
-class InputLever(BaseModel):
+class InputLever(StrictResponseModel):
     """Represents a single lever loaded from the initial brainstormed file."""
     lever_id: str
     name: str

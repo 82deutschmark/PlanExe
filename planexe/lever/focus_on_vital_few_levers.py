@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.lever.focus_on_vital_few_levers consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 # Author: Cascade
 # Date: 2025-10-28
 # PURPOSE: The 80 20 rule. Extract the vital few levers that have the most impact on the project's outcome.
@@ -18,7 +23,8 @@ from typing import List
 
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 
 from planexe.llm_util.llm_executor import LLMExecutor, PipelineStopRequested
 
@@ -29,14 +35,13 @@ TARGET_VITAL_LEVER_COUNT = 5
 
 class StrategicImportance(str, Enum):
     """Enum to indicate the strategic importance of a lever for the project's outcome."""
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     critical = 'Critical'  # A fundamental lever that defines the project's core strategy or viability.
     high = 'High'          # A lever controlling a major trade-off (e.g., cost, scope, quality) with significant impact.
     medium = 'Medium'      # A lever that offers meaningful optimization but doesn't alter the core strategy.
     low = 'Low'            # A tactical or operational choice with limited strategic ripple effects.
 
 # A Pydantic model representing the structure of the enriched levers we will be loading.
-class EnrichedLever(BaseModel):
+class EnrichedLever(StrictResponseModel):
     lever_id: str
     name: str
     consequences: str
@@ -46,9 +51,8 @@ class EnrichedLever(BaseModel):
     synergy_text: str
     conflict_text: str
     deduplication_justification: str
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
-class LeverAssessment(BaseModel):
+class LeverAssessment(StrictResponseModel):
     """An assessment of a single strategic lever's importance."""
     lever_id: str = Field(
         description="The original lever_id from the provided list."
@@ -62,9 +66,8 @@ class LeverAssessment(BaseModel):
     justification: str = Field(
         description="Concise rationale (30-50 words) explaining WHY this lever has the assigned importance. Link it directly to the project's core goals, risks, or fundamental trade-offs. Example: 'Critical because it controls the fundamental go-to-market strategy, directly impacting revenue models and market penetration speed mentioned in the plan.'"
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
-class VitalLeversAssessmentResult(BaseModel):
+class VitalLeversAssessmentResult(StrictResponseModel):
     """The result of assessing and prioritizing a list of strategic levers."""
     lever_assessments: List[LeverAssessment] = Field(
         description="A list containing the assessment for every single lever provided in the input."
@@ -72,7 +75,6 @@ class VitalLeversAssessmentResult(BaseModel):
     summary: str = Field(
         description="A strategic overview (50-70 words) of the prioritization. Explain which fundamental project tensions (e.g., 'Speed vs. Scalability', 'Cost vs. Innovation') the selected 'Critical' and 'High' impact levers address as a group. Mention if any key strategic dimensions seem to be missing from the provided levers."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 FOCUS_LEVERS_SYSTEM_PROMPT = """
 You are a Chief Strategy Officer (CSO) responsible for guiding high-stakes projects. Your task is to apply the 80/20 principle to a list of strategic levers, identifying the "vital few" that will drive the majority of the project's strategic outcome.

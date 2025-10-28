@@ -13,14 +13,15 @@ import logging
 from math import ceil
 from dataclasses import dataclass
 from typing import Any
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
 from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 
 logger = logging.getLogger(__name__)
 
-class TeamMember(BaseModel):
+class TeamMember(StrictResponseModel):
     """A human with domain knowledge."""
     id: int = Field(
         description="A unique id for the job_category."
@@ -31,15 +32,11 @@ class TeamMember(BaseModel):
     typical_job_activities: str = Field(
         description="Describe some typical activities in the job."
     )
-    
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
-class TeamDetails(BaseModel):
+class TeamDetails(StrictResponseModel):
     team_members: list[TeamMember] = Field(
         description="The experts with domain knowledge about the problem."
     )
-    
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 ENRICH_TEAM_MEMBERS_SYSTEM_PROMPT = """
 For each team member provided, enrich them with a fictional background story and typical job activities.

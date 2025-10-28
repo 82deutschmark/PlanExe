@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.plan.data_collection consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 # Author: Cascade
 # Date: 2025-10-25T17:55:00Z
 # PURPOSE: Generate data collection plans via SimpleOpenAILLM structured outputs, eliminating llama_index message dependencies.
@@ -29,7 +34,8 @@ from enum import Enum
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 
 from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 
@@ -39,12 +45,10 @@ class SensitivityScore(str, Enum):
     low = 'low'
     medium = 'medium'
     high = 'high'
-
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     def human_readable(self) -> str:
         return self.value.capitalize()
 
-class AssumptionItem(BaseModel):
+class AssumptionItem(StrictResponseModel):
     item_index: int = Field(
         description="Enumeration, starting from 1."
     )
@@ -54,9 +58,8 @@ class AssumptionItem(BaseModel):
     sensitivity_score: SensitivityScore = Field(
         description="The sensitivity score of the assumption."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
-class PlannedDataCollectionItem(BaseModel):
+class PlannedDataCollectionItem(StrictResponseModel):
     item_index: int = Field(
         description="Enumeration, starting from 1."
     )
@@ -87,16 +90,14 @@ class PlannedDataCollectionItem(BaseModel):
     notes: list[str] = Field(
         description="Insights and notes."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
-class DocumentDetails(BaseModel):
+class DocumentDetails(StrictResponseModel):
     data_collection_list: list[PlannedDataCollectionItem] = Field(
         description="List of data to be collected."
     )
     summary: str = Field(
         description="Providing a high level context."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 DATA_COLLECTION_SYSTEM_PROMPT = """
 You are an automated project planning assistant generating structured project plans.

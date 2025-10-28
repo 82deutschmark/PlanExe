@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.plan.create_wbs_level2 consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 # Author: Cascade
 # Date: 2025-10-25T17:30:00Z
 # PURPOSE: Generate WBS Level 2 using the centralized SimpleOpenAILLM adapter. Formats queries from plan JSON plus WBS L1 context, invokes the LLM through the factory, and normalizes responses with UUIDs for phases and tasks for both pipeline and CLI use.
@@ -18,7 +23,8 @@ from uuid import uuid4
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
 from planexe.llm_factory import get_llm
@@ -27,17 +33,15 @@ from planexe.llm_util.schema_registry import register_schema
 
 logger = logging.getLogger(__name__)
 
-class SubtaskDetails(BaseModel):
+class SubtaskDetails(StrictResponseModel):
     subtask_wbs_number: str = Field(
         description="The unique identifier assigned to each subtask. Example: ['1.', '2.', '3.', '6.2.2', '6.2.3', '6.2.4', 'Subtask 5:', 'Subtask 6:', 'S3.', 'S4.']."
     )
     subtask_title: str = Field(
         description="Start with a verb to clearly indicate the action required. Example: ['Secure funding', 'Obtain construction permits', 'Electrical installation', 'Commissioning and handover']."
     )
-    
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
-class MajorPhaseDetails(BaseModel):
+class MajorPhaseDetails(StrictResponseModel):
     """
     A major phase in the project decomposed into smaller tasks.
     """
@@ -50,10 +54,8 @@ class MajorPhaseDetails(BaseModel):
     subtasks: list[SubtaskDetails] = Field(
         description="List of the subtasks or activities."
     )
-    
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
-class WorkBreakdownStructure(BaseModel):
+class WorkBreakdownStructure(StrictResponseModel):
     """
     The Work Breakdown Structure (WBS) is a hierarchical decomposition of the total scope of work to accomplish project objectives.
     It organizes the project into smaller, more manageable components.
@@ -61,8 +63,6 @@ class WorkBreakdownStructure(BaseModel):
     major_phase_details: list[MajorPhaseDetails] = Field(
         description="List with each major phase broken down into subtasks or activities."
     )
-    
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 QUERY_PREAMBLE = """
 Create a work breakdown structure level 2 for this project.
@@ -277,4 +277,3 @@ if __name__ == "__main__":
 
     print("\n\nExtracted result:")
     print(json.dumps(result.major_phases_with_subtasks, indent=2))
-

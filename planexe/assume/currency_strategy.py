@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.assume.currency_strategy consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 """
 Pick a suitable currency for the project plan. If the description already includes the currency, then there is no need for this step.
 If the currency is not mentioned, then the expert should suggest suitable locations based on the project requirements.
@@ -15,22 +20,22 @@ import logging
 from math import ceil
 from dataclasses import dataclass
 from typing import Optional
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
 
 logger = logging.getLogger(__name__)
 
-class CurrencyItem(BaseModel):
+class CurrencyItem(StrictResponseModel):
     currency: str = Field(
         description="ISO 4217 alphabetic code."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     consideration: str = Field(
         description="Why use this currency."
     )
 
-class DocumentDetails(BaseModel):
+class DocumentDetails(StrictResponseModel):
     money_involved: bool = Field(
         description="True if the project likely involves any financial transactions (e.g., purchasing equipment, paying for services, travel, lab tests), otherwise False."
     )
@@ -45,7 +50,6 @@ class DocumentDetails(BaseModel):
         description="A short summary of how to handle currency exchange and risk during the project.",
         default=""
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 CURRENCY_STRATEGY_SYSTEM_PROMPT_1 = """
 You are a world-class planning expert specializing in picking the best-suited currency for large, international projects. Currency decisions significantly impact project costs, reporting, and financial risk.
