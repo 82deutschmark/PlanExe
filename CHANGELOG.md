@@ -6,6 +6,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.10.14] - 2025-10-28
+
+### Added
+- Documented the async batching and Luigi worker hygiene plan in `docs/async-concurrency-implementation-plan.md` so the next developer knows exactly which files to touch and what changes to make.
+
 ## [0.10.13] - 2025-10-28
 
 ### Fixed
