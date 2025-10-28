@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, ConfigDict
 from planexe.llm_util.llm_executor import LLMExecutor, PipelineStopRequested
 from planexe.plan.pipeline_environment import PipelineEnvironment
 
@@ -28,7 +28,7 @@ class LeverDecision(BaseModel):
     lever_id: str = Field(
         description="The uuid of the lever."
     )
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     classification: LeverClassification = Field(
         description="What should happen to this lever."
     )
@@ -40,6 +40,7 @@ class DeduplicationAnalysis(BaseModel):
     decisions: List[LeverDecision] = Field(
         description="A list of all levers with their classification and justification."
     )
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 class InputLever(BaseModel):
     """Represents a single lever loaded from the initial brainstormed file."""
