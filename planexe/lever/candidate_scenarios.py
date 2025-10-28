@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import List, Dict
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
-from pydantic import BaseModel, Field, conlist, field_serializer, field_validator
+from pydantic import BaseModel, Field, conlist, field_serializer, field_validator, ConfigDict
 from planexe.llm_util.llm_executor import LLMExecutor, PipelineStopRequested
 from planexe.lever.lever_setting_utils import lever_settings_to_mapping
 
@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 # Represents a lever from the 'vital_levers' file
 class VitalLever(BaseModel):
     lever_id: str
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     name: str
     options: List[str]
     review: str
@@ -56,6 +56,7 @@ class LeverSetting(BaseModel):
     selected_option: str = Field(
         description="The chosen option for this lever drawn from its allowed options."
     )
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 
 # The final output models for a strategic scenario
@@ -69,6 +70,7 @@ class Scenario(BaseModel):
     lever_settings: List[LeverSetting] = Field(
         description="A list of lever decisions. Each item ties a vital lever to the selected option for this scenario."
     )
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
     @field_validator("lever_settings", mode="before")
     def _coerce_lever_settings(cls, value):
@@ -93,6 +95,7 @@ class ScenarioAnalysisResult(BaseModel):
     scenarios: conlist(Scenario, min_length=3, max_length=3) = Field(
         description="A list of exactly 3 distinct strategic scenarios."
     )
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 # --- LLM Prompt ---
 

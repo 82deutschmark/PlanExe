@@ -24,7 +24,7 @@ import logging
 from math import ceil
 from typing import Optional, Any
 from dataclasses import dataclass
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from llama_index.core.llms.llm import LLM
 from llama_index.core.llms import ChatMessage, MessageRole
 
@@ -32,10 +32,10 @@ logger = logging.getLogger(__name__)
 
 class AssumptionDetails(BaseModel):
     assumption_list: list[str] = Field(description="List of assumptions")
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 SYSTEM_PROMPT_1 = """
 You are an intelligent **Planning Assistant** specializing in distilling project assumptions for efficient use by planning tools. Your primary goal is to condense a list of verbose assumptions into a concise list of key assumptions that have a significant strategic impact on planning and execution, while ensuring that all core assumptions are captured.
-    model_config = {'extra': 'allow'}
 
 **Your instructions are:**
 

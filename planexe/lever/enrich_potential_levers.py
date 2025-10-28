@@ -20,7 +20,7 @@ from typing import List, Dict, Any
 
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, ConfigDict
 
 from planexe.llm_util.llm_executor import LLMExecutor, PipelineStopRequested
 
@@ -33,7 +33,7 @@ BATCH_SIZE = 5
 # --- Pydantic models ---
 class InputLever(BaseModel):
     lever_id: str
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     name: str
     consequences: str
     options: List[str]
@@ -46,10 +46,12 @@ class LeverCharacterization(BaseModel):
     description: str = Field(description="80-100 word description of the lever's purpose, scope, metrics.")
     synergy_text: str = Field(description="40-60 words on positive interactions; name specific levers.")
     conflict_text: str = Field(description="40-60 words on conflicts/trade-offs; name specific levers.")
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 
 class BatchCharacterizationResult(BaseModel):
     characterizations: List[LeverCharacterization]
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 
 class CharacterizedLever(BaseModel):
@@ -62,6 +64,7 @@ class CharacterizedLever(BaseModel):
     description: str
     synergy_text: str
     conflict_text: str
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 
 # --- Prompt ---

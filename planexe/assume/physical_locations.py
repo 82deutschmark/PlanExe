@@ -12,7 +12,7 @@ import time
 import logging
 from math import ceil
 from dataclasses import dataclass
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
 
@@ -22,7 +22,7 @@ class PhysicalLocationItem(BaseModel):
     item_index: int = Field(
         description="Enumeration of the locations, starting from 1."
     )
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     physical_location_broad: str = Field(
         description="A broad location for the project, such as a country or region. Use 'Global' if applicable."
     )
@@ -49,6 +49,7 @@ class DocumentDetails(BaseModel):
     location_summary: str = Field(
         description="Providing a high level context."
     )
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 PHYSICAL_LOCATIONS_SYSTEM_PROMPT = """
 You are a world-class planning expert specializing in real-world physical locations. Your goal is to generate a JSON response that follows the `DocumentDetails` and `PhysicalLocationItem` models precisely. 

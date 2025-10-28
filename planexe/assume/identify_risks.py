@@ -13,7 +13,7 @@ import logging
 from math import ceil
 from enum import Enum
 from dataclasses import dataclass
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
 
@@ -23,12 +23,13 @@ class LowMediumHigh(str, Enum):
     low = 'low'
     medium = 'medium'
     high = 'high'
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 class RiskItem(BaseModel):
     risk_area: str = Field(
         description="The category or domain of the risk, e.g., Regulatory, Financial, Technical."
     )
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     risk_description: str = Field(
         description="A detailed explanation outlining the specific nature of the risk."
     )
@@ -52,6 +53,7 @@ class DocumentDetails(BaseModel):
     risk_assessment_summary: str = Field(
         description="Providing a high level context."
     )
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 IDENTIFY_RISKS_SYSTEM_PROMPT = """
 You are a world-class planning expert with extensive experience in risk management for a wide range of projects, from small personal tasks to large-scale business ventures. Your objective is to identify potential risks that could jeopardize the success of a project based on its description. When analyzing the project plan, please consider and include the following aspects:

@@ -13,7 +13,7 @@ from typing import List
 
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from planexe.llm_util.llm_executor import LLMExecutor, PipelineStopRequested
 
@@ -24,7 +24,7 @@ TARGET_VITAL_LEVER_COUNT = 5
 
 class StrategicImportance(str, Enum):
     """Enum to indicate the strategic importance of a lever for the project's outcome."""
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     critical = 'Critical'  # A fundamental lever that defines the project's core strategy or viability.
     high = 'High'          # A lever controlling a major trade-off (e.g., cost, scope, quality) with significant impact.
     medium = 'Medium'      # A lever that offers meaningful optimization but doesn't alter the core strategy.
@@ -40,6 +40,7 @@ class EnrichedLever(BaseModel):
     description: str
     synergy_text: str
     conflict_text: str
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 class LeverAssessment(BaseModel):
     """An assessment of a single strategic lever's importance."""
@@ -55,6 +56,7 @@ class LeverAssessment(BaseModel):
     justification: str = Field(
         description="Concise rationale (30-50 words) explaining WHY this lever has the assigned importance. Link it directly to the project's core goals, risks, or fundamental trade-offs. Example: 'Critical because it controls the fundamental go-to-market strategy, directly impacting revenue models and market penetration speed mentioned in the plan.'"
     )
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 class VitalLeversAssessmentResult(BaseModel):
     """The result of assessing and prioritizing a list of strategic levers."""
@@ -64,6 +66,7 @@ class VitalLeversAssessmentResult(BaseModel):
     summary: str = Field(
         description="A strategic overview (50-70 words) of the prioritization. Explain which fundamental project tensions (e.g., 'Speed vs. Scalability', 'Cost vs. Innovation') the selected 'Critical' and 'High' impact levers address as a group. Mention if any key strategic dimensions seem to be missing from the provided levers."
     )
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 FOCUS_LEVERS_SYSTEM_PROMPT = """
 You are a Chief Strategy Officer (CSO) responsible for guiding high-stakes projects. Your task is to apply the 80/20 principle to a list of strategic levers, identifying the "vital few" that will drive the majority of the project's strategic outcome.

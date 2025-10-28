@@ -12,7 +12,7 @@ import logging
 import json
 from enum import Enum
 from dataclasses import dataclass
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
 
@@ -25,7 +25,6 @@ class PlanPurpose(str, Enum):
 
 class PlanPurposeInfo(BaseModel):
     """
-    model_config = {'extra': 'allow'}
     Identify the purpose of the plan to be performed.
     """
     topic: str = Field(description="The subject of the plan.")
@@ -35,6 +34,7 @@ class PlanPurposeInfo(BaseModel):
     purpose: PlanPurpose = Field(
         description="Purpose of the plan."
     )
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 IDENTIFY_PURPOSE_SYSTEM_PROMPT = """
 You are an expert analyst tasked with categorizing the purpose of user-described plans strictly based on their provided prompt. Your classifications must be clear, objective, and unbiased. Categorize each plan into exactly one of the following three types:

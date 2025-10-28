@@ -16,7 +16,7 @@ import logging
 from math import ceil
 from typing import Optional
 from dataclasses import dataclass
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from llama_index.core.llms.llm import LLM
 from llama_index.core.llms import ChatMessage, MessageRole
 
@@ -28,12 +28,12 @@ class QuestionAssumptionItem(BaseModel):
     assumptions: str = Field(description="Reasonable assumptions made to fill in the gaps or missing details in the user's description.")
     assessments: str = Field(description="Detailed information about the assessments, including key findings and recommendations. *max 3 assessments*.")
     
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 class ExpertDetails(BaseModel):
     question_assumption_list: list[QuestionAssumptionItem] = Field(description="Questions and assumptions")
     
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 SYSTEM_PROMPT_1 = """
 You are an intelligent **Planning Assistant** designed to help users develop detailed plans from vague or high-level descriptions.

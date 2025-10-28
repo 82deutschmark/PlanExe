@@ -6,6 +6,26 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.10.4] - 2025-10-28
+
+### Fixed
+- **OpenAI Responses API schema compliance**: Methodically fixed all high and medium priority Pydantic models to emit `additionalProperties: false` for structured output validation:
+  - **High Priority Lever Tasks**:
+    - `focus_on_vital_few_levers.py`: Fixed StrategicImportance, EnrichedLever, LeverAssessment, VitalLeversAssessmentResult
+    - `enrich_potential_levers.py`: Fixed InputLever, LeverCharacterization, BatchCharacterizationResult, CharacterizedLever
+    - `candidate_scenarios.py`: Fixed VitalLever, LeverSetting, Scenario, ScenarioAnalysisResult
+  - **Medium Priority Assumption Tasks**:
+    - `make_assumptions.py`: Fixed QuestionAssumptionItem, ExpertDetails
+    - `review_assumptions.py`: Fixed ReviewItem, DocumentDetails
+    - `distill_assumptions.py`: Fixed AssumptionDetails
+    - `identify_risks.py`: Fixed LowMediumHigh, RiskItem, DocumentDetails
+    - `physical_locations.py`: Fixed PhysicalLocationItem, DocumentDetails
+    - `identify_purpose.py`: Fixed PlanPurposeInfo
+    - `currency_strategy.py`: Fixed CurrencyItem, DocumentDetails
+
+### Documentation
+- **Comprehensive compliance guide**: Created `docs/OPENAI-RESPONSES-API-SCHEMA-COMPLIANCE.md` with complete file inventory, prioritization, and implementation strategy for remaining 22 lower-priority files.
+
 ## [0.10.3] - 2025-10-28
 
 ### Fixed

@@ -9,7 +9,7 @@ import time
 import logging
 from math import ceil
 from dataclasses import dataclass
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
 
@@ -19,7 +19,7 @@ class ReviewItem(BaseModel):
     issue: str = Field(
         description="A brief title or name."
     )
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     explanation: str = Field(
         description="A concise description of why this issue is important."
     )
@@ -44,6 +44,7 @@ class DocumentDetails(BaseModel):
     conclusion: str = Field(
         description="Summary of the most important issues."
     )
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 REVIEW_ASSUMPTIONS_SYSTEM_PROMPT = """
 You are a world-class planning expert specializing in the success of projects. Your task is to critically review the provided assumptions and identify potential weaknesses, omissions, or unrealistic elements that could significantly impact project success. Your analysis should be tailored to the project’s scale and context, while considering standard project management best practices. Be creative and innovative in your analysis, considering risks and opportunities that might be overlooked by others.

@@ -15,7 +15,7 @@ import logging
 from math import ceil
 from dataclasses import dataclass
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
 
@@ -25,7 +25,7 @@ class CurrencyItem(BaseModel):
     currency: str = Field(
         description="ISO 4217 alphabetic code."
     )
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     consideration: str = Field(
         description="Why use this currency."
     )
@@ -45,6 +45,7 @@ class DocumentDetails(BaseModel):
         description="A short summary of how to handle currency exchange and risk during the project.",
         default=""
     )
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 CURRENCY_STRATEGY_SYSTEM_PROMPT_1 = """
 You are a world-class planning expert specializing in picking the best-suited currency for large, international projects. Currency decisions significantly impact project costs, reporting, and financial risk.
