@@ -17,6 +17,12 @@ This project follows [Semantic Versioning](https://semver.org/):
   - Added debugging logs to WebSocket message handling and progress reducer in useRecoveryPlan.ts
   - No backend or database changes required - solution uses only existing WebSocket streaming data
 
+### Improved
+- **API Telemetry Failure Details**: Enhanced API Telemetry strip to show detailed information for each failed API call
+  - Added scrollable list showing all failed calls with interaction ID, stage name, error message, and timestamp
+  - Failed calls now displayed in individual cards with red highlighting for better visibility
+  - Uses existing LLM stream data from WebSocket - no new backend endpoints required
+
 ## [0.10.16] - 2025-10-28
 
 ### Fixed

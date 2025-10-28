@@ -168,6 +168,14 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
     const lastFailedStream = failedStreams[failedStreams.length - 1];
     const lastError = lastFailedStream?.error || null;
     
+    // Map failed streams to detailed error info
+    const failedCallDetails = failedStreams.map(stream => ({
+      interactionId: stream.interactionId,
+      stage: stream.stage,
+      error: stream.error || 'Unknown error',
+      timestamp: new Date(stream.lastUpdated).toLocaleTimeString(),
+    }));
+    
     return {
       totalCalls: allStreams.length,
       successfulCalls: completedStreams.length,
@@ -178,6 +186,7 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
       providerStatus: connection.status === 'connected' ? 'connected' as const : 'error' as const,
       recentResponseTimes: responseTimes.slice(-Math.min(10, responseTimes.length)),
       lastError,
+      failedCallDetails,
     };
   }, [llmStreams, plan?.llm_model, connection.status]);
 

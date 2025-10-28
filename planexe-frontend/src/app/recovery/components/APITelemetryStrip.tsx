@@ -11,6 +11,13 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Wifi, WifiOff, Zap, Clock, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
 
+interface FailedCallDetail {
+  interactionId: number;
+  stage: string;
+  error: string;
+  timestamp: string;
+}
+
 interface APICallMetrics {
   totalCalls: number;
   successfulCalls: number;
@@ -21,6 +28,7 @@ interface APICallMetrics {
   providerStatus: 'connected' | 'error' | 'unknown';
   recentResponseTimes: number[];
   lastError?: string | null;
+  failedCallDetails?: FailedCallDetail[];
 }
 
 interface APITelemetryStripProps {
@@ -179,14 +187,34 @@ export const APITelemetryStrip: React.FC<APITelemetryStripProps> = ({
           <div className="flex items-center gap-1 text-orange-600">
             <AlertCircle className="h-3 w-3" />
             <span>{metrics.failedCalls} failed calls</span>
-            {metrics.lastError && (
-              <span className="text-xs text-gray-500 ml-1 truncate max-w-32" title={metrics.lastError}>
-                ({metrics.lastError})
-              </span>
-            )}
           </div>
         )}
       </div>
+
+      {/* Failed calls details */}
+      {metrics.failedCallDetails && metrics.failedCallDetails.length > 0 && (
+        <div className="space-y-2 pt-2 border-t border-slate-200">
+          <div className="text-xs font-medium text-red-600 flex items-center gap-1">
+            <AlertCircle className="h-3 w-3" />
+            Failed API Calls:
+          </div>
+          <div className="space-y-1.5 max-h-32 overflow-y-auto">
+            {metrics.failedCallDetails.map((failedCall, index) => (
+              <div key={index} className="bg-red-50 border border-red-200 rounded p-2 text-xs space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-red-900">
+                    #{failedCall.interactionId} - {failedCall.stage}
+                  </span>
+                  <span className="text-gray-500 text-[10px]">{failedCall.timestamp}</span>
+                </div>
+                <div className="text-red-700 break-words">
+                  {failedCall.error}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
