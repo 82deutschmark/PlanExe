@@ -6,6 +6,14 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.15.4] - 2025-10-28
+
+### Changed
+- Realigned recovery streaming with Responses API envelopes to preserve sequence ordering and backpressure handling, routing WebSocket orchestration through the shared recovery streaming controller @planexe-frontend/src/app/recovery/useRecoveryPlan.ts#24-931.
+
+### Added
+- Surfaced usage metrics and recent event metadata in the recovery LiveStreamPanel to aid operator diagnostics @planexe-frontend/src/app/recovery/components/LiveStreamPanel.tsx#1-144.
+
 ## [0.15.3] - 2025-10-28
 
 ### Fixed

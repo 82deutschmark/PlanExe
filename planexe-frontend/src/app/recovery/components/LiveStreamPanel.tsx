@@ -75,9 +75,8 @@ const renderUsageValue = (value: unknown): ReactNode => {
 };
 
 export const LiveStreamPanel: FC<LiveStreamPanelProps> = ({ stream }) => {
-  const assembledText = stream?.finalText ?? stream?.textBuffer ?? stream?.textDeltas.join('');
-  const assembledReasoning =
-    stream?.finalReasoning ?? stream?.reasoningBuffer ?? stream?.reasoningDeltas.join('\n');
+  const assembledText = stream?.finalText ?? stream?.textBuffer ?? '';
+  const assembledReasoning = stream?.finalReasoning ?? stream?.reasoningBuffer ?? '';
 
   return (
     <Card className="border-gray-300 bg-white shadow-sm">
@@ -111,6 +110,27 @@ export const LiveStreamPanel: FC<LiveStreamPanelProps> = ({ stream }) => {
             </div>
             {stream.error && (
               <p className="text-[10px] text-red-600 bg-red-50 p-1 rounded">Error: {stream.error}</p>
+            )}
+            {stream.usage && (
+              <div className="mt-2 pt-2 border-t border-gray-200">
+                <p className="text-[9px] uppercase tracking-wide text-gray-500 mb-1">Usage</p>
+                <div className="text-[10px] text-gray-600">
+                  {renderUsageValue(stream.usage)}
+                </div>
+              </div>
+            )}
+            {stream.events.length > 0 && (
+              <div className="mt-2 pt-2 border-t border-gray-200">
+                <p className="text-[9px] uppercase tracking-wide text-gray-500 mb-1">Recent Events</p>
+                <div className="space-y-1 max-h-20 overflow-y-auto">
+                  {stream.events.slice(-3).map((event, idx) => (
+                    <div key={idx} className="text-[9px] text-gray-600 flex justify-between">
+                      <span className="font-mono">{event.event}</span>
+                      <span>{new Date(event.timestamp).toLocaleTimeString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         ) : (

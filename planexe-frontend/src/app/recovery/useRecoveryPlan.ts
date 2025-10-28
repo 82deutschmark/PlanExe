@@ -22,6 +22,7 @@ import {
 import { Activity, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { PlanFile } from '@/lib/types/pipeline';
 import { parseBackendDate, toIsoStringOrFallback } from '@/lib/utils/date';
+import { createRecoveryStreaming } from '@/lib/streaming/recovery-streaming';
 
 export interface StatusDisplay {
   label: string;
@@ -55,23 +56,25 @@ export interface LLMStreamState {
   planId: string;
   stage: string;
   status: StreamStatus;
-  textDeltas: string[];
-  reasoningDeltas: string[];
-  textBuffer: string;
-  reasoningBuffer: string;
-  finalText?: string;
-  finalReasoning?: string;
-  usage?: Record<string, unknown>;
-  rawPayload?: Record<string, unknown> | null;
-  error?: string;
-  lastUpdated: number;
-  promptPreview?: string | null;
+  // Raw SSE envelope preservation
   events: Array<{
     sequence: number;
     event: string;
     timestamp: string;
     payload: Record<string, unknown>;
   }>;
+  // Derived buffers for UI convenience
+  textBuffer: string;
+  reasoningBuffer: string;
+  // Final aggregated values when available
+  finalText?: string;
+  finalReasoning?: string;
+  // Metadata
+  usage?: Record<string, unknown>;
+  rawPayload?: Record<string, unknown> | null;
+  error?: string;
+  lastUpdated: number;
+  promptPreview?: string | null;
 }
 
 interface RecoveryState {
@@ -604,19 +607,26 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
       setLlmStreams((prev) => {
         const existing = prev[message.interaction_id];
         const promptPreview = typeof sanitizedData.prompt_preview === 'string' ? sanitizedData.prompt_preview : undefined;
+        
+        // Create the raw event record first
+        const eventRecord = {
+          sequence: typeof message.sequence === 'number' ? message.sequence : Date.now(),
+          event: message.event,
+          timestamp: message.timestamp,
+          payload: cloneEventPayload(sanitizedData),
+        };
+
         const baseState: LLMStreamState = existing ?? {
           interactionId: message.interaction_id,
           planId: message.plan_id,
           stage: message.stage,
           status: 'running',
-          textDeltas: [],
-          reasoningDeltas: [],
+          events: [],
           textBuffer: buffer.text,
           reasoningBuffer: buffer.reasoning,
           lastUpdated: Date.now(),
           promptPreview: promptPreview ?? null,
           rawPayload: null,
-          events: [],
         };
 
         const updated: LLMStreamState = {
@@ -628,6 +638,15 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
           rawPayload: baseState.rawPayload ?? null,
         };
 
+        // Store events with ordering preservation
+        const nextEvents = [...baseState.events, eventRecord];
+        if (nextEvents.length > MAX_STREAM_EVENTS) {
+          nextEvents.splice(0, nextEvents.length - MAX_STREAM_EVENTS);
+        }
+        // Sort by sequence to maintain ordering guarantees
+        nextEvents.sort((a, b) => a.sequence - b.sequence);
+        updated.events = nextEvents;
+
         switch (message.event) {
           case 'start':
             updated.status = 'running';
@@ -635,11 +654,6 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
           case 'text_delta': {
             const delta = typeof sanitizedData.delta === 'string' ? sanitizedData.delta : '';
             if (delta) {
-              const next = [...updated.textDeltas, delta];
-              if (next.length > MAX_STREAM_DELTAS) {
-                next.splice(0, next.length - MAX_STREAM_DELTAS);
-              }
-              updated.textDeltas = next;
               buffer.text = `${buffer.text}${delta}`;
             }
             break;
@@ -647,11 +661,6 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
           case 'reasoning_delta': {
             const delta = typeof sanitizedData.delta === 'string' ? sanitizedData.delta : '';
             if (delta) {
-              const next = [...updated.reasoningDeltas, delta];
-              if (next.length > MAX_STREAM_DELTAS) {
-                next.splice(0, next.length - MAX_STREAM_DELTAS);
-              }
-              updated.reasoningDeltas = next;
               appendReasoningChunk(buffer, delta);
             }
             break;
@@ -692,19 +701,6 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
         updated.textBuffer = buffer.text;
         updated.reasoningBuffer = buffer.reasoning;
 
-        const eventRecord = {
-          sequence: typeof message.sequence === 'number' ? message.sequence : Date.now(),
-          event: message.event,
-          timestamp: message.timestamp,
-          payload: cloneEventPayload(sanitizedData),
-        };
-
-        const nextEvents = [...baseState.events, eventRecord];
-        if (nextEvents.length > MAX_STREAM_EVENTS) {
-          nextEvents.splice(0, nextEvents.length - MAX_STREAM_EVENTS);
-        }
-        updated.events = nextEvents;
-
         return { ...prev, [message.interaction_id]: updated };
       });
 
@@ -719,136 +715,64 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
     [],
   );
 
-  // WebSocket connection for live updates
+  // WebSocket connection for live updates using consolidated streaming logic
   useEffect(() => {
     if (!planId) {
       return;
     }
 
-    let cancelled = false;
-    const client = fastApiClient.streamProgress(planId);
-    wsClientRef.current = client;
+    const streamingController = createRecoveryStreaming();
+    
+    const unsubscribe = streamingController.subscribe((streamState) => {
+      setConnection({
+        mode: streamState.status === 'error' ? 'polling' : 'websocket',
+        status: streamState.status === 'connecting' ? 'connecting' : 
+                streamState.status === 'running' ? 'connected' :
+                streamState.status === 'completed' ? 'closed' : 'error',
+        lastEventAt: streamState.lastEventAt,
+        lastHeartbeatAt: streamState.lastHeartbeatAt,
+        error: streamState.error,
+      });
+    });
 
-    setConnection({ mode: 'websocket', status: 'connecting', lastEventAt: null, lastHeartbeatAt: null, error: null });
-
-    const handleMessage = (payload: WebSocketMessage | CloseEvent) => {
-      if (cancelled || !isWebSocketMessage(payload)) {
-        return;
-      }
-      const message = payload;
-      const timestamp = message.timestamp ? parseBackendDate(message.timestamp) ?? new Date() : new Date();
-      switch (message.type) {
-        case 'status':
-          setConnection((prev) => ({
-            ...prev,
-            mode: 'websocket',
-            status: 'connected',
-            lastEventAt: timestamp,
-            error: null,
-          }));
-          console.log('[Recovery] Received status update:', {
-            status: message.status,
+    const handleStreamEvents = {
+      onStart: (context: any) => {
+        handleLlmStreamMessage(context.message);
+      },
+      onTextDelta: (context: any) => {
+        handleLlmStreamMessage(context.message);
+      },
+      onReasoningDelta: (context: any) => {
+        handleLlmStreamMessage(context.message);
+      },
+      onFinal: (context: any) => {
+        handleLlmStreamMessage(context.message);
+      },
+      onEnd: (context: any) => {
+        handleLlmStreamMessage(context.message);
+      },
+      onStatus: (message: any) => {
+        dispatch({
+          type: 'plan:update',
+          payload: {
+            status: message.status as PlanResponse['status'],
             progress_percentage: message.progress_percentage,
             progress_message: message.message,
-          });
-          dispatch({
-            type: 'plan:update',
-            payload: {
-              status: message.status as PlanResponse['status'],
-              progress_percentage: message.progress_percentage,
-              progress_message: message.message,
-            },
-          });
-          break;
-        case 'heartbeat':
-          setConnection((prev) => ({
-            ...prev,
-            mode: 'websocket',
-            status: 'connected',
-            lastHeartbeatAt: timestamp,
-            lastEventAt: timestamp,
-            error: null,
-          }));
-          break;
-        case 'stream_end':
-          setConnection((prev) => ({
-            ...prev,
-            mode: 'websocket',
-            status: 'closed',
-            lastEventAt: timestamp,
-          }));
-          break;
-        case 'error':
-          setConnection((prev) => ({
-            ...prev,
-            mode: 'websocket',
-            status: 'error',
-            lastEventAt: timestamp,
-            error: message.message,
-          }));
-          break;
-        case 'llm_stream':
-          handleLlmStreamMessage(message as WebSocketLLMStreamMessage);
-          setConnection((prev) => ({
-            ...prev,
-            lastEventAt: timestamp,
-          }));
-          break;
-        case 'log':
-          setConnection((prev) => ({
-            ...prev,
-            lastEventAt: timestamp,
-          }));
-          break;
-        default:
-          break;
-      }
-    };
-
-    const handleClose = () => {
-      if (cancelled) {
-        return;
-      }
-      setConnection((prev) => ({
-        ...prev,
-        mode: 'polling',
-        status: 'error',
-        error: prev.error ?? 'Live connection lost. Falling back to polling.',
-      }));
-    };
-
-    client.on('message', handleMessage);
-    client.on('close', handleClose);
-    client.on('error', handleClose);
-
-    client
-      .connect()
-      .then(() => {
-        if (cancelled) {
-          return;
-        }
-        setConnection((prev) => ({ ...prev, status: 'connected', mode: 'websocket', error: null }));
-      })
-      .catch(() => {
-        if (cancelled) {
-          return;
-        }
-        setConnection({
-          mode: 'polling',
-          status: 'error',
-          lastEventAt: null,
-          lastHeartbeatAt: null,
-          error: 'Unable to establish live connection. Using polling updates.',
+          },
         });
-      });
+      },
+      onError: (message: string) => {
+        console.error('[Recovery] Streaming error:', message);
+      },
+    };
+
+    streamingController.start(planId, handleStreamEvents).catch((error) => {
+      console.error('[Recovery] Failed to start streaming:', error);
+    });
 
     return () => {
-      cancelled = true;
-      client.off('message', handleMessage);
-      client.off('close', handleClose);
-      client.off('error', handleClose);
-      client.disconnect();
-      wsClientRef.current = null;
+      unsubscribe();
+      streamingController.close();
     };
   }, [planId, handleLlmStreamMessage]);
 
