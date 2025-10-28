@@ -6,6 +6,28 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.13.0] - 2025-10-28
+
+### Added
+- **Pipeline Completion Summary Modal**: New modal displays when pipeline completes instead of auto-navigating away
+  - Shows completion status with visual success/failure indicators
+  - Displays key metrics: completed tasks (out of 61), failed tasks, total execution time, API calls, and token usage
+  - Four info cards with gradient backgrounds showing: completed tasks (green), failed tasks (red, if any), total time (blue), API stats (purple)
+  - Contextual messaging based on completion status (all success, partial failures, or mixed)
+  - "View Report" button scrolls to report section, "Continue Working" dismisses modal
+  - Auto-shows 500ms after pipeline status changes to 'completed' (only once per plan)
+  - Component: `planexe-frontend/src/app/recovery/components/CompletionSummaryModal.tsx`
+  - Integration: `planexe-frontend/src/app/recovery/page.tsx` lines 68-105, 149-155
+
+### Fixed
+- **Error Display in LivePipelineDAG**: Failed tasks now show actual error messages inline instead of just a red X icon
+  - Error data was already flowing through WebSocket → `LLMStreamState.error` but wasn't being displayed
+  - Added inline error display box for failed tasks with red background, border, and error text
+  - Error message appears directly below failed task in DAG with readable formatting (9px text, word-break)
+  - Users can now see WHAT went wrong without needing to click into modal
+  - File: `planexe-frontend/src/app/recovery/components/LivePipelineDAG.tsx` lines 192-200
+  - Zero backend changes - solution uses existing error data in frontend state
+
 ## [0.12.0] - 2025-10-28
 
 ### Changed
