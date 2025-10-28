@@ -1,13 +1,13 @@
 /**
  * Author: Cascade
  * Date: 2025-10-28
- * PURPOSE: Ultra-dense grid of completed stream interactions with click-to-detail modal
- * SRP and DRY check: Pass - Focuses on compact stream history presentation
+ * PURPOSE: Prominent, interactive grid of completed tasks with rich visual feedback
+ * SRP and DRY check: Pass - Focuses on compelling stream history presentation
  */
 'use client';
 
 import React, { useState } from 'react';
-import { History, Clock, Zap, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { History, Clock, Zap, CheckCircle, XCircle, AlertCircle, MousePointer2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { LLMStreamState } from '../useRecoveryPlan';
 import { StreamDetailModal } from './StreamDetailModal';
@@ -19,31 +19,31 @@ interface StreamHistoryGridProps {
 export const StreamHistoryGrid: React.FC<StreamHistoryGridProps> = ({ streams }) => {
   const [selectedStream, setSelectedStream] = useState<LLMStreamState | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  
+
   const handleStreamClick = (stream: LLMStreamState) => {
     setSelectedStream(stream);
     setModalOpen(true);
   };
-  
+
   const getStatusIcon = (status: LLMStreamState['status']) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle className="h-3 w-3 text-green-600" />;
+        return <CheckCircle className="h-4 w-4 text-emerald-700" />;
       case 'failed':
-        return <XCircle className="h-3 w-3 text-red-600" />;
+        return <XCircle className="h-4 w-4 text-rose-700" />;
       default:
-        return <AlertCircle className="h-3 w-3 text-yellow-600" />;
+        return <AlertCircle className="h-4 w-4 text-amber-700" />;
     }
   };
-  
+
   const getStatusColor = (status: LLMStreamState['status']) => {
     switch (status) {
       case 'completed':
-        return 'bg-green-50 border-green-300 hover:bg-green-100';
+        return 'bg-gradient-to-br from-emerald-50 to-green-100 border-2 border-emerald-400 hover:from-emerald-100 hover:to-green-200 hover:border-emerald-500 hover:shadow-lg hover:shadow-emerald-200/50';
       case 'failed':
-        return 'bg-red-50 border-red-300 hover:bg-red-100';
+        return 'bg-gradient-to-br from-rose-50 to-red-100 border-2 border-rose-400 hover:from-rose-100 hover:to-red-200 hover:border-rose-500 hover:shadow-lg hover:shadow-rose-200/50';
       default:
-        return 'bg-yellow-50 border-yellow-300 hover:bg-yellow-100';
+        return 'bg-gradient-to-br from-amber-50 to-yellow-100 border-2 border-amber-400 hover:from-amber-100 hover:to-yellow-200 hover:border-amber-500 hover:shadow-lg hover:shadow-amber-200/50';
     }
   };
   
