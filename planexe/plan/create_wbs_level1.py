@@ -151,47 +151,56 @@ class CreateWBSLevel1:
 
     @staticmethod
     def _load_json_payload(raw_text: str) -> Dict[str, Any]:
-        warnings = []
+        """
+        Tolerant loader for Level 1 WBS JSON.
+        - Try strict JSON
+        - Then try the first {...} block
+        - Then parse simple YAML/bullet lines like "- key: value"
+        If all fail, return safe defaults so the task doesn't crash the pipeline.
+        """
+        # 1) Strict JSON
         try:
             payload = json.loads(raw_text)
         except JSONDecodeError:
-            match = re.search(r"\{.*\}", raw_text, re.DOTALL)
-            if not match:
-                snippet = raw_text.strip()
-                if len(snippet) > 200:
-                    snippet = f"{snippet[:197]}..."
-                logger.warning(f"LLM response did not contain JSON: {snippet}")
-                # Fallback: synthesize a safe default JSON so downstream tasks can proceed
-                payload = {
-                    "project_title": "Auto-generated Project",
-                    "final_deliverable": "Auto-generated Deliverable"
-                }
-                warnings.append("json_fallback_applied")
-                return payload, warnings
-            try:
-                payload = json.loads(match.group(0))
-            except JSONDecodeError as exc:
-                snippet = match.group(0)
-                if len(snippet) > 200:
-                    snippet = f"{snippet[:197]}..."
-                logger.warning(f"Unable to parse JSON from LLM response: {snippet}")
-                # Fallback: synthesize a safe default JSON so downstream tasks can proceed
-                payload = {
-                    "project_title": "Auto-generated Project",
-                    "final_deliverable": "Auto-generated Deliverable"
-                }
-                warnings.append("json_fallback_applied")
-                return payload, warnings
+            payload = None
+
+        # 2) Extract first JSON object if needed
+        if payload is None:
+            m = re.search(r"\{.*?\}", raw_text, re.DOTALL)
+            if m:
+                try:
+                    payload = json.loads(m.group(0))
+                except JSONDecodeError:
+                    payload = None
+
+        # 3) Parse tolerant bullet/YAML-ish lines
+        if payload is None:
+            lines = [ln.strip() for ln in raw_text.splitlines() if ln.strip()]
+            kv: Dict[str, Any] = {}
+            for ln in lines:
+                # Accept formats: "- key: value", "key: value"
+                if ln.startswith("-"):
+                    ln = ln[1:].strip()
+                if ":" in ln:
+                    key, val = ln.split(":", 1)
+                    key = key.strip().strip('"\'')
+                    val = val.strip()
+                    if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
+                        val = val[1:-1]
+                    if key in {"project_title", "final_deliverable", "title", "name", "deliverable", "primary_output"}:
+                        kv[key] = val
+            if kv:
+                payload = kv
+
+        # 4) Safe defaults if still missing
         if not isinstance(payload, dict):
-            logger.warning(f"LLM response JSON must be an object, got {type(payload).__name__}")
-            # Fallback: synthesize a safe default JSON so downstream tasks can proceed
-            payload = {
-                "project_title": "Auto-generated Project",
-                "final_deliverable": "Auto-generated Deliverable"
-            }
-            warnings.append("json_fallback_applied")
-            return payload, warnings
-        return payload, warnings
+            snippet = raw_text.strip()
+            if len(snippet) > 200:
+                snippet = f"{snippet[:197]}..."
+            logger.warning(f"LLM response did not yield a dict; using defaults. Snippet: {snippet}")
+            payload = {"project_title": "TBD Project", "final_deliverable": "TBD Deliverable"}
+
+        return payload
 
     @staticmethod
     def _normalize_payload(payload: Dict[str, Any]) -> Tuple[Dict[str, Any], list[str]]:
