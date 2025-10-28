@@ -22,7 +22,9 @@ import { RecoveryHeader } from './components/RecoveryHeader';
 import { StageTimeline } from './components/StageTimeline';
 import { RecoveryReportPanel } from './components/ReportPanel';
 import { LiveStreamPanel } from './components/LiveStreamPanel';
-import { StreamHistoryPanel } from './components/StreamHistoryPanel';
+import { StreamHistoryGrid } from './components/StreamHistoryGrid';
+import { CurrentActivityStrip } from './components/CurrentActivityStrip';
+import { PipelineInsights } from './components/PipelineInsights';
 import { useRecoveryPlan } from './useRecoveryPlan';
 import { ResumeDialog } from './components/ResumeDialog';
 import type { MissingSectionResponse } from '@/lib/api/fastapi-client';
@@ -197,7 +199,22 @@ const RecoveryPageContent: React.FC = () => {
         onRefreshPlan={plan.refresh}
         onRelaunch={handleRelaunch}
       />
+      
+      {/* Ultra-dense current activity strip */}
+      <CurrentActivityStrip
+        activeStream={llmStreams.active}
+        completedCount={llmStreams.history.filter(s => s.status === 'completed').length}
+        totalTasks={61}
+      />
+      
       <main className="mx-auto flex max-w-7xl flex-col gap-2 px-2 py-2">
+        {/* Pipeline Insights - Extracted metrics and activity */}
+        <PipelineInsights
+          llmStreams={llmStreams}
+          stageSummary={stageSummary}
+          planCreatedAt={plan.data?.created_at ? new Date(plan.data.created_at) : null}
+        />
+        
         <PipelineLogsPanel planId={planId} className="h-fit" />
         <div className="grid gap-2 lg:grid-cols-[320px_minmax(0,1fr)]">
           <div className="flex flex-col gap-2">
@@ -210,10 +227,7 @@ const RecoveryPageContent: React.FC = () => {
           </div>
           <div className="flex flex-col gap-2">
             <LiveStreamPanel stream={llmStreams.active} />
-            <StreamHistoryPanel
-              streams={llmStreams.history}
-              activeStreamId={llmStreams.active?.interactionId ?? null}
-            />
+            <StreamHistoryGrid streams={llmStreams.history} />
             <RecoveryReportPanel
               canonicalHtml={reports.canonicalHtml}
               fallbackPlanId={planId}

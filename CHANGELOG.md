@@ -6,7 +6,7 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
-## [0.10.17] - 2025-10-28
+## [0.11.0] - 2025-10-28
 
 ### Fixed
 - **Progress Display Issue**: Fixed progress staying at 0% in RecoveryHeader component by using existing streaming data
@@ -16,6 +16,37 @@ This project follows [Semantic Versioning](https://semver.org/):
   - Added progress source breakdown showing Backend/LLM/Artifacts percentages for transparency
   - Added debugging logs to WebSocket message handling and progress reducer in useRecoveryPlan.ts
   - No backend or database changes required - solution uses only existing WebSocket streaming data
+
+### Added
+- **Current Activity Strip**: Ultra-dense real-time display showing what's running NOW with live timing
+  - Shows current task name, elapsed time in seconds (updating 10x/second), token usage, and tokens/second rate
+  - Live progress counter showing completed/total tasks with percentage
+  - Gradient background with pulsing activity indicator for active tasks
+  - All timing calculated client-side from stream timestamps - pure frontend implementation
+
+- **Pipeline Insights Panel**: New comprehensive insights dashboard extracting actionable information from streaming data
+  - **Performance Metrics**: Total tokens used, average task duration, throughput (tasks/min), and peak duration
+  - **Stage Performance Breakdown**: Shows top stages by token usage with execution count, total tokens, and average duration
+  - **Recent Activity Timeline**: Chronological feed of completions, failures, and warnings extracted from LLM streams
+  - **Warning Detection**: Automatically parses reasoning and text buffers to surface warnings and cautions
+  - **Visual Performance Indicators**: Color-coded cards and badges showing stage status and performance
+  - All data extracted from existing WebSocket streams - zero backend or database changes
+
+- **Stream Detail Modal**: Interactive modal showing comprehensive LLM interaction details
+  - Tabbed interface with Output, Reasoning, Usage, Events, and Raw Data views
+  - Full text output and reasoning traces with proper formatting
+  - Complete usage metrics breakdown with all API response fields
+  - Event timeline showing all WebSocket events with sequence numbers and timestamps
+  - Raw payload view for debugging
+  - Triggered by clicking any stream card in history grid
+
+- **Stream History Grid**: Replaced accordion-style history with ultra-dense clickable grid
+  - Shows up to 5 columns of completed tasks in compact cards (zero padding design)
+  - Each card shows: stage name, interaction ID, duration in seconds, token count, and status icon
+  - Color-coded by status (green=success, red=fail, yellow=other)
+  - Click any card to open detailed modal view
+  - Failed tasks show truncated error message in card
+  - Information density increased 10x over previous accordion layout
 
 ### Improved
 - **API Telemetry Failure Details**: Enhanced API Telemetry strip to show detailed information for each failed API call
