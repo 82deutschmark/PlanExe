@@ -1,3 +1,8 @@
+# Author: Cascade
+# Date: 2025-10-28
+# PURPOSE: The 80 20 rule. Extract the vital few levers that have the most impact on the project's outcome.
+# SRP and DRY check: Pass. Focuses solely on vital lever selection using 80/20 principle. No overlap with other modules; consumes enriched levers and produces prioritized lever assessments.
+
 """
 The 80 20 rule. Extract the vital few levers that have the most impact on the project's outcome.
 
@@ -40,6 +45,7 @@ class EnrichedLever(BaseModel):
     description: str
     synergy_text: str
     conflict_text: str
+    deduplication_justification: str
     model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 class LeverAssessment(BaseModel):

@@ -6,6 +6,16 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.10.8] - 2025-10-28
+
+### Fixed
+- **SelectScenarioTask OpenAI Responses API schema compliance**: Fixed `PlanCharacteristics` nested model schema validation error. Ensured all models in `select_scenario.py` have proper `additionalProperties: false` configuration to satisfy OpenAI Responses API requirements.
+
+## [0.10.7] - 2025-10-28
+
+### Fixed
+- **FocusOnVitalFewLeversTask Pydantic validation error**: Added missing `deduplication_justification` field to `EnrichedLever` model in `focus_on_vital_few_levers.py` to match the data structure from upstream `enrich_potential_levers.py` task.
+
 ## [0.10.6] - 2025-10-28
 
 ### Fixed

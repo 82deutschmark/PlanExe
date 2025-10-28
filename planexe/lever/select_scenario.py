@@ -1,9 +1,7 @@
-# Author: gpt-5-codex
-# Date: 2025-10-24
-# PURPOSE: Select and justify the best strategic scenario with strict-schema
-#          compatibility and downstream serialization helpers.
-# SRP and DRY check: Pass - LLM orchestration and scenario selection remain
-#                    encapsulated without duplicating lever normalization logic.
+# Author: Cascade
+# Date: 2025-10-28
+# PURPOSE: Select and justify the best strategic scenario with strict-schema compatibility for OpenAI Responses API.
+# SRP and DRY check: Pass. Encapsulates scenario selection logic with proper schema validation. No duplication of other modules.
 
 """
 Author: Codex using GPT-5
