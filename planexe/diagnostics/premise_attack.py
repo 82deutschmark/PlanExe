@@ -30,7 +30,7 @@ from math import ceil
 from dataclasses import dataclass
 from typing import List, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 from planexe.llm_util.llm_executor import LLMExecutor, PipelineStopRequested
 
@@ -42,6 +42,7 @@ class DocumentDetails(BaseModel):
     second_order_effects: List[str] = Field(..., description="Second-Order Effects, 3-5 items.")
     evidence: List[str] = Field(..., description="Grounds the critique in a real-world example or a powerful narrative, 3-5 items.")
     bottom_line: str = Field(..., description="Final Judgment, 1-2 sentences.")
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 # The Master Storyteller. Telling a compelling story of how the initial flawed premise will inevitably lead to ruin. The Gimmicky Critic. invent clever-sounding jargon. Arrogant.
 # It coins memorable, surgical labels. The labels are memorable for their absurdity, not their insight.

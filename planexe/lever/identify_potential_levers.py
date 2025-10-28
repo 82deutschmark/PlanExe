@@ -17,7 +17,7 @@ from typing import Any, Optional
 from dataclasses import dataclass
 import uuid
 from llama_index.core.llms.llm import LLM
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from llama_index.core.llms import ChatMessage, MessageRole
 from planexe.llm_util.llm_executor import LLMExecutor, PipelineStopRequested
 
@@ -46,7 +46,7 @@ class Lever(BaseModel):
     lever_index: int = Field(
         description="Index of this lever."
     )
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     name: str = Field(
         description="Name of this lever."
     )
@@ -70,6 +70,7 @@ class DocumentDetails(BaseModel):
     summary: str = Field(
         description="Are these levers well picked? Are they well balanced? Are they well thought out? Point out flaws. 100 words."
     )
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 class LeverCleaned(BaseModel):
     """
