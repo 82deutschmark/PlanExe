@@ -167,7 +167,16 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
           </div>
           
           <div className="h-5 w-px bg-slate-600" />
-          
+
+          {plan?.reasoning_effort && (
+            <>
+              <Badge variant="outline" className="text-xs font-semibold text-purple-400 border-purple-400">
+                {plan.reasoning_effort.toUpperCase()}
+              </Badge>
+              <div className="h-5 w-px bg-slate-600" />
+            </>
+          )}
+
           <Badge variant="outline" className={`text-xs font-semibold ${statusColor} border-current`}>
             {planStatus.toUpperCase()}
           </Badge>

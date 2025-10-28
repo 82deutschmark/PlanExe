@@ -80,63 +80,45 @@ export const LiveStreamPanel: FC<LiveStreamPanelProps> = ({ stream }) => {
     stream?.finalReasoning ?? stream?.reasoningBuffer ?? stream?.reasoningDeltas.join('\n');
 
   return (
-    <Card className="border-amber-500 bg-slate-900/95 text-slate-50 shadow-lg">
-      <CardHeader className="pb-1 px-3 pt-3 border-b border-amber-500/30">
-        <CardTitle className="text-sm text-amber-400">Live LLM Stream</CardTitle>
+    <Card className="border-gray-300 bg-white shadow-sm">
+      <CardHeader className="pb-2 px-3 py-2 border-b border-gray-200 bg-gray-50">
+        <CardTitle className="text-xs font-medium text-gray-700">Current Task Stream</CardTitle>
       </CardHeader>
-      <CardContent className="px-3 pb-3">
+      <CardContent className="px-3 py-2">
         {stream ? (
-          <div className="grid gap-2 md:grid-cols-2">
-            <div>
-              <div className="flex items-center justify-between text-xs text-slate-200">
-                <span className="font-semibold text-amber-300">{stream.stage}</span>
-                <span
-                  className={`px-1.5 py-0.5 rounded-full uppercase tracking-wide text-[10px] ${STATUS_BADGE[stream.status]}`}
-                >
-                  {stream.status}
-                </span>
-              </div>
-              {stream.promptPreview && (
-                <p className="mt-0.5 text-[10px] text-amber-200/70 truncate">Prompt: {stream.promptPreview}</p>
-              )}
-              <div className="mt-2 space-y-1">
-                <p className="text-[10px] uppercase tracking-wide text-amber-400">Model Output</p>
-                <div className="bg-slate-950/80 border border-amber-500/40 rounded p-1.5 text-[11px] text-amber-50 whitespace-pre-wrap max-h-40 overflow-y-auto">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-gray-900">{stream.stage}</span>
+              <span
+                className={`px-2 py-0.5 rounded-full uppercase tracking-wide text-[10px] font-medium ${STATUS_BADGE[stream.status]}`}
+              >
+                {stream.status}
+              </span>
+            </div>
+            <div className="grid gap-2 grid-cols-2">
+              <div>
+                <p className="text-[9px] uppercase tracking-wide text-gray-500 mb-1">Output</p>
+                <div className="bg-gray-50 border border-gray-200 rounded p-1.5 text-[10px] text-gray-800 whitespace-pre-wrap max-h-24 overflow-y-auto">
                   {assembledText || 'Awaiting tokens…'}
                 </div>
               </div>
-            </div>
-            <div className="space-y-1 md:border-l md:border-amber-500/30 md:pl-2">
               <div>
-                <p className="text-[10px] uppercase tracking-wide text-orange-400">Reasoning Trace</p>
-                <div className="bg-slate-950/80 border border-orange-500/40 rounded p-1.5 text-[11px] text-orange-50 whitespace-pre-wrap max-h-40 overflow-y-auto">
-                  {assembledReasoning || 'Waiting for reasoning…'}
+                <p className="text-[9px] uppercase tracking-wide text-gray-500 mb-1">Reasoning</p>
+                <div className="bg-blue-50 border border-blue-200 rounded p-1.5 text-[10px] text-blue-900 whitespace-pre-wrap max-h-24 overflow-y-auto">
+                  {assembledReasoning || 'Waiting…'}
                 </div>
               </div>
-              {stream.error && <p className="text-[10px] text-rose-300">Error: {stream.error}</p>}
-              {stream.usage && (
-                <div className="mt-2 space-y-1 text-[10px] text-slate-200">
-                  {(Object.entries(stream.usage) as Array<[string, unknown]>).map(([key, value]) => {
-                    const usageContent = renderUsageValue(value);
-                    return (
-                      <div key={key} className="rounded border border-slate-700/70 bg-slate-900/70 p-1.5">
-                        <p className="text-[10px] font-semibold text-slate-50 uppercase tracking-wide">
-                          {key}
-                        </p>
-                        <div className="mt-0.5 text-slate-100">{usageContent}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
             </div>
+            {stream.error && (
+              <p className="text-[10px] text-red-600 bg-red-50 p-1 rounded">Error: {stream.error}</p>
+            )}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center gap-2 rounded border border-amber-500/30 bg-slate-950/80 p-4 text-center text-sm text-amber-400">
-            <Badge variant="outline" className="border-amber-500 text-amber-300">
+          <div className="flex items-center justify-center gap-2 rounded border border-gray-200 bg-gray-50 p-2 text-center">
+            <Badge variant="outline" className="border-gray-300 text-gray-600 text-[10px]">
               Idle
             </Badge>
-            <p className="text-xs text-amber-200/70">No active LLM stream. Waiting for Luigi to dispatch an interaction.</p>
+            <p className="text-[10px] text-gray-500">Waiting for next task</p>
           </div>
         )}
       </CardContent>
