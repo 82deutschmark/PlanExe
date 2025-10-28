@@ -17,7 +17,7 @@ from math import ceil
 from uuid import uuid4
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
 from planexe.plan.filenames import FilenameEnum
@@ -37,7 +37,7 @@ class WBSSubtask(BaseModel):
         description="List of resources needed to complete the subtask. Example: ['Project manager', 'Architect', 'Engineer', 'Construction crew']."
     )
     
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 class WBSTaskDetails(BaseModel):
     """
@@ -47,7 +47,7 @@ class WBSTaskDetails(BaseModel):
         description="List of subtasks."
     )
     
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 QUERY_PREAMBLE = """
 Decompose a big task into smaller, more manageable subtasks.

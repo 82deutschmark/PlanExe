@@ -18,7 +18,7 @@ from uuid import uuid4
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
 from planexe.llm_factory import get_llm
@@ -35,7 +35,7 @@ class SubtaskDetails(BaseModel):
         description="Start with a verb to clearly indicate the action required. Example: ['Secure funding', 'Obtain construction permits', 'Electrical installation', 'Commissioning and handover']."
     )
     
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 class MajorPhaseDetails(BaseModel):
     """
@@ -51,7 +51,7 @@ class MajorPhaseDetails(BaseModel):
         description="List of the subtasks or activities."
     )
     
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 class WorkBreakdownStructure(BaseModel):
     """
@@ -62,7 +62,7 @@ class WorkBreakdownStructure(BaseModel):
         description="List with each major phase broken down into subtasks or activities."
     )
     
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 QUERY_PREAMBLE = """
 Create a work breakdown structure level 2 for this project.

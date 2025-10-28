@@ -11,7 +11,7 @@ from math import ceil
 from typing import Optional
 from enum import Enum
 from dataclasses import dataclass
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
 from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 from planexe.llm_factory import get_llm
@@ -43,6 +43,7 @@ class CostComponent(BaseModel):
     equipment_cost: float = Field(description="Cost related to equipment.")
     overhead_cost: float = Field(description="Indirect or overhead costs.")
     contingency_rate: float = Field(description="Higher contingency rates for riskier tasks.")
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 class CostEstimateItem(BaseModel):
     task_id: str = Field(description="Unique identifier for the task.")
@@ -56,6 +57,7 @@ class CostEstimateItem(BaseModel):
     medium_risks: list[str] = Field(description="Potential risks affecting cost. Medium risk level.")
     low_risks: list[str] = Field(description="Potential risks affecting cost. Low risk level.")
     dependencies_impact: str = Field(description="Impact of task dependencies on cost.")
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 class ExpertCostEstimationResponse(BaseModel):
     cost_estimates: list[CostEstimateItem] = Field(description="List of cost estimates for tasks.")
@@ -63,7 +65,7 @@ class ExpertCostEstimationResponse(BaseModel):
     secondary_actions: list[str] = Field(description="Additional suggestions for cost management.")
     follow_up_consultation: str = Field(description="Topics for the next consultation.")
 
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 @dataclass
 class Document:
     name: str

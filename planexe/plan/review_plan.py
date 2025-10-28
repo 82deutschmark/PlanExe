@@ -17,7 +17,7 @@ from math import ceil
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from planexe.plan.speedvsdetail import SpeedVsDetailEnum
 from planexe.llm_util.llm_executor import LLMExecutor, LLMModelFromName, PipelineStopRequested
@@ -30,7 +30,7 @@ class DocumentDetails(BaseModel):
     bullet_points: list[str] = Field(
         description="Answers to the questions in bullet points."
     )
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 REGISTERED_SCHEMA = register_schema(DocumentDetails)
 

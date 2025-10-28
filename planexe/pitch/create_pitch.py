@@ -8,7 +8,7 @@ import json
 import time
 from math import ceil
 from dataclasses import dataclass
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from llama_index.core.llms.llm import LLM
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
 
@@ -16,7 +16,7 @@ class ProjectPitch(BaseModel):
     pitch: str = Field(
         description="A compelling pitch for this project."
     )
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     why_this_pitch_works: str = Field(
         description="Explanation why this pitch works."
     )

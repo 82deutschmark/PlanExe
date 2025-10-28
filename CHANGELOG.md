@@ -6,6 +6,32 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.10.5] - 2025-10-28
+
+### Fixed
+- Ensure `DATABASE_URL` from the deployment environment is validated and forwarded into the Luigi subprocess. Added a pre‑launch database connectivity check and early, clear failure with WebSocket notice if unreachable. This makes Railway PostgreSQL configuration pass reliably into the pipeline.
+
+## [0.10.5] - 2025-10-28
+
+### Fixed
+- **OpenAI Responses API schema compliance**: Completed systematic fix of all remaining planning and WBS Pydantic models to emit `additionalProperties: false`:
+  - **WBS Tasks (3 files)**:
+    - `create_wbs_level1.py`: Fixed WBSLevel1
+    - `create_wbs_level2.py`: Fixed SubtaskDetails, MajorPhaseDetails, WorkBreakdownStructure
+    - `create_wbs_level3.py`: Fixed WBSSubtask, WBSTaskDetails
+  - **Planning Estimation Tasks (3 files)**:
+    - `estimate_wbs_task_durations.py`: Fixed TaskTimeEstimateDetail, TimeEstimates
+    - `identify_wbs_task_dependencies.py`: Fixed TaskDependencyDetail, DependencyMapping
+    - `expert_cost.py`: Fixed CostComponent, CostEstimateItem, ExpertCostEstimationResponse
+  - **Planning Support Tasks (5 files)**:
+    - `data_collection.py`: Fixed SensitivityScore, AssumptionItem, PlannedDataCollectionItem, DocumentDetails
+    - `related_resources.py`: Fixed SuggestionItem, DocumentDetails
+    - `executive_summary.py`: Fixed DocumentDetails
+    - `review_plan.py`: Fixed DocumentDetails
+    - `project_plan.py`: Fixed SMARTCriteria, RiskAssessmentAndMitigationStrategies, StakeholderAnalysis, RegulatoryAndComplianceRequirements, GoalDefinition
+  - **Pitch Generation**:
+    - `pitch/create_pitch.py`: Fixed ProjectPitch
+
 ## [0.10.4] - 2025-10-28
 
 ### Fixed

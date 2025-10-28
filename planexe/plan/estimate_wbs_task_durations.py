@@ -13,14 +13,13 @@ from math import ceil
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
 from planexe.llm_factory import get_llm
 
 class TaskTimeEstimateDetail(BaseModel):
     """
-    model_config = {'extra': 'allow'}
     Details about a task duration, lower/upper bounds. Potential risks impacting the duration. 
     """
     task_id: str = Field(
@@ -41,6 +40,7 @@ class TaskTimeEstimateDetail(BaseModel):
     days_realistic: int = Field(
         description="Number of days, in the realistic scenario. If not applicable use minus 1."
     )
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 class TimeEstimates(BaseModel):
     """
@@ -51,6 +51,7 @@ class TimeEstimates(BaseModel):
         default_factory=list,
         description="List with tasks with time estimates."
     )
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 QUERY_PREAMBLE = """
 Assign estimated durations for each task and subtask.

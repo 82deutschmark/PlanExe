@@ -29,7 +29,7 @@ from enum import Enum
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 
@@ -40,7 +40,7 @@ class SensitivityScore(str, Enum):
     medium = 'medium'
     high = 'high'
 
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     def human_readable(self) -> str:
         return self.value.capitalize()
 
@@ -54,6 +54,7 @@ class AssumptionItem(BaseModel):
     sensitivity_score: SensitivityScore = Field(
         description="The sensitivity score of the assumption."
     )
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 class PlannedDataCollectionItem(BaseModel):
     item_index: int = Field(
@@ -86,6 +87,7 @@ class PlannedDataCollectionItem(BaseModel):
     notes: list[str] = Field(
         description="Insights and notes."
     )
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 class DocumentDetails(BaseModel):
     data_collection_list: list[PlannedDataCollectionItem] = Field(
@@ -94,6 +96,7 @@ class DocumentDetails(BaseModel):
     summary: str = Field(
         description="Providing a high level context."
     )
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 DATA_COLLECTION_SYSTEM_PROMPT = """
 You are an automated project planning assistant generating structured project plans.

@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from math import ceil
 from typing import TypeVar, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 logger = logging.getLogger(__name__)
 
@@ -22,9 +22,9 @@ class SMARTCriteria(BaseModel):
     specific: str = Field(
         description="Clearly defines what is to be accomplished. Provides context and purpose behind the goal. Avoid vagueness, unrealistic targets, broad statements that lack direction."
     )
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     measurable: str = Field(
-        description="Establish how you will measure success. This could be quantitative (e.g., numbers, percentages) or qualitative (e.g., satisfaction levels). Without clear metrics, it’s difficult to track progress or determine success."
+        description="Establish how you will measure success. This could be quantitative (e.g., numbers, percentages) or qualitative (e.g., satisfaction levels). Without clear metrics, it's difficult to track progress or determine success."
     )
     achievable: str = Field(
         description="Realism: Ensures the goal is attainable with the available resources and within constraints. Feasibility: Considers practical aspects such as time, budget, and expertise."
@@ -50,6 +50,7 @@ class RiskAssessmentAndMitigationStrategies(BaseModel):
     mitigation_plans: list[str] = Field(
         description="Develop strategies to minimize or manage these risks, ensuring the project remains on track despite unforeseen obstacles."
     )
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 class StakeholderAnalysis(BaseModel):
     """
@@ -65,6 +66,7 @@ class StakeholderAnalysis(BaseModel):
     engagement_strategies: list[str] = Field(
         description="Outline how each stakeholder group will be engaged, their roles, and how their interests will be addressed to secure support and collaboration."
     )
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 class RegulatoryAndComplianceRequirements(BaseModel):
     """
@@ -83,6 +85,7 @@ class RegulatoryAndComplianceRequirements(BaseModel):
     compliance_actions: list[str] = Field(
         description="List with actions and steps taken to ensure compliance with all relevant regulations and standards. Example: ['Building and Electrical Codes', 'Wildlife Protection', 'Fire safety measures', 'Biosafety Regulations', 'Radiation Safety']."
     )
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     
 class GoalDefinition(BaseModel):
     """
@@ -116,6 +119,7 @@ class GoalDefinition(BaseModel):
     regulatory_and_compliance_requirements: RegulatoryAndComplianceRequirements = Field(
         description="Ensure compliance with all regulatory and legal requirements, including permits, licenses, and industry-specific standards."
     )
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 PROJECT_PLAN_SYSTEM_PROMPT_1 = """
 You are an expert project planner tasked with creating comprehensive and detailed project plans based on user-provided descriptions. Your output must be a complete JSON object conforming to the provided GoalDefinition schema. Focus on being specific and actionable, generating a plan that is realistic and useful for guiding project development.

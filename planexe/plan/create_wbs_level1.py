@@ -18,7 +18,7 @@ from uuid import uuid4
 from dataclasses import dataclass
 from typing import Any, Dict, Tuple
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, ConfigDict
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ class WBSLevel1(BaseModel):
         description="A detailed description of the projects ultimate outcome or product upon completion. Clearly states the final state or result that the team aims to achieve."
     )
     
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 QUERY_PREAMBLE = """
 The task here:

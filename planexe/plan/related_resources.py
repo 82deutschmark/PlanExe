@@ -14,7 +14,7 @@ from math import ceil
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class SuggestionItem(BaseModel):
     item_index: int = Field(
         description="Enumeration, starting from 1."
     )
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     project_name: str = Field(
         description="The name of the project."
     )
@@ -52,6 +52,7 @@ class DocumentDetails(BaseModel):
     summary: str = Field(
         description="Providing a high level context."
     )
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 RELATED_RESOURCES_SYSTEM_PROMPT = """
 You are an expert project analyst tasked with recommending highly relevant past or existing projects as references for a user's described project.

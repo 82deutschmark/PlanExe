@@ -27,7 +27,7 @@ from math import ceil
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
 from planexe.llm_factory import get_llm
@@ -35,7 +35,6 @@ from planexe.plan.filenames import FilenameEnum
 
 class TaskDependencyDetail(BaseModel):
     """
-    model_config = {'extra': 'allow'}
     Details about the prerequisites for a task.
     """
     dependent_task_id: str = Field(
@@ -49,6 +48,7 @@ class TaskDependencyDetail(BaseModel):
     depends_on_task_explanation_list: list[str] = Field(
         description="List of explanations why these tasks must be completed before this task."
     )
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 class DependencyMapping(BaseModel):
     """
@@ -58,6 +58,7 @@ class DependencyMapping(BaseModel):
     task_dependency_details: list[TaskDependencyDetail] = Field(
         description="List with dependency mappings between tasks."
     )
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 QUERY_PREAMBLE = """
 Find the 10 most critical important task dependencies. Don't attempt making an exhaustive list.

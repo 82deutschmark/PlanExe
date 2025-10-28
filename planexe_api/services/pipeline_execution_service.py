@@ -134,6 +134,23 @@ class PipelineExecutionService:
             # Set up execution environment
             environment = self._setup_environment(plan_id, request, run_id_dir)
 
+            # Safety check: verify database connectivity before spawning Luigi
+            db_url = environment.get("DATABASE_URL")
+            if not db_url or not self._verify_database_connectivity(db_url):
+                error_msg = "Database connectivity check failed before starting pipeline"
+                print(f"ERROR DB: {error_msg}")
+                db_service.update_plan(plan_id, {
+                    "status": PlanStatus.failed.value,
+                    "error_message": error_msg,
+                })
+                await websocket_manager.broadcast_to_plan(plan_id, {
+                    "type": "status",
+                    "status": "failed",
+                    "message": error_msg,
+                    "timestamp": _utcnow_iso(),
+                })
+                return
+
             # Write pipeline input files
             self._write_pipeline_inputs(run_id_dir, request)
 

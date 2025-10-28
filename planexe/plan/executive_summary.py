@@ -28,7 +28,7 @@ from math import ceil
 from typing import Optional, Any
 from dataclasses import dataclass
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from planexe.markdown_util.fix_bullet_lists import fix_bullet_lists
 from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
@@ -39,7 +39,7 @@ class DocumentDetails(BaseModel):
     audience_tailoring: str = Field(
         description="Adapt the tone and detail based on who will be reading this summary (individual hobbyist, corporate, government, etc.)."
     )
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     focus_and_context: str = Field(
         description="A short statement about why this project or plan exists and its overall objectives."
     )
