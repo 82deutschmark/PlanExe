@@ -188,7 +188,17 @@ export const LivePipelineDAG: React.FC<LivePipelineDAGProps> = ({ llmStreams }) 
                               <ArrowRight className="h-3 w-3 text-blue-600 animate-pulse" />
                             )}
                           </div>
-                          
+
+                          {/* Show error message for failed tasks */}
+                          {status?.status === 'failed' && status.stream?.error && (
+                            <div className="mt-1.5 p-1.5 bg-red-100 border border-red-300 rounded">
+                              <div className="text-[9px] font-semibold text-red-900 mb-0.5">Error:</div>
+                              <div className="text-[9px] text-red-800 break-words leading-tight">
+                                {status.stream.error}
+                              </div>
+                            </div>
+                          )}
+
                           {/* Show dependencies as tiny badges */}
                           {task.dependencies.length > 0 && (
                             <div className="mt-1 flex items-center gap-1">
