@@ -6,6 +6,30 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.15.2] - 2025-10-28
+
+### Fixed
+- Responses structured output regression causing OpenAI 400 `invalid_json_schema` errors.
+  - Root cause: a recent change allowed extras in Pydantic models, which propagated `additionalProperties: true` into the on‑wire `text.format.schema` sent to the Responses API. OpenAI requires `additionalProperties: false`.
+  - Effect: Structured calls for `PlanPurposeInfo` and `DocumentDetails` failed across models, halting the Luigi pipeline early.
+  - Resolution: Ensure on‑wire schemas are strict (no additional properties) while keeping parsing leniency internal.
+
+## [0.15.1] - 2025-10-28
+
+### Added
+- **Targeted Resume Functionality in Recovery Workspace**: Restored ability to resume only failed/missing pipeline sections
+  - Added missing targets computation logic that analyzes LLM streams and artefacts to identify incomplete tasks
+  - Implemented "Resume Failed/Missing Sections" button with disabled state when no targets exist
+  - Enhanced ResumeDialog to display meaningful selectable items grouped by pipeline stage
+  - Integration leverages existing database-first architecture where tasks skip completed content
+  - Files: `planexe-frontend/src/app/recovery/page.tsx` lines 73-117, 206-229
+
+### Fixed
+- **Missing Resume Dialog Integration**: ResumeDialog was rendered but never accessible due to missing UI entry point
+  - Added action strip in Recovery workspace with button to trigger targeted resume flow
+  - Fixed empty missing targets array by computing actual failed/missing pipeline sections
+  - Proper type imports for MissingSectionResponse and pipeline task utilities
+
 ## [0.15.0] - 2025-10-28
 
 ### Fixed

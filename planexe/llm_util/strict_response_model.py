@@ -31,4 +31,20 @@ class StrictResponseModel(BaseModel):
     def model_json_schema(cls, *args: Any, **kwargs: Any) -> Dict[str, Any]:
         """Generate an OpenAI-compliant JSON schema for structured outputs."""
         schema = super().model_json_schema(*args, **kwargs)
-        return _enforce_openai_schema_requirements(schema)
+        # Apply OpenAI enforcement, then ensure additionalProperties: false for strict Responses API compatibility
+        enforced = _enforce_openai_schema_requirements(schema)
+        if isinstance(enforced, dict):
+            # Recursively force additionalProperties: false for all object types
+            def _set_additional_properties_false(node: Any) -> Any:
+                if isinstance(node, dict):
+                    updated = dict(node)
+                    if updated.get("type") == "object":
+                        updated["additionalProperties"] = False
+                    for key, value in node.items():
+                        updated[key] = _set_additional_properties_false(value)
+                    return updated
+                if isinstance(node, list):
+                    return [_set_additional_properties_false(item) for item in node]
+                return node
+            return _set_additional_properties_false(enforced)
+        return enforced

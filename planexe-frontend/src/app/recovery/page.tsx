@@ -27,6 +27,7 @@ import { useRecoveryPlan } from './useRecoveryPlan';
 import { ResumeDialog } from './components/ResumeDialog';
 import { CompletionSummaryModal } from './components/CompletionSummaryModal';
 import { PIPELINE_TASKS } from './constants/pipeline-tasks';
+import type { MissingSectionResponse } from '@/lib/api/fastapi-client';
 
 const MissingPlanMessage: React.FC = () => (
   <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
@@ -79,6 +80,42 @@ const RecoveryPageContent: React.FC = () => {
     llmStreams,
   } = recovery;
 
+  // Compute missing targets for resume functionality
+  const missingTargets = useMemo((): MissingSectionResponse[] => {
+    const targets: MissingSectionResponse[] = [];
+    
+    // Get completed and failed stages from LLM streams
+    const completedStages = new Set(llmStreams.history.filter(s => s.status === 'completed').map(s => s.stage));
+    const failedStages = new Set(llmStreams.history.filter(s => s.status === 'failed').map(s => s.stage));
+    
+    // Get existing artefact filenames
+    const existingFilenames = new Set(artefacts.items.map(a => a.filename));
+    
+    // Check each pipeline task for missing or failed outputs
+    PIPELINE_TASKS.forEach(task => {
+      const expectedFilename = `${task.id.toString().padStart(3, '0')}-${task.stage}.json`;
+      const hasArtefact = existingFilenames.has(expectedFilename);
+      const hasCompletedStream = completedStages.has(task.stage);
+      const hasFailedStream = failedStages.has(task.stage);
+      
+      if (hasFailedStream) {
+        targets.push({
+          filename: expectedFilename,
+          stage: task.stageGroup,
+          reason: `Task failed during execution`
+        });
+      } else if (!hasArtefact && !hasCompletedStream) {
+        targets.push({
+          filename: expectedFilename,
+          stage: task.stageGroup,
+          reason: `Missing output file: ${expectedFilename}`
+        });
+      }
+    });
+    
+    return targets;
+  }, [artefacts.items, llmStreams.history]);
+
   // Detect pipeline completion and show summary modal
   useEffect(() => {
     if (plan.data?.status === 'completed' && !hasShownCompletionRef.current) {
@@ -114,7 +151,7 @@ const RecoveryPageContent: React.FC = () => {
       <ResumeDialog
         open={resumeOpen}
         onOpenChange={setResumeOpen}
-        missing={[]}
+        missing={missingTargets}
         defaultReasoningEffort={plan.data?.reasoning_effort}
         onConfirm={async ({ selectedFilenames, llmModel, speedVsDetail, reasoningEffort }) => {
           if (!plan.data) return;
@@ -165,6 +202,31 @@ const RecoveryPageContent: React.FC = () => {
         connection={connection}
         llmStreams={llmStreams}
       />
+      
+      {/* Action strip with resume functionality */}
+      <div className="mx-auto max-w-7xl px-2 py-1">
+        <div className="flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-amber-900">
+              Recovery Actions
+            </span>
+            {missingTargets.length > 0 && (
+              <span className="text-xs text-amber-700">
+                ({missingTargets.length} missing/failed sections)
+              </span>
+            )}
+          </div>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => setResumeOpen(true)}
+            disabled={missingTargets.length === 0}
+            className="bg-amber-600 hover:bg-amber-700 text-white"
+          >
+            Resume Failed/Missing Sections
+          </Button>
+        </div>
+      </div>
       
       <main className="mx-auto flex max-w-7xl flex-col gap-2 px-2 py-2">
         <PipelineLogsPanel planId={planId} className="h-fit" />
