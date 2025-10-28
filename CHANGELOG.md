@@ -6,6 +6,18 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.10.2] - 2025-10-28
+
+### Fixed
+- **Database connection resilience**: Added retry decorator with exponential backoff to handle transient PostgreSQL SSL EOF errors that were causing PremiseAttackTask to fail after successful LLM calls. The retry logic automatically refreshes database connections and retries up to 3 times before giving up. @planexe_api/database.py
+- **Structured output schema compliance**: Fixed multiple Pydantic models to emit `additionalProperties: false` in their JSON schemas so the OpenAI Responses API accepts them:
+  - `DocumentDetails` in `identify_plan_type.py` for PlanTypeTask
+  - `Lever` and `DocumentDetails` in `identify_potential_levers.py` for PotentialLeversTask  
+  - `DocumentDetails` in `premise_attack.py` for PremiseAttackTask
+
+### Changed
+- **Pipeline log viewer**: Removed automatic scroll-to-bottom behaviour from the recovery UI so investigators can leave the log view at specific historical positions without being pulled back to the end on each update. @planexe-frontend/src/components/PipelineDetails.tsx
+
 ## [0.10.1] - 2025-10-28
 
 ### Fixed

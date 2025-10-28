@@ -6,15 +6,62 @@ context utilities. The implementation builds on the original work by Claude Code
 (`claude-opus-4-1-20250805`, 2025-09-19).
 """
 import os
+import time
+import functools
+from typing import Callable, TypeVar
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, JSON, Float, Boolean, Index
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.exc import OperationalError, InterfaceError
 import uuid
 
 from planexe.llm_util import push_llm_stream_context, pop_llm_stream_context
+
+# Generic type for retry decorator
+F = TypeVar('F', bound=Callable[..., Any])
+
+def retry_database_operation(max_retries: int = 3, backoff_factor: float = 1.0) -> Callable[[F], F]:
+    """
+    Retry decorator for transient database operations.
+    Handles SSL EOF and other connection issues by retrying with exponential backoff.
+    """
+    def decorator(func: F) -> F:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            last_exception = None
+            for attempt in range(max_retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except (OperationalError, InterfaceError) as e:
+                    last_exception = e
+                    if attempt == max_retries:
+                        # Final attempt failed, re-raise
+                        print(f"[DATABASE] Operation failed after {max_retries + 1} attempts: {e}")
+                        raise
+                    
+                    # Calculate backoff delay
+                    delay = backoff_factor * (2 ** attempt)
+                    print(f"[DATABASE] Transient error (attempt {attempt + 1}/{max_retries + 1}): {e}. Retrying in {delay:.1f}s...")
+                    time.sleep(delay)
+                    
+                    # Try to refresh the database connection for this service
+                    if args and hasattr(args[0], 'db'):
+                        try:
+                            args[0].db.close()
+                            args[0].db = SessionLocal()
+                        except Exception as refresh_err:
+                            print(f"[DATABASE] Failed to refresh connection: {refresh_err}")
+                except Exception as e:
+                    # Non-transient error, re-raise immediately
+                    raise
+            
+            # This should never be reached, but just in case
+            raise last_exception
+        return wrapper  # type: ignore
+    return decorator
 
 # Database URL from environment variable - PostgreSQL required for production, SQLite available for development
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -239,6 +286,7 @@ class DatabaseService:
             query = query.filter(Plan.user_id == user_id)
         return query.order_by(Plan.created_at.desc()).limit(limit).all()
 
+    @retry_database_operation(max_retries=3, backoff_factor=1.0)
     def create_llm_interaction(self, interaction_data: dict) -> LLMInteraction:
         """Create a new LLM interaction record"""
         interaction = LLMInteraction(**interaction_data)
@@ -259,6 +307,7 @@ class DatabaseService:
 
         return interaction
 
+    @retry_database_operation(max_retries=3, backoff_factor=1.0)
     def update_llm_interaction(self, interaction_id: int, update_data: dict) -> Optional[LLMInteraction]:
         """Update LLM interaction with response data"""
         interaction = self.db.query(LLMInteraction).filter(LLMInteraction.id == interaction_id).first()
@@ -358,6 +407,7 @@ class DatabaseService:
             return True
         return False
 
+    @retry_database_operation(max_retries=3, backoff_factor=1.0)
     def create_plan_content(self, content_data: dict) -> PlanContent:
         """Create plan content record (Option 3: persist file contents to DB)"""
         plan_content = PlanContent(**content_data)
