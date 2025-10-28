@@ -6,6 +6,17 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.10.3] - 2025-10-28
+
+### Fixed
+- **OpenAI Responses API schema compliance**: Systematically fixed Pydantic models to emit `additionalProperties: false` for structured output validation:
+  - `DeduplicationAnalysis` and `LeverDecision` in `deduplicate_levers.py` for DeduplicateLeversTask
+  - `ScenarioSelectionResult`, `PlanCharacteristics`, `ScenarioFitAssessment`, and `FinalChoice` in `select_scenario.py` for SelectScenarioTask
+  - Added comprehensive documentation at `docs/OPENAI-RESPONSES-API-SCHEMA-COMPLIANCE.md` identifying all remaining files needing fixes
+
+### Changed
+- **Pipeline log viewer**: Removed automatic scroll-to-bottom behaviour from the recovery UI so investigators can leave the log view at specific historical positions without being pulled back to the end on each update. @planexe-frontend/src/components/PipelineDetails.tsx
+
 ## [0.10.2] - 2025-10-28
 
 ### Fixed
