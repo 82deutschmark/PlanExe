@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import inspect
 import re
+from copy import deepcopy
 from dataclasses import dataclass
 from importlib import import_module
 from pathlib import Path
@@ -61,13 +62,13 @@ def _compute_registry_key(model: Type[TModel]) -> str:
 
 
 def register_schema(model: Type[TModel]) -> SchemaRegistryEntry:
-    """Register the schema for the supplied Pydantic model class if missing."""
+    """Register (or refresh) the schema metadata for the supplied Pydantic model class."""
 
     key = _compute_registry_key(model)
-    if key in _SCHEMA_REGISTRY:
-        return _SCHEMA_REGISTRY[key]
 
     schema = model.model_json_schema()
+    schema_copy = deepcopy(schema)
+
     file_path = None
     try:
         source_path = inspect.getsourcefile(model)
@@ -80,11 +81,15 @@ def register_schema(model: Type[TModel]) -> SchemaRegistryEntry:
     # qualified_name is kept for registry lookups, but sanitized_name is what gets sent to OpenAI
     sanitized_name = sanitize_schema_label(model.__name__, model.__name__)
 
+    existing = _SCHEMA_REGISTRY.get(key)
+    if existing and existing.schema == schema_copy and existing.sanitized_name == sanitized_name:
+        return existing
+
     entry = SchemaRegistryEntry(
         model=model,
         qualified_name=key,
         sanitized_name=sanitized_name,
-        schema=schema,
+        schema=schema_copy,
         module=model.__module__,
         file_path=file_path,
     )
