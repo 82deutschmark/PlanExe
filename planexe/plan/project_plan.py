@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.plan.project_plan consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 # Author: Cascade
 # Date: 2025-10-25T17:45:00Z
 # PURPOSE: Generate project plans via SimpleOpenAILLM structured outputs without llama_index bindings; formats SMART sections and metadata.
@@ -14,15 +19,15 @@ from dataclasses import dataclass
 from math import ceil
 from typing import TypeVar, Any
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 
 logger = logging.getLogger(__name__)
 
-class SMARTCriteria(BaseModel):
+class SMARTCriteria(StrictResponseModel):
     specific: str = Field(
         description="Clearly defines what is to be accomplished. Provides context and purpose behind the goal. Avoid vagueness, unrealistic targets, broad statements that lack direction."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     measurable: str = Field(
         description="Establish how you will measure success. This could be quantitative (e.g., numbers, percentages) or qualitative (e.g., satisfaction levels). Without clear metrics, it's difficult to track progress or determine success."
     )
@@ -36,7 +41,7 @@ class SMARTCriteria(BaseModel):
         description="Deadline: Specifies a clear timeframe for goal completion. Milestones: Breaks down the timeline into smaller, manageable phases if necessary."
     )
 
-class RiskAssessmentAndMitigationStrategies(BaseModel):
+class RiskAssessmentAndMitigationStrategies(StrictResponseModel):
     """
     By systematically identifying, analyzing, and addressing risks, you enhance the project 
     resilience and increase the likelihood of achieving sustainable and long-term success.
@@ -50,9 +55,8 @@ class RiskAssessmentAndMitigationStrategies(BaseModel):
     mitigation_plans: list[str] = Field(
         description="Develop strategies to minimize or manage these risks, ensuring the project remains on track despite unforeseen obstacles."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
-class StakeholderAnalysis(BaseModel):
+class StakeholderAnalysis(StrictResponseModel):
     """
     Understanding the interests, expectations, and concerns of stakeholders is essential for building
     strong relationships, securing support, and ensuring project success.
@@ -66,9 +70,8 @@ class StakeholderAnalysis(BaseModel):
     engagement_strategies: list[str] = Field(
         description="Outline how each stakeholder group will be engaged, their roles, and how their interests will be addressed to secure support and collaboration."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
-class RegulatoryAndComplianceRequirements(BaseModel):
+class RegulatoryAndComplianceRequirements(StrictResponseModel):
     """
     Detailed overview of the regulatory and compliance requirements necessary for the project.
     Ensures the project operates within legal frameworks and adheres to all necessary standards.
@@ -85,9 +88,8 @@ class RegulatoryAndComplianceRequirements(BaseModel):
     compliance_actions: list[str] = Field(
         description="List with actions and steps taken to ensure compliance with all relevant regulations and standards. Example: ['Building and Electrical Codes', 'Wildlife Protection', 'Fire safety measures', 'Biosafety Regulations', 'Radiation Safety']."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     
-class GoalDefinition(BaseModel):
+class GoalDefinition(StrictResponseModel):
     """
     A clear, specific, and actionable statement that outlines what you aim to achieve.
     A well-defined goal serves as a foundation for effective planning, problem decomposition, and team assembly.
@@ -119,7 +121,6 @@ class GoalDefinition(BaseModel):
     regulatory_and_compliance_requirements: RegulatoryAndComplianceRequirements = Field(
         description="Ensure compliance with all regulatory and legal requirements, including permits, licenses, and industry-specific standards."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 PROJECT_PLAN_SYSTEM_PROMPT_1 = """
 You are an expert project planner tasked with creating comprehensive and detailed project plans based on user-provided descriptions. Your output must be a complete JSON object conforming to the provided GoalDefinition schema. Focus on being specific and actionable, generating a plan that is realistic and useful for guiding project development.

@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.swot.swot_phase2_conduct_analysis consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 # Author: Cascade
 # Date: 2025-10-25T18:10:00Z
 # PURPOSE: Conduct SWOT analyses via SimpleOpenAILLM structured outputs, removing legacy llama_index message dependencies.
@@ -13,13 +18,14 @@ import logging
 from math import ceil
 from typing import Any
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 
 from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 
 logger = logging.getLogger(__name__)
 
-class SWOTAnalysis(BaseModel):
+class SWOTAnalysis(StrictResponseModel):
     """
     Identify internal and external factors that are favorable and unfavorable to achieving goals.
     """
@@ -42,8 +48,6 @@ class SWOTAnalysis(BaseModel):
     user_questions: list[str] = Field(
         description="Five crucial, thought-provoking questions to guide the user in identifying and evaluating strengths, weaknesses, opportunities, and threats."
     )
-    
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 CONDUCT_SWOT_ANALYSIS_BUSINESS_SYSTEM_PROMPT = """
 You are a universal strategic consultant with expertise in project management, business analysis, and innovation across various industries.

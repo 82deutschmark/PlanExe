@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.assume.distill_assumptions consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 """
 From a list of verbose assumptions, distill the key assumptions, so it can fit within the LLM's token limit.
 
@@ -24,15 +29,15 @@ import logging
 from math import ceil
 from typing import Optional, Any
 from dataclasses import dataclass
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 from llama_index.core.llms.llm import LLM
 from llama_index.core.llms import ChatMessage, MessageRole
 
 logger = logging.getLogger(__name__)
 
-class AssumptionDetails(BaseModel):
+class AssumptionDetails(StrictResponseModel):
     assumption_list: list[str] = Field(description="List of assumptions")
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 SYSTEM_PROMPT_1 = """
 You are an intelligent **Planning Assistant** specializing in distilling project assumptions for efficient use by planning tools. Your primary goal is to condense a list of verbose assumptions into a concise list of key assumptions that have a significant strategic impact on planning and execution, while ensuring that all core assumptions are captured.

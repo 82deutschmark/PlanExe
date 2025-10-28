@@ -6,6 +6,15 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.10.10] - 2025-10-28
+
+### Added
+- Introduced `StrictResponseModel` base class in `planexe/llm_util/strict_response_model.py` to automatically apply `_enforce_openai_schema_requirements()` when generating JSON schemas, guaranteeing nested `additionalProperties: false` values for Responses API payloads.
+
+### Changed
+- Migrated all structured-response task schemas to inherit from `StrictResponseModel`, removing 40+ redundant `json_schema_extra` declarations and unifying runtime enforcement with schema generation.
+- Updated `test_schema_enforcement.py` to cover the new base class and prove automatic schema strictness without manual overrides.
+
 ## [0.10.9] - 2025-10-28
 
 ### Documentation

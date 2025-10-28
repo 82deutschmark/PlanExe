@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.plan.executive_summary consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 # Author: Cascade
 # Date: 2025-10-25T17:55:00Z
 # PURPOSE: Generate executive summaries via SimpleOpenAILLM structured outputs, removing llama_index bindings.
@@ -28,18 +33,18 @@ from math import ceil
 from typing import Optional, Any
 from dataclasses import dataclass
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 
 from planexe.markdown_util.fix_bullet_lists import fix_bullet_lists
 from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 
 logger = logging.getLogger(__name__)
 
-class DocumentDetails(BaseModel):
+class DocumentDetails(StrictResponseModel):
     audience_tailoring: str = Field(
         description="Adapt the tone and detail based on who will be reading this summary (individual hobbyist, corporate, government, etc.)."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     focus_and_context: str = Field(
         description="A short statement about why this project or plan exists and its overall objectives."
     )
@@ -229,4 +234,3 @@ if __name__ == "__main__":
     bytes_saved = input_bytes_count - output_bytes_count
     print(f"Bytes saved: {bytes_saved}")
     print(f"Percentage saved: {bytes_saved / input_bytes_count * 100:.2f}%")
-

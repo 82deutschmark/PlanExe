@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.fiction.fiction_writer consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 """
 Based on short description, make a longer description.
 
@@ -9,13 +14,14 @@ import logging
 from math import ceil
 from typing import Optional
 from dataclasses import dataclass
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
 
 logger = logging.getLogger(__name__)
 
-class BookDraft(BaseModel):
+class BookDraft(StrictResponseModel):
     book_title: str = Field(description="Human readable title.")
     overview: str = Field(description="What is this about?")
     elaborate: str = Field(description="Details")
@@ -29,8 +35,6 @@ class BookDraft(BaseModel):
     challenges: list[str] = Field(description="Things that could go wrong or be difficult.")
     chapter_title_list: list[str] = Field(description="Name of each chapter.")
     final_story: str = Field(description="Based on the above, what is the final story.")
-
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 @dataclass
 class FictionWriter:
     """

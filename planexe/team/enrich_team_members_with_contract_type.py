@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.team.enrich_team_members_with_contract_type consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 # Author: Cascade
 # Date: 2025-10-25T18:05:00Z
 # PURPOSE: Enrich team members with contract types using SimpleOpenAILLM structured outputs, removing llama_index dependencies.
@@ -15,7 +20,8 @@ from math import ceil
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
 from planexe.llm_factory import get_llm
@@ -35,7 +41,7 @@ class ContractType(str, Enum):
     # Other. When the contract type does not fit into the above categories.
     other = 'other'
 
-class TeamMember(BaseModel):
+class TeamMember(StrictResponseModel):
     """A human with domain knowledge."""
     id: int = Field(
         description="A unique id for the job_category."
@@ -46,15 +52,11 @@ class TeamMember(BaseModel):
     justification: str = Field(
         description="Brief explanation for why that contract type was chosen. Helps justify decisions and allows for easy review."
     )
-    
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
-class DocumentDetails(BaseModel):
+class DocumentDetails(StrictResponseModel):
     team_members: list[TeamMember] = Field(
         description="The experts with domain knowledge about the problem."
     )
-    
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 ENRICH_TEAM_MEMBERS_CONTRACT_TYPE_SYSTEM_PROMPT = """
 You are an expert at determining what contract type are needed for different job roles given a project description.

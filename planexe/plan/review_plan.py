@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.plan.review_plan consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 # Author: Cascade
 # Date: 2025-10-25T17:45:00Z
 # PURPOSE: Review plan task powered by SimpleOpenAILLM, chaining structured responses without llama_index dependencies.
@@ -17,7 +22,8 @@ from math import ceil
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 
 from planexe.plan.speedvsdetail import SpeedVsDetailEnum
 from planexe.llm_util.llm_executor import LLMExecutor, LLMModelFromName, PipelineStopRequested
@@ -26,11 +32,10 @@ from planexe.llm_util.schema_registry import register_schema
 
 logger = logging.getLogger(__name__)
 
-class DocumentDetails(BaseModel):
+class DocumentDetails(StrictResponseModel):
     bullet_points: list[str] = Field(
         description="Answers to the questions in bullet points."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 REGISTERED_SCHEMA = register_schema(DocumentDetails)
 

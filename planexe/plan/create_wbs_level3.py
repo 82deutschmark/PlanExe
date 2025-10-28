@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.plan.create_wbs_level3 consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 # Author: Cascade
 # Date: 2025-10-25T17:50:00Z
 # PURPOSE: Decompose WBS Level 2 tasks via SimpleOpenAILLM structured outputs and factory-backed configuration without llama_index dependencies.
@@ -17,13 +22,14 @@ from math import ceil
 from uuid import uuid4
 from typing import Any
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
 from planexe.plan.filenames import FilenameEnum
 from planexe.llm_factory import get_llm
 
-class WBSSubtask(BaseModel):
+class WBSSubtask(StrictResponseModel):
     """
     A subtask.
     """
@@ -36,18 +42,14 @@ class WBSSubtask(BaseModel):
     resources_needed: list[str] = Field(
         description="List of resources needed to complete the subtask. Example: ['Project manager', 'Architect', 'Engineer', 'Construction crew']."
     )
-    
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
-class WBSTaskDetails(BaseModel):
+class WBSTaskDetails(StrictResponseModel):
     """
     A big task in the project decomposed into a few smaller tasks.
     """
     subtasks: list[WBSSubtask] = Field(
         description="List of subtasks."
     )
-    
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 QUERY_PREAMBLE = """
 Decompose a big task into smaller, more manageable subtasks.

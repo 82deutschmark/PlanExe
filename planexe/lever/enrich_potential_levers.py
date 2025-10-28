@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.lever.enrich_potential_levers consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 # Author: OpenAI Codex CLI (o3)
 # Date: 2025-10-23T00:00:00Z
 # PURPOSE: Enrich deduplicated strategic levers with description, synergy_text, and conflict_text using structured LLM calls. Writes results during execution and supports filesystem + DB outputs via callers.
@@ -20,7 +25,8 @@ from typing import List, Dict, Any
 
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
-from pydantic import BaseModel, Field, ValidationError, ConfigDict
+from pydantic import Field, ValidationError
+from planexe.llm_util.strict_response_model import StrictResponseModel
 
 from planexe.llm_util.llm_executor import LLMExecutor, PipelineStopRequested
 
@@ -31,9 +37,8 @@ BATCH_SIZE = 5
 
 
 # --- Pydantic models ---
-class InputLever(BaseModel):
+class InputLever(StrictResponseModel):
     lever_id: str
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     name: str
     consequences: str
     options: List[str]
@@ -41,20 +46,18 @@ class InputLever(BaseModel):
     deduplication_justification: str
 
 
-class LeverCharacterization(BaseModel):
+class LeverCharacterization(StrictResponseModel):
     lever_id: str = Field(description="The uuid of the lever")
     description: str = Field(description="80-100 word description of the lever's purpose, scope, metrics.")
     synergy_text: str = Field(description="40-60 words on positive interactions; name specific levers.")
     conflict_text: str = Field(description="40-60 words on conflicts/trade-offs; name specific levers.")
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 
-class BatchCharacterizationResult(BaseModel):
+class BatchCharacterizationResult(StrictResponseModel):
     characterizations: List[LeverCharacterization]
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 
-class CharacterizedLever(BaseModel):
+class CharacterizedLever(StrictResponseModel):
     lever_id: str
     name: str
     consequences: str
@@ -64,7 +67,6 @@ class CharacterizedLever(BaseModel):
     description: str
     synergy_text: str
     conflict_text: str
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 
 # --- Prompt ---
@@ -266,4 +268,3 @@ if __name__ == "__main__":
     logger.info(
         f"Full list of {len(result.characterized_levers)} characterized levers saved to '{output_file}'."
     )
-

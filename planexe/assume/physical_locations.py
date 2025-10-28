@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.assume.physical_locations consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 """
 Pick suitable physical locations for the project plan. 
 - If the plan is purely digital and can be executed without any physical location, then there is no need to run this step.
@@ -12,17 +17,17 @@ import time
 import logging
 from math import ceil
 from dataclasses import dataclass
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
 
 logger = logging.getLogger(__name__)
 
-class PhysicalLocationItem(BaseModel):
+class PhysicalLocationItem(StrictResponseModel):
     item_index: int = Field(
         description="Enumeration of the locations, starting from 1."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
     physical_location_broad: str = Field(
         description="A broad location for the project, such as a country or region. Use 'Global' if applicable."
     )
@@ -36,7 +41,7 @@ class PhysicalLocationItem(BaseModel):
         description="Explain why this particular physical location is suggested."
     )
 
-class DocumentDetails(BaseModel):
+class DocumentDetails(StrictResponseModel):
     has_location_in_plan: bool = Field(
         description="Is the location specified in the plan."
     )
@@ -49,7 +54,6 @@ class DocumentDetails(BaseModel):
     location_summary: str = Field(
         description="Providing a high level context."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 PHYSICAL_LOCATIONS_SYSTEM_PROMPT = """
 You are a world-class planning expert specializing in real-world physical locations. Your goal is to generate a JSON response that follows the `DocumentDetails` and `PhysicalLocationItem` models precisely. 

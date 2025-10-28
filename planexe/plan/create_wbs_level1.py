@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 # Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.plan.create_wbs_level1 consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
+# Author: gpt-5-codex
 # Date: 2025-10-26T00:00:00Z
 # PURPOSE: Harden WBS Level 1 generation by validating LLM output, normalizing fallback values, and preserving compatibility with the factory-driven configuration pipeline.
 # SRP and DRY check: Pass. Enhancements stay scoped to WBS Level 1 parsing while reusing shared utilities and avoiding duplicated logic already present elsewhere in the project.
@@ -18,7 +23,8 @@ from uuid import uuid4
 from dataclasses import dataclass
 from typing import Any, Dict, Tuple
 
-from pydantic import BaseModel, Field, ValidationError, ConfigDict
+from pydantic import Field, ValidationError
+from planexe.llm_util.strict_response_model import StrictResponseModel
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +33,7 @@ from planexe.llm_util.schema_registry import register_schema
 
 logger = logging.getLogger(__name__)
 
-class WBSLevel1(BaseModel):
+class WBSLevel1(StrictResponseModel):
     """
     Represents the top-level details of a Work Breakdown Structure (WBS)
     """
@@ -37,8 +43,6 @@ class WBSLevel1(BaseModel):
     final_deliverable: str = Field(
         description="A detailed description of the projects ultimate outcome or product upon completion. Clearly states the final state or result that the team aims to achieve."
     )
-    
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 QUERY_PREAMBLE = """
 The task here:

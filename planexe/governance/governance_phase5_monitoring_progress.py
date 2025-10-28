@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.governance.governance_phase5_monitoring_progress consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 """
 Monitoring Progress
 
@@ -13,13 +18,14 @@ import time
 import logging
 from math import ceil
 from dataclasses import dataclass
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
 
 logger = logging.getLogger(__name__)
 
-class MonitoringProgress(BaseModel):
+class MonitoringProgress(StrictResponseModel):
     approach: str = Field(description="General approach to monitoring progress.")
     monitoring_tools_platforms: list[str] = Field(description="Specific tools or platforms used for monitoring (e.g., 'Asana dashboard', 'Shared KPI Spreadsheet', 'Monthly Report Template').")
     frequency: str = Field(description="How often progress is reviewed.")
@@ -27,11 +33,10 @@ class MonitoringProgress(BaseModel):
     adaptation_process: str = Field(description="How plan changes are made based on monitoring data.")
     adaptation_trigger: str = Field(description="What specifically triggers the adaptation process (e.g., 'KPI deviation > 10%', 'Steering Committee review').")
 
-class DocumentDetails(BaseModel):
+class DocumentDetails(StrictResponseModel):
     monitoring_progress: list[MonitoringProgress] = Field(
         description="How the team monitors progress and adapts the plan over time."
     )
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
 GOVERNANCE_PHASE5_MONITORING_PROGRESS_SYSTEM_PROMPT = """
 You are an expert in project management, monitoring, and evaluation. Your task is to define how progress will be monitored and how the project plan will be adapted based on that monitoring for the described project.

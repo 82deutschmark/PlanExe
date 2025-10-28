@@ -1,3 +1,8 @@
+# Author: gpt-5-codex
+# Date: 2025-10-28T04:39:23Z
+# PURPOSE: Structured LLM response schemas for planexe.plan.expert_cost consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
+# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
+
 # Author: Cascade
 # Date: 2025-10-25T18:00:00Z
 # PURPOSE: Estimate task costs using SimpleOpenAILLM structured outputs instead of legacy llama_index bindings, while keeping metadata and CLI utilities.
@@ -11,7 +16,8 @@ from math import ceil
 from typing import Optional
 from enum import Enum
 from dataclasses import dataclass
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
+from planexe.llm_util.strict_response_model import StrictResponseModel
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
 from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 from planexe.llm_factory import get_llm
@@ -32,7 +38,7 @@ class CostUnit(str, Enum):
     # When no other enum value is applicable.
     other = 'other'
 
-class CostComponent(BaseModel):
+class CostComponent(StrictResponseModel):
     name: str = Field(description="Human-readable name of the cost component.")
     unit: CostUnit = Field(description="Indicates how costs are measured.")
     quantity: float = Field(description="Number of units, if applicable.")
@@ -43,9 +49,8 @@ class CostComponent(BaseModel):
     equipment_cost: float = Field(description="Cost related to equipment.")
     overhead_cost: float = Field(description="Indirect or overhead costs.")
     contingency_rate: float = Field(description="Higher contingency rates for riskier tasks.")
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
-class CostEstimateItem(BaseModel):
+class CostEstimateItem(StrictResponseModel):
     task_id: str = Field(description="Unique identifier for the task.")
     task_name: str = Field(description="Name of the task.")
     cost_component_list: list[CostComponent] = Field(description="Multiple cost components.")
@@ -57,15 +62,12 @@ class CostEstimateItem(BaseModel):
     medium_risks: list[str] = Field(description="Potential risks affecting cost. Medium risk level.")
     low_risks: list[str] = Field(description="Potential risks affecting cost. Low risk level.")
     dependencies_impact: str = Field(description="Impact of task dependencies on cost.")
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 
-class ExpertCostEstimationResponse(BaseModel):
+class ExpertCostEstimationResponse(StrictResponseModel):
     cost_estimates: list[CostEstimateItem] = Field(description="List of cost estimates for tasks.")
     primary_actions: list[str] = Field(description="Actionable steps to refine cost estimates.")
     secondary_actions: list[str] = Field(description="Additional suggestions for cost management.")
     follow_up_consultation: str = Field(description="Topics for the next consultation.")
-
-    model_config = ConfigDict(extra='forbid', json_schema_extra={"additionalProperties": False})
 @dataclass
 class Document:
     name: str
