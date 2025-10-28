@@ -27,6 +27,7 @@ import { parseBackendDate } from '@/lib/utils/date';
 import { RecoveryConnectionState, StatusDisplay, StageSummary, LLMStreamState } from '../useRecoveryPlan';
 import { APITelemetryStrip } from './APITelemetryStrip';
 import { LiveTaskTicker } from './LiveTaskTicker';
+import { PIPELINE_TASKS } from '../constants/pipeline-tasks';
 
 interface RecoveryHeaderProps {
   planId: string;
@@ -102,7 +103,7 @@ export const RecoveryHeader: React.FC<RecoveryHeaderProps> = ({
   const planCreatedAt = useMemo(() => parseBackendDate(plan?.created_at ?? null), [plan?.created_at]);
 
   // Calculate progress from LLM streams - each stream represents a task execution
-  const TOTAL_EXPECTED_TASKS = 61;
+  const TOTAL_EXPECTED_TASKS = PIPELINE_TASKS.length;
   
   // Count completed LLM interactions (each represents a completed task)
   const completedLLMTasks = llmStreams.history.filter(s => s.status === 'completed').length;

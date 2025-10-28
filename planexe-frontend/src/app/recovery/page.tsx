@@ -26,6 +26,7 @@ import { LuigiPipelineView } from '@/components/monitoring/LuigiPipelineView';
 import { useRecoveryPlan } from './useRecoveryPlan';
 import { ResumeDialog } from './components/ResumeDialog';
 import { CompletionSummaryModal } from './components/CompletionSummaryModal';
+import { PIPELINE_TASKS } from './constants/pipeline-tasks';
 
 const MissingPlanMessage: React.FC = () => (
   <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
@@ -150,6 +151,7 @@ const RecoveryPageContent: React.FC = () => {
         open={completionModalOpen}
         onClose={() => setCompletionModalOpen(false)}
         plan={plan.data}
+        artefacts={artefacts.items}
         llmStreams={llmStreams}
         onViewReport={handleViewReport}
       />
@@ -158,7 +160,7 @@ const RecoveryPageContent: React.FC = () => {
       <CurrentActivityStrip
         activeStream={llmStreams.active}
         completedCount={llmStreams.history.filter(s => s.status === 'completed').length}
-        totalTasks={61}
+        totalTasks={PIPELINE_TASKS.length}
         plan={plan.data}
         connection={connection}
         llmStreams={llmStreams}
@@ -168,7 +170,7 @@ const RecoveryPageContent: React.FC = () => {
         <PipelineLogsPanel planId={planId} className="h-fit" />
         <div className="grid gap-2 lg:grid-cols-[400px_minmax(0,1fr)]">
           <div className="flex flex-col gap-2">
-            {/* Luigi Pipeline showing all 61 tasks via log parsing */}
+            {/* Luigi Pipeline showing all tasks via log parsing */}
             <LuigiPipelineView planId={planId} />
           </div>
           <div className="flex flex-col gap-2">

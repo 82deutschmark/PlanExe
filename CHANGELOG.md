@@ -6,18 +6,30 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.13.1] - 2025-10-28
+
+### Fixed
+- **LLM Fallback Mechanism**: Pipeline was not using fallback LLMs when primary model failed
+  - Issue: When a specific LLM model was requested, the system only used that single model instead of trying fallbacks
+  - Root cause: `resolve_llm_models()` method replaced entire model list with `[specified_model]` 
+  - Fix: Modified logic to prioritize specified model while keeping other available models as fallbacks
+  - Result: Pipeline now tries `gpt-5-nano-2025-08-07` first, then falls back to `gpt-5-mini-2025-08-07`, `gpt-5-mini` etc.
+  - File: `planexe/plan/run_plan_pipeline.py` lines 6062-6075
+
 ## [0.13.0] - 2025-10-28
 
 ### Added
-- **Pipeline Completion Summary Modal**: New modal displays when pipeline completes instead of auto-navigating away
-  - Shows completion status with visual success/failure indicators
-  - Displays key metrics: completed tasks (out of 61), failed tasks, total execution time, API calls, and token usage
-  - Four info cards with gradient backgrounds showing: completed tasks (green), failed tasks (red, if any), total time (blue), API stats (purple)
-  - Contextual messaging based on completion status (all success, partial failures, or mixed)
-  - "View Report" button scrolls to report section, "Continue Working" dismisses modal
-  - Auto-shows 500ms after pipeline status changes to 'completed' (only once per plan)
+- **Interactive Pipeline Completion Review Modal**: Modal displays when pipeline completes, showing actual generated artefacts and failures
+  - Two tabs: "Generated Artefacts" (shows real PlanFile objects) and "Failures" (shows LLM stream errors)
+  - Artefacts grouped by stage, each showing: task name, filename, description, content type
+  - Download button for each artefact (opens `/api/plans/{id}/files/{filename}`)
+  - Failures tab shows error messages inline with stage and interaction ID
+  - Uses REAL data from `artefacts.items` and `llmStreams.history`, not calculated stats
+  - Task count uses `PIPELINE_TASKS.length` instead of hardcoded values
+  - "View Full Report" button scrolls to report section
+  - Auto-shows 500ms after `plan.status === 'completed'` (only once per plan)
   - Component: `planexe-frontend/src/app/recovery/components/CompletionSummaryModal.tsx`
-  - Integration: `planexe-frontend/src/app/recovery/page.tsx` lines 68-105, 149-155
+  - Integration: `planexe-frontend/src/app/recovery/page.tsx` lines 68-105, 149-156
 
 ### Fixed
 - **Error Display in LivePipelineDAG**: Failed tasks now show actual error messages inline instead of just a red X icon
@@ -27,6 +39,11 @@ This project follows [Semantic Versioning](https://semver.org/):
   - Users can now see WHAT went wrong without needing to click into modal
   - File: `planexe-frontend/src/app/recovery/components/LivePipelineDAG.tsx` lines 192-200
   - Zero backend changes - solution uses existing error data in frontend state
+
+- **Removed Hardcoded Task Count**: Replaced hardcoded "61" with `PIPELINE_TASKS.length` throughout recovery UI
+  - Fixed in: `page.tsx`, `RecoveryHeader.tsx`, `CurrentActivityStrip` prop, and comments
+  - Ensures task count stays accurate if pipeline tasks change
+  - Single source of truth: `constants/pipeline-tasks.ts`
 
 ## [0.12.0] - 2025-10-28
 

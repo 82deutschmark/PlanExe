@@ -6061,12 +6061,18 @@ class ExecutePipeline:
 
         if specified_llm_model:
             llm_model = specified_llm_model
-            logger.info(f"Using the specified LLM model: {llm_model!r}")
+            logger.info(f"Prioritizing the specified LLM model: {llm_model!r}")
             if llm_model != SPECIAL_AUTO_ID:
                 if not is_valid_llm_name(llm_model):
                     logger.error(f"Invalid LLM model: {llm_model!r}. Please check your llm_config.json file and add the model.")
                     raise ValueError(f"Invalid LLM model: {llm_model!r}. Please check your llm_config.json file and add the model.")
-                llm_models = [llm_model]
+                # Move specified model to front of the list for priority, but keep others as fallbacks
+                if llm_model in llm_models:
+                    llm_models.remove(llm_model)
+                    llm_models.insert(0, llm_model)
+                else:
+                    # If specified model isn't in priority list, use it first then fall back to priority list
+                    llm_models = [llm_model] + llm_models
 
         logger.info("These are the LLM models that will be used in the pipeline:")
         for index, llm_name in enumerate(llm_models):
