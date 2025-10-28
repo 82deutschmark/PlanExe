@@ -17,12 +17,16 @@ import {
   PlanArtefactListResponse,
   PlanResponse,
   WebSocketLLMStreamMessage,
-  WebSocketMessage,
+  WebSocketStatusMessage,
 } from '@/lib/api/fastapi-client';
 import { Activity, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { PlanFile } from '@/lib/types/pipeline';
 import { parseBackendDate, toIsoStringOrFallback } from '@/lib/utils/date';
-import { createRecoveryStreaming } from '@/lib/streaming/recovery-streaming';
+import {
+  createRecoveryStreaming,
+  type RecoveryLLMStreamContext,
+  type RecoveryStreamHandlers,
+} from '@/lib/streaming/recovery-streaming';
 
 export interface StatusDisplay {
   label: string;
@@ -172,7 +176,6 @@ const initialConnectionState: RecoveryConnectionState = {
   error: null,
 };
 
-const MAX_STREAM_DELTAS = 200;
 const MAX_STREAM_EVENTS = 100;
 
 const sanitizeStreamPayload = (data: unknown): Record<string, unknown> => {
@@ -305,14 +308,6 @@ const normaliseStageLabel = (stage?: string | null): string => {
     .replace(/[_-]+/g, ' ')
     .trim()
     .replace(/\b\w/g, (char) => char.toUpperCase());
-};
-
-const isWebSocketMessage = (data: WebSocketMessage | CloseEvent): data is WebSocketMessage => {
-  return (
-    typeof (data as WebSocketMessage)?.type === 'string' &&
-    'timestamp' in data &&
-    typeof (data as WebSocketMessage).timestamp === 'string'
-  );
 };
 
 const getStatusDisplay = (status: PlanResponse['status']): StatusDisplay => {
@@ -736,22 +731,22 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
     });
 
     const handleStreamEvents = {
-      onStart: (context: any) => {
+      onStart: (context: RecoveryLLMStreamContext) => {
         handleLlmStreamMessage(context.message);
       },
-      onTextDelta: (context: any) => {
+      onTextDelta: (context: RecoveryLLMStreamContext) => {
         handleLlmStreamMessage(context.message);
       },
-      onReasoningDelta: (context: any) => {
+      onReasoningDelta: (context: RecoveryLLMStreamContext) => {
         handleLlmStreamMessage(context.message);
       },
-      onFinal: (context: any) => {
+      onFinal: (context: RecoveryLLMStreamContext) => {
         handleLlmStreamMessage(context.message);
       },
-      onEnd: (context: any) => {
+      onEnd: (context: RecoveryLLMStreamContext) => {
         handleLlmStreamMessage(context.message);
       },
-      onStatus: (message: any) => {
+      onStatus: (message: WebSocketStatusMessage) => {
         dispatch({
           type: 'plan:update',
           payload: {
@@ -764,7 +759,7 @@ export const useRecoveryPlan = (planId: string): UseRecoveryPlanReturn => {
       onError: (message: string) => {
         console.error('[Recovery] Streaming error:', message);
       },
-    };
+    } satisfies RecoveryStreamHandlers;
 
     streamingController.start(planId, handleStreamEvents).catch((error) => {
       console.error('[Recovery] Failed to start streaming:', error);
