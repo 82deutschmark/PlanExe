@@ -15,7 +15,7 @@ from enum import Enum
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 
@@ -31,7 +31,7 @@ class DocumentDetails(BaseModel):
     explanation: str = Field(
         description="Providing a high level context."
     )
-    model_config = {'extra': 'allow'}
+    model_config = ConfigDict(extra='forbid')
     plan_type: PlanType = Field(
         description="Classify the type of plan."
     )
