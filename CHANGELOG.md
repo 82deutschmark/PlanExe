@@ -6,6 +6,18 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.15.3] - 2025-10-28
+
+### Fixed
+- **Schema Registry Refresh for Structured Outputs**
+  - Forced every schema registration to regenerate the JSON schema so `additionalProperties` is hard-set to `false` on the wire while keeping runtime parsing lenient.
+  - Prevents cached `additionalProperties: true` payloads from reaching the Responses API after leniency changes in `StrictResponseModel`.
+  - Files: `planexe/llm_util/schema_registry.py`
+
+### Regression History
+- Introduced by commit `d0de05a` ("feat: allow runtime extras in LLM responses while keeping stable output") released in v0.15.2, which set `StrictResponseModel` to allow extras and unintentionally cached permissive schemas in the registry.
+- v0.9.14 previously flipped hundreds of models to `extra='allow'`, paving the way for the schema/runtime mismatch once strict schemas were cached.
+
 ## [0.15.2] - 2025-10-28
 
 ### Fixed
