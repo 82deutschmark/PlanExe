@@ -6,6 +6,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.17.1] - 2025-10-29
+
+### Added
+- Display of selected LLM model in `CurrentActivityStrip` with clear label and icon. Fields: `plan.llm_model` (frontend PlanResponse). File: `planexe-frontend/src/app/recovery/components/CurrentActivityStrip.tsx`
+
 ## [0.17.0] - 2025-10-29
 
 ### Added

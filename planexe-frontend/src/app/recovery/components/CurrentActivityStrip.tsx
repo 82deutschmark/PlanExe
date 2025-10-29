@@ -8,7 +8,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Activity, Clock, Zap, Wifi, WifiOff, CheckCircle, Database, DollarSign } from 'lucide-react';
+import { Activity, Clock, Zap, Wifi, WifiOff, CheckCircle, Database, DollarSign, Cpu } from 'lucide-react';
 import type { LLMStreamState, RecoveryConnectionState } from '../useRecoveryPlan';
 import type { PlanResponse } from '@/lib/api/fastapi-client';
 import { calculateCost, formatCost, getModelCost, type TokenUsage } from '@/lib/utils/cost-calculator';
@@ -213,6 +213,19 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
           </div>
           
           <div className="h-5 w-px bg-slate-600" />
+
+          {plan?.llm_model && (
+            <>
+              <div className="flex items-center gap-1.5">
+                <Cpu className="h-4 w-4 text-slate-400" />
+                <span className="text-xs text-slate-400">MODEL:</span>
+                <Badge variant="outline" className="text-xs font-semibold text-blue-300 border-blue-400">
+                  {plan.llm_model}
+                </Badge>
+              </div>
+              <div className="h-5 w-px bg-slate-600" />
+            </>
+          )}
 
           {plan?.reasoning_effort && (
             <>
