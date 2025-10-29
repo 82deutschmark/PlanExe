@@ -24,10 +24,8 @@ from math import ceil
 from enum import Enum
 from dataclasses import dataclass
 from typing import Optional, List
-from pydantic import BaseModel, Field
-from llama_index.core.llms import ChatMessage, MessageRole
-from llama_index.core.llms.llm import LLM
 from planexe.assume.identify_purpose import IdentifyPurpose, PlanPurposeInfo, PlanPurpose
+from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 
 logger = logging.getLogger(__name__)
 
