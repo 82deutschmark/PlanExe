@@ -170,6 +170,7 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
     : 'text-gray-400';
   
   const progressPercent = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
+  
   const reasoningEffortLabel = plan?.reasoning_effort ? REASONING_LABELS[plan.reasoning_effort] ?? plan.reasoning_effort : null;
   
   return (

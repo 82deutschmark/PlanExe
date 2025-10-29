@@ -208,7 +208,18 @@ const recoveryReducer = (state: RecoveryState, action: RecoveryAction): Recovery
     case 'plan:start':
       return { ...state, planLoading: true, planError: null };
     case 'plan:success':
-      return { ...state, plan: action.payload, planLoading: false, planError: null };
+      return {
+        ...state,
+        plan: {
+          ...action.payload,
+          reasoning_effort:
+            action.payload.reasoning_effort ??
+            state.plan?.reasoning_effort ??
+            undefined,
+        },
+        planLoading: false,
+        planError: null,
+      };
     case 'plan:error':
       return { ...state, planError: action.error, planLoading: false, plan: null };
     case 'plan:update':
