@@ -6,7 +6,7 @@
  */
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Home, Download, AlertCircle, RefreshCw } from 'lucide-react';
@@ -14,6 +14,92 @@ import { Home, Download, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { fastApiClient } from '@/lib/api/fastapi-client';
+
+/**
+ * Renders a full HTML report in an iframe with auto-height adjustment
+ */
+interface ReportIframeProps {
+  html: string;
+  className?: string;
+}
+
+const ReportIframe: React.FC<ReportIframeProps> = ({ html, className = '' }) => {
+  const [blobUrl, setBlobUrl] = useState<string>('');
+  const [height, setHeight] = useState<number>(600);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Create blob URL from HTML string
+  useEffect(() => {
+    const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    setBlobUrl(url);
+
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [html]);
+
+  // Auto-adjust iframe height to match content
+  useEffect(() => {
+    if (!iframeRef.current || !blobUrl) return;
+
+    const iframe = iframeRef.current;
+
+    const adjustHeight = () => {
+      try {
+        const doc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (doc && doc.body) {
+          const newHeight = Math.max(
+            doc.body.scrollHeight,
+            doc.body.offsetHeight,
+            doc.documentElement.clientHeight,
+            doc.documentElement.scrollHeight,
+            doc.documentElement.offsetHeight
+          );
+          setHeight(newHeight + 40); // Add some padding
+        }
+      } catch (e) {
+        // Cross-origin or iframe not ready
+        console.debug('Iframe height adjustment skipped:', e);
+      }
+    };
+
+    iframe.addEventListener('load', () => {
+      adjustHeight();
+
+      // Re-check after a delay (for dynamic content like charts)
+      setTimeout(adjustHeight, 100);
+      setTimeout(adjustHeight, 500);
+      setTimeout(adjustHeight, 1000);
+      setTimeout(adjustHeight, 2000);
+    });
+
+    return () => {
+      iframe.removeEventListener('load', adjustHeight);
+    };
+  }, [blobUrl]);
+
+  if (!blobUrl) {
+    return (
+      <div className="flex items-center justify-center p-8 text-gray-500">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent mr-2"></div>
+        Preparing report...
+      </div>
+    );
+  }
+
+  return (
+    <iframe
+      ref={iframeRef}
+      src={blobUrl}
+      title="PlanExe Report"
+      className={`w-full border-0 ${className}`}
+      style={{ height: `${height}px`, minHeight: '600px' }}
+      sandbox="allow-scripts allow-same-origin allow-downloads allow-popups"
+      loading="eager"
+    />
+  );
+};
 
 const ReportPageClient: React.FC = () => {
   const search = useSearchParams();
@@ -169,11 +255,8 @@ const ReportPageClient: React.FC = () => {
 
         {reportHtml && !loading && (
           <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-            {/* Rich HTML report with its own styling from ReportGenerator */}
-            <div
-              className="report-container"
-              dangerouslySetInnerHTML={{ __html: reportHtml }}
-            />
+            {/* Rich HTML report rendered in iframe to preserve CSS and JavaScript */}
+            <ReportIframe html={reportHtml} />
           </div>
         )}
 

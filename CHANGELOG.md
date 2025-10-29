@@ -6,6 +6,18 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+### [0.18.4] - 2025-10-29
+
+### Fixed
+- **Report Display: Beautiful Styling Restored**: Fixed critical UI bug where `/plan/` page displayed ugly, unstyled HTML instead of the beautiful formatted report.
+  - **Root Cause**: Backend sends full HTML document with embedded `<style>` and `<script>` tags, but frontend was using `dangerouslySetInnerHTML` to inject it into a `<div>`. Browsers strip out `<html>`, `<head>`, `<style>`, and `<script>` tags when injecting HTML into a div, leaving only raw unstyled content.
+  - **Impact**: Users saw plain, boring HTML with no blue collapsible sections, no table styling, and non-functional buttons. Sections appeared to show "NO info" because they were collapsed but couldn't be expanded (no JavaScript).
+  - **The Fix**: Replaced `dangerouslySetInnerHTML` with an `<iframe>` component that renders the full HTML document as a separate document, preserving all CSS styling and JavaScript interactivity.
+  - **Result**: Report now displays with beautiful blue collapsible sections, styled tables, working collapse/expand buttons, table of contents, Gantt charts, and all original styling from `report_template.html`.
+  - **Implementation**: Added `ReportIframe` component with auto-height adjustment and blob URL creation.
+  - Files: `planexe-frontend/src/app/plan/ReportPageClient.tsx`
+  - See: `docs/plan-report-generation-fix.md` for full analysis and alternative solutions
+
 ### [0.18.3] - 2025-10-29
 
 ### Fixed
