@@ -11,7 +11,8 @@ multiple fallback strategies and comprehensive error handling.
 """
 import base64
 import os
-from typing import Optional, Dict, Any
+import asyncio
+from typing import Optional, Dict, Any, Tuple
 import httpx
 from planexe.utils.planexe_llmconfig import PlanExeLLMConfig
 
