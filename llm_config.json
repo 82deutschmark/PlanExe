@@ -43,6 +43,20 @@
         "priority": 90,
         "provider": "openai",
         "model": "gpt-image-1-mini",
-        "capabilities": ["image_generation"]
+        "capabilities": ["image_generation"],
+        "image_defaults": {
+            "default_size": "1024x1024",
+            "allowed_sizes": [
+                "256x256",
+                "512x512",
+                "1024x1024",
+                "1792x1024",
+                "1024x1792"
+            ],
+            "timeout_seconds": 60,
+            "max_retries": 2,
+            "responses_model_key": "gpt-5-nano-2025-08-07",
+            "responses_instructions": "Return a single concept image encoded as base64 JSON and ensure it matches the requested size."
+        }
     }
 }
