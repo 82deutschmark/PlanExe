@@ -7,6 +7,16 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **PATCH**: Bug fixes (backward compatible)
 
 
+### [0.18.6] - 2025-10-29
+
+### Fixed
+- **Image Generation Endpoint: Robust Base64 with URL Fallback**: Enhanced the image generation endpoint to reliably return base64 data with automatic fallback to URL fetching when base64 is unavailable.
+  - **Primary**: Attempts to get base64 JSON directly from OpenAI Images API using `response_format: "b64_json"`
+  - **Fallback**: If base64 not returned, fetches image from URL and converts to base64 using `base64.b64encode()`
+  - **Reliability**: Handles cases where OpenAI returns URL instead of base64 data
+  - **Response**: Includes `format` field indicating source (`"base64"` or `"base64_from_url"`)
+  - Files: `planexe_api/api.py` lines 392-488
+
 ### [0.18.5] - 2025-10-29
 
 ### Added

@@ -1,6 +1,6 @@
-# Author: gpt-5-codex
-# Date: 2025-10-22T03:20:00Z
-# PURPOSE: FastAPI entrypoint orchestrating PlanExe HTTP and WebSocket APIs with database-first artefact delivery.
+# Author: Cascade
+# Date: 2025-10-29T16:19:00Z
+# PURPOSE: FastAPI entrypoint orchestrating PlanExe HTTP and WebSocket APIs with database-first artefact delivery. Enhanced image generation endpoint with robust base64 return and URL fallback.
 # SRP and DRY check: Pass — Module handles routing while delegating persistence and pipeline logic to dedicated services.
 """
 Author: Claude Code using Sonnet 4
@@ -19,6 +19,7 @@ from html import escape
 from pathlib import Path
 from typing import Dict, Optional, List
 
+import httpx
 from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
@@ -390,53 +391,101 @@ async def create_conversation_followup_endpoint(
 
 @app.post("/api/conversations/{conversation_id}/generate-image")
 async def generate_intake_image_endpoint(conversation_id: str, request: Request):
-    """Generate a concept image for the user's initial idea using gpt-image-1-mini."""
-    import base64
-    from openai import OpenAI
-    
+    """Generate a concept image for the user's initial idea using gpt-image-1-mini with robust base64 return and URL fallback."""
+
     if not STREAMING_ENABLED:
         raise HTTPException(status_code=403, detail="STREAMING_DISABLED")
-    
+
     try:
         body = await request.json()
         prompt = body.get("prompt", "").strip()
-        
+
         if not prompt:
             raise HTTPException(status_code=400, detail="Prompt is required")
-        
+
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise HTTPException(status_code=500, detail="OPENAI_API_KEY not configured")
-        
-        # Generate image using OpenAI
-        client = OpenAI(api_key=api_key)
-        response = client.images.generate(
-            model="gpt-image-1-mini",
-            prompt=prompt,
-            size="1024x1024",
-            response_format="b64_json",
-        )
-        
-        if not response.data or len(response.data) == 0:
-            raise HTTPException(status_code=500, detail="No image data returned from OpenAI")
-        
-        image_b64 = response.data[0].b64_json
-        if not image_b64:
-            raise HTTPException(status_code=500, detail="Image generation failed")
-        
-        return {
-            "conversation_id": conversation_id,
-            "image_b64": image_b64,
-            "prompt": prompt,
-            "model": "gpt-image-1-mini",
-            "size": "1024x1024",
+
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
         }
-    
+        organization = os.getenv("OPENAI_ORG_ID") or os.getenv("OPENAI_ORGANIZATION")
+        if organization:
+            headers["OpenAI-Organization"] = organization
+
+        # Primary attempt: request base64 JSON directly
+        payload = {
+            "model": "gpt-image-1-mini",
+            "prompt": prompt,
+            "size": "1024x1024",
+            "response_format": "b64_json",
+            "n": 1,
+        }
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                "https://api.openai.com/v1/images/generations",
+                headers=headers,
+                json=payload,
+            )
+
+        if response.status_code >= 400:
+            detail = response.text
+            print(f"[IMAGE_GEN] OpenAI API error ({response.status_code}): {detail}")
+            raise HTTPException(status_code=500, detail="Image generation failed upstream")
+
+        data = response.json()
+        images = data.get("data") or []
+        if not images:
+            raise HTTPException(status_code=500, detail="No image data returned from OpenAI")
+
+        image_entry = images[0] or {}
+        image_b64 = image_entry.get("b64_json")
+        
+        # If we got base64 data, return it directly
+        if image_b64:
+            return {
+                "conversation_id": conversation_id,
+                "image_b64": image_b64,
+                "prompt": prompt,
+                "model": "gpt-image-1-mini",
+                "size": "1024x1024",
+                "format": "base64"
+            }
+        
+        # Fallback: if base64 not available, try URL format and fetch the image
+        image_url = image_entry.get("url")
+        if not image_url:
+            raise HTTPException(status_code=500, detail="No base64 or URL data returned from OpenAI")
+
+        print(f"[IMAGE_GEN] Base64 not available, fetching from URL: {image_url}")
+        
+        # Fetch the image from URL and convert to base64
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            image_response = await client.get(image_url)
+            if image_response.status_code >= 400:
+                raise HTTPException(status_code=500, detail=f"Failed to fetch image from URL: {image_response.status_code}")
+            
+            image_bytes = image_response.content
+            import base64
+            image_b64_fallback = base64.b64encode(image_bytes).decode('utf-8')
+            
+            return {
+                "conversation_id": conversation_id,
+                "image_b64": image_b64_fallback,
+                "prompt": prompt,
+                "model": "gpt-image-1-mini",
+                "size": "1024x1024",
+                "format": "base64_from_url"
+            }
+
     except HTTPException:
         raise
     except Exception as e:
         print(f"[IMAGE_GEN] Error generating intake image: {e}")
-        raise HTTPException(status_code=500, detail=f"Image generation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Image generation failed")
 
 
 @app.post("/api/stream/analyze", response_model=AnalysisStreamSessionResponse)
