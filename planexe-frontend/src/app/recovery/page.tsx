@@ -23,7 +23,6 @@ import { LiveStreamPanel } from './components/LiveStreamPanel';
 import { StreamHistoryGrid } from './components/StreamHistoryGrid';
 import { CurrentActivityStrip } from './components/CurrentActivityStrip';
 import { LivePipelineDAG } from './components/LivePipelineDAG';
-import { LuigiPipelineView } from '@/components/monitoring/LuigiPipelineView';
 import { useRecoveryPlan } from './useRecoveryPlan';
 import { ResumeDialog } from './components/ResumeDialog';
 import { CompletionSummaryModal } from './components/CompletionSummaryModal';
@@ -232,15 +231,13 @@ const RecoveryPageContent: React.FC = () => {
       <main className="mx-auto flex max-w-7xl flex-col gap-2 px-2 py-2">
         {/* Stream History Grid at top - shows completed tasks */}
         <StreamHistoryGrid streams={llmStreams.history} />
-        
-        <div className="grid gap-2 lg:grid-cols-[400px_minmax(0,1fr)]">
-          <div className="flex flex-col gap-2">
-            {/* Live Pipeline DAG showing all 61 tasks with real-time status */}
+
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+          <div className="flex flex-col gap-3">
+            {/* Live Pipeline DAG showing all pipeline tasks with real-time status */}
             <LivePipelineDAG llmStreams={llmStreams} />
-            {/* Luigi Pipeline showing log-based progress */}
-            <LuigiPipelineView planId={planId} />
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             <LiveStreamPanel stream={llmStreams.active} />
             {/* Stream History Grid showing completed tasks */}
             <div data-report-section>

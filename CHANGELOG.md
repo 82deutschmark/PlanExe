@@ -16,6 +16,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 ### Changed
 - StreamHistoryGrid now mirrors the info-rich recovery styling: larger text labels, explicit data previews (Output, Reasoning, Events, Usage), "View Details" badges, and contextual tooltips. File: `planexe-frontend/src/app/recovery/components/StreamHistoryGrid.tsx`
 
+## [0.17.3] - 2025-10-29
+
+### Changed
+- Deprecated `LuigiPipelineView` from the recovery page and gave `LivePipelineDAG` full-width space (no internal scroll) for the authoritative pipeline view. Files: `planexe-frontend/src/app/recovery/page.tsx`, `planexe-frontend/src/app/recovery/components/LivePipelineDAG.tsx`
+
 ## [0.17.0] - 2025-10-29
 
 ### Added

@@ -142,8 +142,8 @@ export const LivePipelineDAG: React.FC<LivePipelineDAGProps> = ({ llmStreams }) 
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-2 max-h-[600px] overflow-y-auto">
-          <div className="space-y-2">
+        <CardContent className="p-3">
+          <div className="space-y-3">
             {STAGE_GROUPS.map(group => {
               const tasks = groupedTasks.get(group.name) || [];
               if (tasks.length === 0) return null;
