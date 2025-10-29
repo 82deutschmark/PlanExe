@@ -135,11 +135,8 @@ const RecoveryPageContent: React.FC = () => {
 
   const handleViewReport = () => {
     setCompletionModalOpen(false);
-    // Scroll to report section
-    const reportSection = document.querySelector('[data-report-section]');
-    if (reportSection) {
-      reportSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    // Navigate to the full-page rich HTML report
+    router.push(`/plan?planId=${encodeURIComponent(planId)}&from=recovery`);
   };
 
   if (!planId) {

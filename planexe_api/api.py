@@ -1198,82 +1198,219 @@ section.plan-section {{ scroll-margin-top: 2rem; }}
 """
 
 
-def _assemble_fallback_report(plan_id: str, plan_contents: List[PlanContent]) -> FallbackReportResponse:
+def _assemble_fallback_report(plan_id: str, plan: Plan, plan_contents: List[PlanContent]) -> FallbackReportResponse:
+    """
+    Assemble a rich HTML report using ReportGenerator - same as ReportTask.
+    Uses existing files from plan.output_dir if available, otherwise creates temp files from database.
+    """
+    import tempfile
+    import shutil
+    from planexe.report.report_generator import ReportGenerator
+
     generated_at = datetime.utcnow()
-    records_by_filename = {}
-    for record in plan_contents:
-        if record.filename not in records_by_filename:
-            records_by_filename[record.filename] = record
+    records_by_filename = {record.filename: record for record in plan_contents if record.filename}
 
-    missing_sections: List[MissingSection] = []
-    sections: List[ReportSection] = []
-    recovered_expected = 0
-    observed_filenames = set()
+    # Determine base path: use existing output_dir or create temp directory
+    use_temp_dir = False
+    if plan.output_dir and Path(plan.output_dir).exists():
+        base_path = Path(plan.output_dir)
+    else:
+        base_path = Path(tempfile.mkdtemp(prefix=f"plan_report_{plan_id}_"))
+        use_temp_dir = True
 
-    for expected_filename in EXPECTED_REPORT_FILENAMES:
-        record = records_by_filename.get(expected_filename)
-        if record:
-            sections.append(
-                ReportSection(
-                    filename=record.filename,
-                    stage=record.stage,
-                    content_type=record.content_type,
-                    content=record.content,
-                )
+        # Write all plan_content records to temp files
+        for record in plan_contents:
+            if not record.content:
+                continue
+            file_path = base_path / record.filename
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                file_path.write_text(record.content, encoding='utf-8')
+            except Exception as e:
+                print(f"Warning: Failed to write temp file {record.filename}: {e}")
+
+    try:
+        # Initialize ReportGenerator
+        rg = ReportGenerator()
+
+        # Add sections in same order as ReportTask (run_plan_pipeline.py:5834-5879)
+        # Executive Summary
+        exec_summary_path = base_path / FilenameEnum.EXECUTIVE_SUMMARY_MARKDOWN.value
+        if exec_summary_path.exists():
+            rg.append_markdown('Executive Summary', exec_summary_path)
+
+        # Gantt charts
+        mermaid_gantt_path = base_path / FilenameEnum.SCHEDULE_GANTT_MERMAID_HTML.value
+        if mermaid_gantt_path.exists():
+            rg.append_html('Gantt Overview', mermaid_gantt_path)
+
+        dhtmlx_gantt_path = base_path / FilenameEnum.SCHEDULE_GANTT_DHTMLX_HTML.value
+        if dhtmlx_gantt_path.exists():
+            rg.append_html('Gantt Interactive', dhtmlx_gantt_path)
+
+        # Pitch
+        pitch_path = base_path / FilenameEnum.PITCH_MARKDOWN.value
+        if pitch_path.exists():
+            rg.append_markdown('Pitch', pitch_path)
+
+        # Project Plan
+        project_plan_path = base_path / FilenameEnum.PROJECT_PLAN_MARKDOWN.value
+        if project_plan_path.exists():
+            rg.append_markdown('Project Plan', project_plan_path)
+
+        # Strategic Decisions
+        strategic_path = base_path / FilenameEnum.STRATEGIC_DECISIONS_MARKDOWN.value
+        if strategic_path.exists():
+            rg.append_markdown('Strategic Decisions', strategic_path)
+
+        # Scenarios
+        scenarios_path = base_path / FilenameEnum.SCENARIOS_MARKDOWN.value
+        if scenarios_path.exists():
+            rg.append_markdown('Scenarios', scenarios_path)
+
+        # Assumptions
+        assumptions_path = base_path / FilenameEnum.CONSOLIDATE_ASSUMPTIONS_FULL_MARKDOWN.value
+        if assumptions_path.exists():
+            rg.append_markdown('Assumptions', assumptions_path)
+
+        # Governance
+        governance_path = base_path / FilenameEnum.CONSOLIDATE_GOVERNANCE_MARKDOWN.value
+        if governance_path.exists():
+            rg.append_markdown('Governance', governance_path)
+
+        # Related Resources
+        resources_path = base_path / FilenameEnum.RELATED_RESOURCES_MARKDOWN.value
+        if resources_path.exists():
+            rg.append_markdown('Related Resources', resources_path)
+
+        # Data Collection
+        data_collection_path = base_path / FilenameEnum.DATA_COLLECTION_MARKDOWN.value
+        if data_collection_path.exists():
+            rg.append_markdown('Data Collection', data_collection_path)
+
+        # Documents to Create and Find
+        documents_path = base_path / FilenameEnum.DOCUMENTS_TO_CREATE_AND_FIND_MARKDOWN.value
+        if documents_path.exists():
+            rg.append_markdown('Documents to Create and Find', documents_path)
+
+        # SWOT Analysis
+        swot_path = base_path / FilenameEnum.SWOT_MARKDOWN.value
+        if swot_path.exists():
+            rg.append_markdown('SWOT Analysis', swot_path)
+
+        # Team
+        team_path = base_path / FilenameEnum.TEAM_MARKDOWN.value
+        if team_path.exists():
+            rg.append_markdown('Team', team_path)
+
+        # Expert Criticism
+        expert_path = base_path / FilenameEnum.EXPERT_CRITICISM_MARKDOWN.value
+        if expert_path.exists():
+            rg.append_markdown('Expert Criticism', expert_path)
+
+        # Work Breakdown Structure
+        wbs_csv_path = base_path / FilenameEnum.WBS_PROJECT_LEVEL1_AND_LEVEL2_AND_LEVEL3_CSV.value
+        wbs_level1_path = base_path / FilenameEnum.WBS_LEVEL1.value
+        if wbs_csv_path.exists():
+            rg.append_csv('Work Breakdown Structure', wbs_csv_path)
+        elif wbs_level1_path.exists():
+            rg.append_json('Work Breakdown Structure (Level 1)', wbs_level1_path)
+
+        # Review Plan
+        review_plan_path = base_path / FilenameEnum.REVIEW_PLAN_MARKDOWN.value
+        if review_plan_path.exists():
+            rg.append_markdown('Review Plan', review_plan_path)
+
+        # Questions & Answers
+        qa_html_path = base_path / FilenameEnum.QUESTIONS_AND_ANSWERS_HTML.value
+        if qa_html_path.exists():
+            rg.append_html('Questions & Answers', qa_html_path)
+
+        # Premortem
+        premortem_path = base_path / FilenameEnum.PREMORTEM_MARKDOWN.value
+        if premortem_path.exists():
+            rg.append_markdown_with_tables('Premortem', premortem_path)
+
+        # Initial Prompt Vetted (composite section)
+        setup_path = base_path / FilenameEnum.INITIAL_PLAN.value
+        redline_path = base_path / FilenameEnum.REDLINE_GATE_MARKDOWN.value
+        premise_path = base_path / FilenameEnum.PREMISE_ATTACK_MARKDOWN.value
+        if setup_path.exists() and redline_path.exists() and premise_path.exists():
+            rg.append_initial_prompt_vetted(
+                document_title='Initial Prompt Vetted',
+                initial_prompt_file_path=setup_path,
+                redline_gate_markdown_file_path=redline_path,
+                premise_attack_markdown_file_path=premise_path,
             )
-            recovered_expected += 1
-            observed_filenames.add(expected_filename)
-        else:
-            missing_sections.append(
-                MissingSection(
-                    filename=expected_filename,
-                    stage=_infer_stage_from_filename(expected_filename),
-                    reason="Missing from plan_content table",
-                )
-            )
 
-    extra_records = [
-        record
-        for filename, record in records_by_filename.items()
-        if filename not in observed_filenames
-    ]
-    extra_records.sort(key=lambda record: record.filename)
+        # Get project title for report header
+        title = "PlanExe Report (Recovered)"
+        wbs_title_path = base_path / FilenameEnum.WBS_LEVEL1_PROJECT_TITLE.value
+        if wbs_title_path.exists():
+            try:
+                title_data = json.loads(wbs_title_path.read_text(encoding='utf-8'))
+                if isinstance(title_data, dict) and 'title' in title_data:
+                    title = title_data['title']
+                elif isinstance(title_data, str):
+                    title = title_data
+            except:
+                pass
 
-    for record in extra_records:
-        sections.append(
-            ReportSection(
-                filename=record.filename,
-                stage=record.stage,
-                content_type=record.content_type,
-                content=record.content,
-            )
+        # Generate rich HTML using ReportGenerator (same as ReportTask)
+        assembled_html = rg.generate_html_report(
+            title=title,
+            execute_plan_section_hidden=True
         )
 
-    total_expected = len(EXPECTED_REPORT_FILENAMES)
-    completion_percentage = round((recovered_expected / total_expected) * 100, 2) if total_expected else 0.0
-    assembled_html = _build_fallback_html(
-        plan_id,
-        generated_at,
-        completion_percentage,
-        recovered_expected,
-        total_expected,
-        sections,
-        missing_sections,
-    )
+        # Build metadata about what was recovered
+        missing_sections: List[MissingSection] = []
+        sections: List[ReportSection] = []
+        recovered_expected = 0
 
-    return FallbackReportResponse(
-        plan_id=plan_id,
-        generated_at=generated_at,
-        completion_percentage=completion_percentage,
-        sections=sections,
-        missing_sections=missing_sections,
-        assembled_html=assembled_html,
-    )
+        for expected_filename in EXPECTED_REPORT_FILENAMES:
+            record = records_by_filename.get(expected_filename)
+            if record:
+                sections.append(
+                    ReportSection(
+                        filename=record.filename,
+                        stage=record.stage,
+                        content_type=record.content_type,
+                        content=record.content,
+                    )
+                )
+                recovered_expected += 1
+            else:
+                missing_sections.append(
+                    MissingSection(
+                        filename=expected_filename,
+                        stage=_infer_stage_from_filename(expected_filename),
+                        reason="Missing from plan_content table",
+                    )
+                )
+
+        total_expected = len(EXPECTED_REPORT_FILENAMES)
+        completion_percentage = round((recovered_expected / total_expected) * 100, 2) if total_expected else 0.0
+
+        return FallbackReportResponse(
+            plan_id=plan_id,
+            generated_at=generated_at,
+            completion_percentage=completion_percentage,
+            sections=sections,
+            missing_sections=missing_sections,
+            assembled_html=assembled_html,
+        )
+    finally:
+        # Clean up temp directory if we created one
+        if use_temp_dir:
+            try:
+                shutil.rmtree(base_path, ignore_errors=True)
+            except:
+                pass
 
 
 @app.get("/api/plans/{plan_id}/fallback-report", response_model=FallbackReportResponse)
 async def get_fallback_report(plan_id: str, db: DatabaseService = Depends(get_database)):
-    """Assemble a fallback report from plan_content records without rerunning Luigi."""
+    """Assemble a rich HTML report using ReportGenerator - same as ReportTask."""
     try:
         plan = db.get_plan(plan_id)
         if not plan:
@@ -1283,7 +1420,7 @@ async def get_fallback_report(plan_id: str, db: DatabaseService = Depends(get_da
         if not plan_contents:
             raise HTTPException(status_code=404, detail="No plan content found for this plan")
 
-        return _assemble_fallback_report(plan_id, plan_contents)
+        return _assemble_fallback_report(plan_id, plan, plan_contents)
     except HTTPException:
         raise
     except Exception as exc:
