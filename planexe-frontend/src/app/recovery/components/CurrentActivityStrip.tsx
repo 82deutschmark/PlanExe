@@ -33,6 +33,19 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
 }) => {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   
+  // Debug logging to see what data we're actually getting
+  console.log('[CurrentActivityStrip] Debug:', {
+    planReasoningEffort: plan?.reasoning_effort,
+    planData: plan,
+    completedCount,
+    totalTasks,
+    llmStreamsLength: llmStreams.history.length,
+    apiMetrics: {
+      failed: llmStreams.history.filter(s => s.status === 'failed').length,
+      succeeded: llmStreams.history.filter(s => s.status === 'completed').length,
+    }
+  });
+  
   const startTime = activeStream?.lastUpdated 
     ? new Date(activeStream.lastUpdated).getTime() 
     : Date.now();
