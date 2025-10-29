@@ -85,7 +85,6 @@ from planexe.llm_util.llm_executor import LLMExecutor, LLMModelFromName, ShouldS
 from planexe.llm_factory import get_llm_names_by_priority, SPECIAL_AUTO_ID, is_valid_llm_name
 from planexe.format_json_for_use_in_query import format_json_for_use_in_query
 from planexe.report.report_generator import ReportGenerator
-from planexe.plan.plan_content_target import PlanContentTarget
 from planexe.luigi_util.obtain_output_files import ObtainOutputFiles
 from planexe.plan.pipeline_environment import PipelineEnvironment
 # Import database service for Option 1 database-first architecture
@@ -5777,7 +5776,7 @@ class ReportTask(PlanTask):
     Generate a report html document.
     """
     def output(self):
-        return PlanContentTarget(plan_id=self.get_plan_id(), filename=FilenameEnum.REPORT.value)
+        return self.local_target(FilenameEnum.REPORT)
     
     def requires(self):
         requirements = {
