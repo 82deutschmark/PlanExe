@@ -6,27 +6,32 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
-## [0.17.4] - 2025-10-30
+### [0.18.1] - 2025-10-29 00:02
+
+### Changed
+- Moved the Recovery Actions strip to the bottom of the recovery page to improve reading flow. File: `planexe-frontend/src/app/recovery/page.tsx`.
+
+## [0.18.0] - 2025-10-29 00:00
 
 ### Fixed
 - Removed the hardcoded intake system prompt in `useResponsesConversation` so the frontend now defers to backend-provided instructions sourced from `intake_conversation_prompt.py`.
 
-## [0.17.1] - 2025-10-29
+## [0.17.3] - 2025-10-28 23:55
 
 ### Added
 - Display of selected LLM model in `CurrentActivityStrip` with clear label and icon. Fields: `plan.llm_model` (frontend PlanResponse). File: `planexe-frontend/src/app/recovery/components/CurrentActivityStrip.tsx`
 
-## [0.17.2] - 2025-10-29
+## [0.17.2] - 2025-10-28 23:45
 
 ### Changed
 - StreamHistoryGrid now mirrors the info-rich recovery styling: larger text labels, explicit data previews (Output, Reasoning, Events, Usage), "View Details" badges, and contextual tooltips. File: `planexe-frontend/src/app/recovery/components/StreamHistoryGrid.tsx`
 
-## [0.17.3] - 2025-10-29
+## [0.17.1] - 2025-10-28 23:40
 
 ### Changed
 - Deprecated `LuigiPipelineView` from the recovery page and gave `LivePipelineDAG` full-width space (no internal scroll) for the authoritative pipeline view. Files: `planexe-frontend/src/app/recovery/page.tsx`, `planexe-frontend/src/app/recovery/components/LivePipelineDAG.tsx`
 
-## [0.17.0] - 2025-10-29
+## [0.17.0] - 2025-10-28 23:30
 
 ### Added
 - Real-time LLM cost tracking in `CurrentActivityStrip`, powered by a shared `cost-calculator` utility and pricing metadata in `llm_config.json`. Files: `planexe-frontend/src/lib/utils/cost-calculator.ts`, `planexe-frontend/src/app/recovery/components/CurrentActivityStrip.tsx`, `llm_config.json`
@@ -34,7 +39,7 @@ This project follows [Semantic Versioning](https://semver.org/):
 ### Changed
 - Restored `StreamHistoryGrid` to the top of the recovery workspace and tightened `PipelineLogsPanel` spacing so logs no longer introduce excess vertical padding. Files: `planexe-frontend/src/app/recovery/page.tsx`, `planexe-frontend/src/components/PipelineDetails.tsx`
 
-## [0.16.0] - 2025-10-29
+## [0.16.0] - 2025-10-28
 
 ### Changed
 - **Recovery Page Layout Reorganization**: Swapped positioning of key UI components for better workflow
@@ -54,7 +59,7 @@ This project follows [Semantic Versioning](https://semver.org/):
 ### Added
 - Integrated LivePipelineDAG component into the recovery page to provide real-time visual DAG showing all 61 Luigi tasks being assembled and completed. The component displays task status, dependencies, and allows clicking on completed/failed tasks to view detailed stream information. @planexe-frontend/src/app/recovery/page.tsx#25,237-239
 
-## [0.15.8] - 2025-10-29
+## [0.15.8] - 2025-10-28
 
 ### Fixed
 - Stabilized WBS Level 1 task by switching to schema-driven Responses API calls with a tolerant freeform fallback. This removes ad‑hoc parsing and aligns the task with other structured LLM callers, reducing silent failures and improving metadata (duration, fallback_used). Files: `planexe/plan/create_wbs_level1.py`.

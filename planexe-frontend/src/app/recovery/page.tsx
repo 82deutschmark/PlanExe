@@ -200,31 +200,6 @@ const RecoveryPageContent: React.FC = () => {
         llmStreams={llmStreams}
       />
       
-      {/* Action strip with resume functionality */}
-      <div className="mx-auto max-w-7xl px-2 py-1">
-        <div className="flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-amber-900">
-              Recovery Actions
-            </span>
-            {missingTargets.length > 0 && (
-              <span className="text-xs text-amber-700">
-                ({missingTargets.length} missing/failed sections)
-              </span>
-            )}
-          </div>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => setResumeOpen(true)}
-            disabled={missingTargets.length === 0}
-            className="bg-amber-600 hover:bg-amber-700 text-white"
-          >
-            Resume Failed/Missing Sections
-          </Button>
-        </div>
-      </div>
-      
       <main className="mx-auto flex max-w-7xl flex-col gap-2 px-2 py-2">
         {/* Stream History Grid at top - shows completed tasks */}
         <StreamHistoryGrid streams={llmStreams.history} />
@@ -263,6 +238,30 @@ const RecoveryPageContent: React.FC = () => {
             </CardContent>
           </Card>
         )}
+        {/* Action strip with resume functionality moved to bottom */}
+        <div className="mx-auto max-w-7xl px-2 pt-1">
+          <div className="flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-amber-900">
+                Recovery Actions
+              </span>
+              {missingTargets.length > 0 && (
+                <span className="text-xs text-amber-700">
+                  ({missingTargets.length} missing/failed sections)
+                </span>
+              )}
+            </div>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setResumeOpen(true)}
+              disabled={missingTargets.length === 0}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              Resume Failed/Missing Sections
+            </Button>
+          </div>
+        </div>
       </main>
     </div>
   );
