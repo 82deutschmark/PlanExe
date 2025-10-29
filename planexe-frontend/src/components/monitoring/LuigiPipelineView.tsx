@@ -101,6 +101,16 @@ export const LuigiPipelineView: React.FC<LuigiPipelineViewProps> = ({
 
     // Look for failed task patterns and extract error message
     if (message.includes('FAILED') || message.includes('ERROR') || message.includes('Exception')) {
+      const isDiagnosticPipelineLog = message.includes('[PIPELINE]') && !/FAILED|Exception/i.test(message);
+      if (isDiagnosticPipelineLog) {
+        // Ignore informational instrumentation logs (e.g., "Task.run() CALLED - Luigi worker IS running!")
+        const taskMatch = message.match(/(\w+Task)/);
+        if (taskMatch) {
+          updateTaskStatus(taskMatch[1], 'running');
+        }
+        return;
+      }
+
       const taskMatch = message.match(/(\w+Task)/);
       if (taskMatch) {
         // Extract error message - try multiple patterns

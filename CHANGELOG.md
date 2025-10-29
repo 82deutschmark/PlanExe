@@ -6,6 +6,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.15.7] - 2025-10-28
+
+### Fixed
+- Prevented diagnostic Luigi `[PIPELINE] ... run() CALLED` instrumentation logs from surfacing as task failures in the Recovery UI by ignoring those messages during log parsing. @planexe-frontend/src/components/monitoring/LuigiPipelineView.tsx#102-136
+
 ## [0.15.6] - 2025-10-28
 
 ### Fixed
