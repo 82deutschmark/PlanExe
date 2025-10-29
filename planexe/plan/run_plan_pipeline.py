@@ -249,7 +249,7 @@ class PlanTask(luigi.Task):
             # Re-raise to be handled by the main run() method
             raise
 
-    async def run_inner(self):
+    def run_inner(self):
         """
         Override this method or the run_with_llm() method.
         """
