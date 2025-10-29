@@ -9,8 +9,10 @@ This project follows [Semantic Versioning](https://semver.org/):
 ### [0.18.2] - 2025-10-29
 
 ### Fixed
-- **FilterDocumentsToCreateTask Compatibility**: Fixed llama-index dependency issue by restoring SimpleOpenAILLM compatibility. The task was using ChatMessage from llama-index but Luigi pipeline provides SimpleOpenAILLM, causing AttributeError during execution. Files: `planexe/document/filter_documents_to_create.py`.
-- **FilterDocumentsToFindTask Compatibility**: Confirmed the task already uses SimpleOpenAILLM correctly with SimpleChatMessage and SimpleMessageRole imports. No changes needed. File: `planexe/document/filter_documents_to_find.py`.
+- **CRITICAL: Pipeline Instant Completion Bug**: Fixed catastrophic bug where the pipeline appeared to complete instantly without executing any tasks. The `PlanTask.run_inner()` method was incorrectly marked as `async` but contained only synchronous code with no `await` statements. In Python, async functions without await complete immediately without executing their body. Removed the `async` keyword to restore synchronous execution. This bug was introduced in commit 20b3f44 during async batching implementation. File: `planexe/plan/run_plan_pipeline.py` line 252.
+
+- **FilterDocumentsToCreateTask Compatibility**: Added missing Pydantic imports (`BaseModel`, `Field`) that were accidentally removed, causing immediate module import failures. File: `planexe/document/filter_documents_to_create.py`.
+
 - **CreateWBSLevel3Task Schema Validation**: Implemented strict validation and error handling for LLM responses to prevent silent failures. The task now:
   - **Fails fast** with detailed error logging when LLM response is invalid (instead of using fallbacks)
   - Validates JSON parsing, response structure, and all required fields/types
@@ -20,10 +22,10 @@ This project follows [Semantic Versioning](https://semver.org/):
   File: `planexe/plan/create_wbs_level3.py`.
 
 ### Impact
-- **Pipeline Reliability**: Fixed the three failing Luigi tasks that were blocking downstream execution.
-- **Error Detection**: The pipeline now properly fails when LLM responses are invalid, preventing "instant completion" with dummy data.
+- **Pipeline Execution**: The pipeline now actually runs tasks instead of completing instantly without doing any work.
+- **Error Detection**: WBS Level 3 task properly fails when LLM responses are invalid, preventing silent failures.
 - **Debugging**: Enhanced error logging makes it easier to identify and fix LLM response issues.
-- **Compatibility**: Document filtering tasks work correctly with SimpleOpenAILLM infrastructure.
+- **Module Loading**: Document filtering tasks can be imported without errors.
 
 ### [0.18.1] - 2025-10-29 00:02
 
