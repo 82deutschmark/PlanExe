@@ -12,7 +12,7 @@ import os
 from contextlib import suppress
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Set, Type, Union
+from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Set, Tuple, Type, Union
 
 import openai
 from llama_index.core.llms.llm import LLM
@@ -20,7 +20,11 @@ from openai import OpenAI
 from packaging import version as packaging_version
 from pydantic import BaseModel, Field, PrivateAttr, ValidationError
 
-from planexe.llm_util.schema_registry import get_schema_entry, sanitize_schema_label
+from planexe.llm_util.schema_registry import (
+    get_schema_entry,
+    get_schema_policy,
+    sanitize_schema_label,
+)
 from planexe.llm_util import (
     record_final_payload,
     record_reasoning_delta,
@@ -47,8 +51,12 @@ def _deep_copy_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
     return json.loads(json.dumps(schema))
 
 
-def _enforce_openai_schema_requirements(schema: Dict[str, Any]) -> Dict[str, Any]:
+def _enforce_openai_schema_requirements(
+    schema: Dict[str, Any], *, model: Optional[Type[BaseModel]] = None
+) -> Dict[str, Any]:
     """Augment a JSON schema to satisfy OpenAI Responses strict schema requirements."""
+
+    policy = get_schema_policy(model) if model is not None else None
 
     def _inline_local_refs(processed_schema: Dict[str, Any]) -> Dict[str, Any]:
         """Replace local $defs references with inline definitions for OpenAI compatibility."""
@@ -102,33 +110,47 @@ def _enforce_openai_schema_requirements(schema: Dict[str, Any]) -> Dict[str, Any
             expanded_schema.pop("$defs", None)
         return expanded_schema
 
-    def _visit(node: Any) -> Any:
+    def _dedupe_required(raw: Any) -> Optional[List[str]]:
+        if not isinstance(raw, list):
+            return None
+        deduped: List[str] = []
+        for item in raw:
+            if isinstance(item, str) and item not in deduped:
+                deduped.append(item)
+        return deduped or None
+
+    def _visit(node: Any, path: Optional[Tuple[str, ...]] = None) -> Any:
+        path = path or ()
         if isinstance(node, dict):
-            updated: Dict[str, Any] = {}
-            for key, value in node.items():
-                updated[key] = _visit(value)
+            updated: Dict[str, Any] = dict(node)
+            for key, value in list(updated.items()):
+                if key == "additionalProperties":
+                    continue
+                updated[key] = _visit(value, path + (key,))
 
             schema_type = updated.get("type")
             if schema_type == "object":
-                properties = updated.get("properties")
-                if isinstance(properties, dict) and properties:
-                    existing_required = updated.get("required")
-                    required_seen: Dict[str, None] = {}
-                    if isinstance(existing_required, list):
-                        for name in existing_required:
-                            if isinstance(name, str) and name not in required_seen:
-                                required_seen[name] = None
-                    for prop_name in properties.keys():
-                        if prop_name not in required_seen:
-                            required_seen[prop_name] = None
-                    updated["required"] = list(required_seen.keys())
+                required_override: Optional[List[str]] = None
+                if policy is not None and not path:
+                    required_override = list(policy.required_fields)
 
-                if "additionalProperties" not in updated:
-                    updated["additionalProperties"] = False
+                if required_override is not None:
+                    if required_override:
+                        updated["required"] = required_override
+                    else:
+                        updated.pop("required", None)
+                else:
+                    deduped = _dedupe_required(updated.get("required"))
+                    if deduped is None:
+                        updated.pop("required", None)
+                    else:
+                        updated["required"] = deduped
+
+                updated["additionalProperties"] = False
             return updated
 
         if isinstance(node, list):
-            return [_visit(item) for item in node]
+            return [_visit(item, path) for item in node]
 
         return node
 
@@ -350,7 +372,10 @@ class SimpleOpenAILLM(LLM):
 
     @staticmethod
     def build_text_format_from_schema(
-        *, schema: Optional[Dict[str, Any]], name: Optional[str] = None
+        *,
+        schema: Optional[Dict[str, Any]],
+        name: Optional[str] = None,
+        model: Optional[Type[BaseModel]] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         Return an OpenAI Responses-compatible text.format payload after enforcing schema rules.
@@ -359,7 +384,9 @@ class SimpleOpenAILLM(LLM):
             return None
 
         schema_copy = _deep_copy_schema(schema)
-        enforced_schema = _enforce_openai_schema_requirements(schema_copy)
+        enforced_schema = _enforce_openai_schema_requirements(
+            schema_copy, model=model
+        )
         qualified_name = name or "schema"
         sanitized_name = sanitize_schema_label(qualified_name, "schema")
 
@@ -400,6 +427,7 @@ class SimpleOpenAILLM(LLM):
         return cls.build_text_format_from_schema(
             schema=schema_entry.schema,
             name=sanitized_name or qualified_name,
+            model=getattr(schema_entry, "model", None),
         )
 
     def _request_args(

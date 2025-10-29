@@ -514,6 +514,7 @@ class ConversationService:
             text_format = SimpleOpenAILLM.build_text_format_from_schema(
                 schema=schema_descriptor.schema,
                 name=schema_descriptor.sanitized_name,
+                model=getattr(schema_descriptor, "model", None),
             )
             if text_format:
                 text_payload["format"] = text_format
@@ -557,6 +558,7 @@ class ConversationService:
             qualified_name=alias,
             sanitized_name=sanitized,
             canonical_name=entry.qualified_name,
+            model=entry.model,
         )
 
     async def followup(

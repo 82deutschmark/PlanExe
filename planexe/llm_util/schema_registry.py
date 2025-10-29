@@ -1,19 +1,18 @@
-"""
-Author: ChatGPT gpt-5-codex
-Date: 2025-10-18
-PURPOSE: Central registry for structured LLM schema metadata reused by Responses API adapter.
-SRP and DRY check: Pass - consolidates schema generation and caching to avoid duplication across tasks.
-"""
+# Author: gpt-5-codex
+# Date: 2025-10-28T00:00:00Z
+# PURPOSE: Central registry for structured LLM schema metadata reused by Responses API adapter.
+# SRP and DRY check: Pass. Consolidates schema generation, caching, and policy metadata so tasks use a single source of truth.
+"""Schema registration helpers and policy metadata for structured LLM responses."""
 
 from __future__ import annotations
 
 import inspect
 import re
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from importlib import import_module
 from pathlib import Path
-from typing import Dict, Optional, Type, TypeVar
+from typing import Dict, Mapping, Optional, Tuple, Type, TypeVar
 
 from pydantic import BaseModel
 
@@ -33,6 +32,15 @@ class SchemaRegistryEntry:
     schema: Dict[str, object]
     module: str
     file_path: Optional[Path]
+
+
+@dataclass(frozen=True)
+class SchemaPolicy:
+    """Runtime policy describing lenient handling and defaults for a schema."""
+
+    required_fields: Tuple[str, ...] = ()
+    default_overrides: Mapping[str, object] = field(default_factory=dict)
+    allow_missing: bool = True
 
 
 def sanitize_schema_label(raw_name: Optional[str], fallback: str) -> str:
@@ -55,6 +63,22 @@ def sanitize_schema_label(raw_name: Optional[str], fallback: str) -> str:
 
 
 _SCHEMA_REGISTRY: Dict[str, SchemaRegistryEntry] = {}
+_SCHEMA_POLICIES_BY_QUALNAME: Dict[str, SchemaPolicy] = {
+    "planexe.assume.identify_purpose.PlanPurposeInfo": SchemaPolicy(
+        required_fields=("purpose",),
+        default_overrides={
+            "topic": "TBD",
+            "purpose_detailed": "TBD",
+            "purpose": "other",
+        },
+    ),
+}
+_SCHEMA_POLICIES_BY_CLASSNAME: Dict[str, SchemaPolicy] = {
+    "DocumentDetails": SchemaPolicy(
+        required_fields=(),
+        default_overrides={"summary": "TBD"},
+    ),
+}
 
 
 def _compute_registry_key(model: Type[TModel]) -> str:
@@ -107,6 +131,20 @@ def get_all_registered_schemas() -> Dict[str, SchemaRegistryEntry]:
     """Return a shallow copy of the registry for diagnostics and testing."""
 
     return dict(_SCHEMA_REGISTRY)
+
+
+def get_schema_policy(model: Type[TModel]) -> SchemaPolicy:
+    """Return the policy describing required keys and defaults for a model."""
+
+    key = _compute_registry_key(model)
+    if key in _SCHEMA_POLICIES_BY_QUALNAME:
+        return _SCHEMA_POLICIES_BY_QUALNAME[key]
+
+    fallback = _SCHEMA_POLICIES_BY_CLASSNAME.get(model.__name__)
+    if fallback:
+        return fallback
+
+    return SchemaPolicy()
 
 
 def import_schema_model(path: str) -> Type[TModel]:
