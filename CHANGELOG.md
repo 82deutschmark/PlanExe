@@ -6,6 +6,27 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+### [0.18.3] - 2025-10-29
+
+### Fixed
+- **CRITICAL: Actual Root Cause of Instant Completion Bug**: Fixed the REAL bug that was causing instant pipeline completion. Previous fix (0.18.2) changed `ReportTask` to use file-based targets, but the filesystem files were NEVER being deleted between runs.
+  - **Root Cause**: `reset_plan_run_state()` only cleared database records, never touched filesystem files in `run/PlanExe_{plan_id}/`
+  - **Why Previous Fix Failed**: Even though `ReportTask.output()` checks filesystem, the old `080-report.html` file still existed from previous runs, so Luigi marked the task complete instantly
+  - **The Real Fix**: Added comprehensive filesystem cleanup in `pipeline_execution_service.py` that deletes ALL files in `run_id_dir` before starting Luigi subprocess
+  - **Execution Order**: Filesystem cleanup runs FIRST (line 138-176), then database cleanup (line 178-182), ensuring both are clean before pipeline starts
+  - **Error Handling**: Filesystem cleanup failures now fail-fast with clear error messages, preventing pipeline from starting with stale files
+  - **Impact**: Pipeline now properly regenerates all output files on every run. Luigi correctly identifies all tasks as incomplete and executes the full pipeline.
+  - Files: `planexe_api/services/pipeline_execution_service.py` lines 23, 138-182
+
+### Root Cause Analysis
+The bug existed since commit `4222dd0` (Oct 23, 2025) when `ReportTask` was changed to use `PlanContentTarget`. However, the Oct 29 fix that reverted to file-based targets was INCOMPLETE because:
+1. Database cleanup existed but filesystem cleanup did NOT
+2. Old output files persisted across runs in `run/PlanExe_{plan_id}/` directories
+3. Luigi's file-based target checking found old files and marked tasks complete
+4. Comment on line 137 claimed "Luigi regenerates every output file" but filesystem was never cleaned
+
+This fix completes the cleanup cycle by adding the missing filesystem cleanup that should have been there all along.
+
 ### [0.18.2] - 2025-10-29
 
 ### Fixed

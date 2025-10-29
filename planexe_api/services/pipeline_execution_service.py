@@ -20,6 +20,7 @@ import os
 import subprocess
 import threading
 import time
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Optional, Tuple
@@ -134,12 +135,51 @@ class PipelineExecutionService:
             # Set up execution environment
             environment = self._setup_environment(plan_id, request, run_id_dir)
 
-            # Reset any persisted artefacts from previous attempts so progress tracking
-            # starts at zero and Luigi regenerates every output file.
-            # CRITICAL: This MUST succeed or Luigi will find old content and think tasks are complete
+            # CRITICAL FIX: Delete ALL filesystem files before pipeline start
+            # Luigi checks filesystem targets to determine task completion. If old output files
+            # exist from previous runs, Luigi marks tasks as "already complete" and skips them,
+            # causing instant pipeline completion without actually running any tasks.
+            # This MUST happen before database reset to ensure both filesystem and DB are clean.
+            try:
+                if run_id_dir.exists():
+                    file_count = len(list(run_id_dir.glob("*")))
+                    print(f"DEBUG: Deleting {file_count} files from {run_id_dir} before rerun")
+                    # Delete all files in the directory
+                    for item in run_id_dir.glob("*"):
+                        if item.is_file():
+                            item.unlink()
+                        elif item.is_dir():
+                            shutil.rmtree(item)
+                    print(f"DEBUG: Filesystem cleanup complete for {run_id_dir}")
+                else:
+                    print(f"DEBUG: Directory {run_id_dir} does not exist yet, will be created")
+            except Exception as exc:
+                error_msg = f"CRITICAL: Failed to clean filesystem for plan {plan_id}: {exc}"
+                print(f"ERROR: {error_msg}")
+                logger.error(error_msg)
+                # Update plan status to failed
+                try:
+                    db_service.db.rollback()
+                    db_service.update_plan(plan_id, {
+                        "status": PlanStatus.failed.value,
+                        "error_message": error_msg,
+                    })
+                except Exception as update_exc:
+                    print(f"ERROR: Failed to update plan status: {update_exc}")
+                # Broadcast failure via WebSocket
+                await websocket_manager.broadcast_to_plan(plan_id, {
+                    "type": "status",
+                    "status": "failed",
+                    "message": error_msg,
+                    "timestamp": _utcnow_iso(),
+                })
+                return  # DO NOT START LUIGI - old files will cause instant completion
+
+            # Reset database artefacts after filesystem is clean
+            # CRITICAL: This MUST succeed or Luigi will find old DB content and think tasks are complete
             try:
                 db_service.reset_plan_run_state(plan_id)
-                print(f"DEBUG: Cleared persisted artefacts for plan {plan_id} before rerun")
+                print(f"DEBUG: Cleared database artefacts for plan {plan_id} before rerun")
             except Exception as exc:
                 error_msg = f"CRITICAL: Failed to reset stored artefacts for plan {plan_id}: {exc}"
                 print(f"ERROR: {error_msg}")
