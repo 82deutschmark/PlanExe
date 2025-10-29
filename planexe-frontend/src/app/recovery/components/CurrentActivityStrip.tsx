@@ -8,7 +8,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Activity, Clock, Zap, Wifi, WifiOff, CheckCircle, Database, DollarSign, Cpu } from 'lucide-react';
+import { Activity, Clock, Zap, Wifi, WifiOff, CheckCircle, DollarSign, Cpu } from 'lucide-react';
 import type { LLMStreamState, RecoveryConnectionState } from '../useRecoveryPlan';
 import type { PlanResponse } from '@/lib/api/fastapi-client';
 import { calculateCost, formatCost, getModelCost, type TokenUsage } from '@/lib/utils/cost-calculator';
@@ -25,6 +25,32 @@ interface CurrentActivityStripProps {
   };
 }
 
+const extractStreamTimestamps = (stream?: LLMStreamState | null): number[] => {
+  if (!stream) return [];
+
+  const timestamps: number[] = [];
+
+  if (typeof stream.lastUpdated === 'number' && Number.isFinite(stream.lastUpdated)) {
+    timestamps.push(stream.lastUpdated);
+  }
+
+  stream.events.forEach(event => {
+    const parsed = Date.parse(event.timestamp);
+    if (!Number.isNaN(parsed)) {
+      timestamps.push(parsed);
+    }
+  });
+
+  return timestamps;
+};
+
+const REASONING_LABELS: Record<PlanResponse['reasoning_effort'], string> = {
+  minimal: 'Minimal',
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+};
+
 export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
   activeStream,
   completedCount,
@@ -35,24 +61,51 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
 }) => {
   const [currentTaskElapsed, setCurrentTaskElapsed] = useState(0);
   const [pipelineElapsed, setPipelineElapsed] = useState(0);
+
+  const currentTaskStartTime = useMemo(() => {
+    if (!activeStream) return null;
+
+    const timestamps = extractStreamTimestamps(activeStream);
+    if (timestamps.length === 0) {
+      return Date.now();
+    }
+
+    const earliest = Math.min(...timestamps);
+    return earliest > Date.now() ? Date.now() : earliest;
+  }, [activeStream]);
   
-  const currentTaskStartTime = activeStream?.lastUpdated 
-    ? new Date(activeStream.lastUpdated).getTime() 
-    : Date.now();
-  
-  const pipelineStartTime = plan?.created_at 
-    ? new Date(plan.created_at).getTime()
-    : Date.now();
+  const pipelineStartTime = useMemo(() => {
+    const candidates: number[] = [];
+
+    if (plan?.created_at) {
+      const created = Date.parse(plan.created_at);
+      if (!Number.isNaN(created)) {
+        candidates.push(created);
+      }
+    }
+
+    candidates.push(
+      ...extractStreamTimestamps(llmStreams.active),
+      ...llmStreams.history.flatMap(extractStreamTimestamps),
+    );
+
+    if (candidates.length === 0) {
+      return Date.now();
+    }
+
+    const earliest = Math.min(...candidates);
+    return earliest > Date.now() ? Date.now() : earliest;
+  }, [plan?.created_at, llmStreams.active, llmStreams.history]);
   
   // Current task timer
   useEffect(() => {
-    if (!activeStream) {
+    if (!activeStream || currentTaskStartTime === null) {
       setCurrentTaskElapsed(0);
       return;
     }
     
     const interval = setInterval(() => {
-      const elapsed = (Date.now() - currentTaskStartTime) / 1000;
+      const elapsed = Math.max(0, (Date.now() - currentTaskStartTime) / 1000);
       setCurrentTaskElapsed(elapsed);
     }, 100);
     
@@ -61,10 +114,14 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
   
   // Pipeline timer
   useEffect(() => {
-    const interval = setInterval(() => {
-      const elapsed = (Date.now() - pipelineStartTime) / 1000;
+    const updateElapsed = () => {
+      const elapsed = Math.max(0, (Date.now() - pipelineStartTime) / 1000);
       setPipelineElapsed(elapsed);
-    }, 100);
+    };
+
+    updateElapsed();
+
+    const interval = setInterval(updateElapsed, 250);
     
     return () => clearInterval(interval);
   }, [pipelineStartTime]);
@@ -113,6 +170,7 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
     : 'text-gray-400';
   
   const progressPercent = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
+  const reasoningEffortLabel = plan?.reasoning_effort ? REASONING_LABELS[plan.reasoning_effort] ?? plan.reasoning_effort : null;
   
   return (
     <div className="sticky top-0 z-50 bg-slate-900 text-white px-4 py-2 border-b border-slate-700 shadow-lg">
@@ -188,17 +246,6 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
           <div className="h-5 w-px bg-slate-600" />
           
           <div className="flex items-center gap-1.5">
-            <Database className="h-4 w-4 text-slate-400" />
-            <span className="text-xs text-slate-400">TASKS:</span>
-            <span className="text-xs">
-              {apiMetrics.succeeded}<span className="text-slate-500">/</span>
-              <span className="text-red-400">{apiMetrics.failed}</span>
-            </span>
-          </div>
-          
-          <div className="h-5 w-px bg-slate-600" />
-          
-          <div className="flex items-center gap-1.5">
             <Zap className="h-4 w-4 text-yellow-400" />
             <span className="text-xs text-slate-400">TOTAL TOKENS:</span>
             <span className="text-xs font-mono">{(apiMetrics.totalTokens / 1000).toFixed(1)}k</span>
@@ -227,12 +274,12 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
             </>
           )}
 
-          {plan?.reasoning_effort && (
+          {reasoningEffortLabel && (
             <>
               <div className="flex items-center gap-1.5">
-                <span className="text-xs text-slate-400">EFFORT:</span>
-                <Badge variant="outline" className="text-xs font-semibold text-purple-400 border-purple-400">
-                  {plan.reasoning_effort.toUpperCase()}
+                <span className="text-xs text-slate-400">REASONING LEVEL:</span>
+                <Badge variant="outline" className="text-xs font-semibold text-purple-300 border-purple-400">
+                  {reasoningEffortLabel}
                 </Badge>
               </div>
               <div className="h-5 w-px bg-slate-600" />
