@@ -11,18 +11,19 @@ This project follows [Semantic Versioning](https://semver.org/):
 ### Fixed
 - **FilterDocumentsToCreateTask Compatibility**: Fixed llama-index dependency issue by restoring SimpleOpenAILLM compatibility. The task was using ChatMessage from llama-index but Luigi pipeline provides SimpleOpenAILLM, causing AttributeError during execution. Files: `planexe/document/filter_documents_to_create.py`.
 - **FilterDocumentsToFindTask Compatibility**: Confirmed the task already uses SimpleOpenAILLM correctly with SimpleChatMessage and SimpleMessageRole imports. No changes needed. File: `planexe/document/filter_documents_to_find.py`.
-- **CreateWBSLevel3Task Schema Validation**: Added comprehensive error handling and validation for LLM responses to prevent crashes when malformed JSON is received. The task now:
-  - Catches JSONDecodeError and creates fallback responses
-  - Validates response structure contains required 'subtasks' field
-  - Ensures each subtask has correct field types (name: str, description: str, resources_needed: list[str])
-  - Creates minimal fallback tasks when validation fails
-  - Applied to both sync `execute()` and async `aexecute()` methods
+- **CreateWBSLevel3Task Schema Validation**: Implemented strict validation and error handling for LLM responses to prevent silent failures. The task now:
+  - **Fails fast** with detailed error logging when LLM response is invalid (instead of using fallbacks)
+  - Validates JSON parsing, response structure, and all required fields/types
+  - Logs raw response text on parsing failures for better debugging
+  - Only uses minimal defaults for minor issues (empty resource strings)
+  - Applied strict validation to both sync `execute()` and async `aexecute()` methods
   File: `planexe/plan/create_wbs_level3.py`.
 
 ### Impact
-- **Pipeline Reliability**: These fixes resolve the three failing Luigi tasks that were blocking downstream execution (CreateScheduleTask, DraftDocumentsToCreateTask, DraftDocumentsToFindTask, ExecutiveSummaryTask).
-- **Error Resilience**: WBS Level 3 task now gracefully handles malformed LLM responses instead of crashing the entire pipeline.
-- **Compatibility**: Document filtering tasks now work correctly with the SimpleOpenAILLM infrastructure used throughout the Luigi pipeline.
+- **Pipeline Reliability**: Fixed the three failing Luigi tasks that were blocking downstream execution.
+- **Error Detection**: The pipeline now properly fails when LLM responses are invalid, preventing "instant completion" with dummy data.
+- **Debugging**: Enhanced error logging makes it easier to identify and fix LLM response issues.
+- **Compatibility**: Document filtering tasks work correctly with SimpleOpenAILLM infrastructure.
 
 ### [0.18.1] - 2025-10-29 00:02
 

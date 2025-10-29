@@ -124,68 +124,80 @@ Only decompose this task:
         sllm = llm.as_structured_llm(WBSTaskDetails)
         response = sllm.complete(QUERY_PREAMBLE + query)
         
-        # Add validation and error handling for LLM response
+        # Parse and validate LLM response - fail fast if invalid
         try:
             json_response = json.loads(response.text)
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse LLM response as JSON: {e}")
-            # Create a fallback response with minimal valid structure
-            json_response = {
-                "subtasks": [
-                    {
-                        "name": "Fallback task due to parsing error",
-                        "description": f"Unable to parse LLM response: {str(e)}",
-                        "resources_needed": ["Project manager"]
-                    }
-                ]
-            }
+            logger.error(f"Raw response text: {response.text}")
+            raise ValueError(f"LLM response was not valid JSON: {e}") from e
         
         # Validate the response structure
-        if not isinstance(json_response, dict) or "subtasks" not in json_response:
-            logger.warning("Invalid response structure, creating fallback response")
-            json_response = {
-                "subtasks": [
-                    {
-                        "name": "Fallback task due to invalid structure",
-                        "description": "LLM response did not contain expected 'subtasks' field",
-                        "resources_needed": ["Project manager"]
-                    }
-                ]
-            }
+        if not isinstance(json_response, dict):
+            logger.error(f"Response is not a dictionary: {type(json_response)}")
+            raise ValueError("LLM response was not a valid dictionary")
+        
+        if "subtasks" not in json_response:
+            logger.error(f"Response missing 'subtasks' field. Keys: {list(json_response.keys())}")
+            raise ValueError("LLM response missing required 'subtasks' field")
+        
+        if not isinstance(json_response["subtasks"], list):
+            logger.error(f"'subtasks' is not a list: {type(json_response['subtasks'])}")
+            raise ValueError("LLM response 'subtasks' field is not a list")
         
         # Validate each subtask has required fields with correct types
         validated_subtasks = []
-        for i, subtask in enumerate(json_response.get("subtasks", [])):
+        for i, subtask in enumerate(json_response["subtasks"]):
             if not isinstance(subtask, dict):
-                logger.warning(f"Skipping invalid subtask {i}: not a dictionary")
-                continue
-                
-            # Ensure required fields exist with correct types
-            validated_subtask = {
-                "name": str(subtask.get("name", f"Task {i+1}")),
-                "description": str(subtask.get("description", "No description provided")),
-                "resources_needed": []
-            }
+                logger.error(f"Subtask {i} is not a dictionary: {type(subtask)}")
+                raise ValueError(f"Subtask {i} is not a valid dictionary")
             
-            # Validate resources_needed is a list of strings
-            resources = subtask.get("resources_needed", [])
-            if isinstance(resources, list):
-                validated_subtask["resources_needed"] = [str(r) for r in resources if r]
+            # Check required fields exist
+            required_fields = ["name", "description", "resources_needed"]
+            for field in required_fields:
+                if field not in subtask:
+                    logger.error(f"Subtask {i} missing required field '{field}'")
+                    raise ValueError(f"Subtask {i} missing required field '{field}'")
+            
+            # Validate field types
+            if not isinstance(subtask["name"], str) or not subtask["name"].strip():
+                logger.error(f"Subtask {i} has invalid name: {subtask['name']}")
+                raise ValueError(f"Subtask {i} has invalid or empty name")
+            
+            if not isinstance(subtask["description"], str) or not subtask["description"].strip():
+                logger.error(f"Subtask {i} has invalid description: {subtask['description']}")
+                raise ValueError(f"Subtask {i} has invalid or empty description")
+            
+            if not isinstance(subtask["resources_needed"], list):
+                logger.error(f"Subtask {i} resources_needed is not a list: {type(subtask['resources_needed'])}")
+                raise ValueError(f"Subtask {i} resources_needed must be a list")
+            
+            # Ensure all resources are strings
+            validated_resources = []
+            for j, resource in enumerate(subtask["resources_needed"]):
+                if not isinstance(resource, str) or not resource.strip():
+                    logger.warning(f"Subtask {i} resource {j} is invalid: {resource}, skipping")
+                    continue
+                validated_resources.append(resource.strip())
+            
+            # Only keep subtasks with valid resources
+            if validated_resources:
+                validated_subtasks.append({
+                    "name": subtask["name"].strip(),
+                    "description": subtask["description"].strip(),
+                    "resources_needed": validated_resources
+                })
             else:
-                validated_subtask["resources_needed"] = ["Project manager"]
-            
-            validated_subtasks.append(validated_subtask)
+                logger.warning(f"Subtask {i} has no valid resources, using default")
+                validated_subtasks.append({
+                    "name": subtask["name"].strip(),
+                    "description": subtask["description"].strip(),
+                    "resources_needed": ["Project manager"]  # Default fallback
+                })
         
-        # If no valid subtasks, create a minimal fallback
         if not validated_subtasks:
-            logger.warning("No valid subtasks found, creating minimal fallback")
-            validated_subtasks = [
-                {
-                    "name": "Default task",
-                    "description": "Default task created due to validation failure",
-                    "resources_needed": ["Project manager"]
-                }
-            ]
+            logger.error("No valid subtasks found after validation")
+            raise ValueError("No valid subtasks found in LLM response")
         
         json_response["subtasks"] = validated_subtasks
 
@@ -242,68 +254,80 @@ Only decompose this task:
         # Use async complete method
         response = await sllm.acomplete(QUERY_PREAMBLE + query)
         
-        # Add validation and error handling for LLM response
+        # Parse and validate LLM response - fail fast if invalid
         try:
             json_response = json.loads(response.text)
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse LLM response as JSON: {e}")
-            # Create a fallback response with minimal valid structure
-            json_response = {
-                "subtasks": [
-                    {
-                        "name": "Fallback task due to parsing error",
-                        "description": f"Unable to parse LLM response: {str(e)}",
-                        "resources_needed": ["Project manager"]
-                    }
-                ]
-            }
+            logger.error(f"Raw response text: {response.text}")
+            raise ValueError(f"LLM response was not valid JSON: {e}") from e
         
         # Validate the response structure
-        if not isinstance(json_response, dict) or "subtasks" not in json_response:
-            logger.warning("Invalid response structure, creating fallback response")
-            json_response = {
-                "subtasks": [
-                    {
-                        "name": "Fallback task due to invalid structure",
-                        "description": "LLM response did not contain expected 'subtasks' field",
-                        "resources_needed": ["Project manager"]
-                    }
-                ]
-            }
+        if not isinstance(json_response, dict):
+            logger.error(f"Response is not a dictionary: {type(json_response)}")
+            raise ValueError("LLM response was not a valid dictionary")
+        
+        if "subtasks" not in json_response:
+            logger.error(f"Response missing 'subtasks' field. Keys: {list(json_response.keys())}")
+            raise ValueError("LLM response missing required 'subtasks' field")
+        
+        if not isinstance(json_response["subtasks"], list):
+            logger.error(f"'subtasks' is not a list: {type(json_response['subtasks'])}")
+            raise ValueError("LLM response 'subtasks' field is not a list")
         
         # Validate each subtask has required fields with correct types
         validated_subtasks = []
-        for i, subtask in enumerate(json_response.get("subtasks", [])):
+        for i, subtask in enumerate(json_response["subtasks"]):
             if not isinstance(subtask, dict):
-                logger.warning(f"Skipping invalid subtask {i}: not a dictionary")
-                continue
-                
-            # Ensure required fields exist with correct types
-            validated_subtask = {
-                "name": str(subtask.get("name", f"Task {i+1}")),
-                "description": str(subtask.get("description", "No description provided")),
-                "resources_needed": []
-            }
+                logger.error(f"Subtask {i} is not a dictionary: {type(subtask)}")
+                raise ValueError(f"Subtask {i} is not a valid dictionary")
             
-            # Validate resources_needed is a list of strings
-            resources = subtask.get("resources_needed", [])
-            if isinstance(resources, list):
-                validated_subtask["resources_needed"] = [str(r) for r in resources if r]
+            # Check required fields exist
+            required_fields = ["name", "description", "resources_needed"]
+            for field in required_fields:
+                if field not in subtask:
+                    logger.error(f"Subtask {i} missing required field '{field}'")
+                    raise ValueError(f"Subtask {i} missing required field '{field}'")
+            
+            # Validate field types
+            if not isinstance(subtask["name"], str) or not subtask["name"].strip():
+                logger.error(f"Subtask {i} has invalid name: {subtask['name']}")
+                raise ValueError(f"Subtask {i} has invalid or empty name")
+            
+            if not isinstance(subtask["description"], str) or not subtask["description"].strip():
+                logger.error(f"Subtask {i} has invalid description: {subtask['description']}")
+                raise ValueError(f"Subtask {i} has invalid or empty description")
+            
+            if not isinstance(subtask["resources_needed"], list):
+                logger.error(f"Subtask {i} resources_needed is not a list: {type(subtask['resources_needed'])}")
+                raise ValueError(f"Subtask {i} resources_needed must be a list")
+            
+            # Ensure all resources are strings
+            validated_resources = []
+            for j, resource in enumerate(subtask["resources_needed"]):
+                if not isinstance(resource, str) or not resource.strip():
+                    logger.warning(f"Subtask {i} resource {j} is invalid: {resource}, skipping")
+                    continue
+                validated_resources.append(resource.strip())
+            
+            # Only keep subtasks with valid resources
+            if validated_resources:
+                validated_subtasks.append({
+                    "name": subtask["name"].strip(),
+                    "description": subtask["description"].strip(),
+                    "resources_needed": validated_resources
+                })
             else:
-                validated_subtask["resources_needed"] = ["Project manager"]
-            
-            validated_subtasks.append(validated_subtask)
+                logger.warning(f"Subtask {i} has no valid resources, using default")
+                validated_subtasks.append({
+                    "name": subtask["name"].strip(),
+                    "description": subtask["description"].strip(),
+                    "resources_needed": ["Project manager"]  # Default fallback
+                })
         
-        # If no valid subtasks, create a minimal fallback
         if not validated_subtasks:
-            logger.warning("No valid subtasks found, creating minimal fallback")
-            validated_subtasks = [
-                {
-                    "name": "Default task",
-                    "description": "Default task created due to validation failure",
-                    "resources_needed": ["Project manager"]
-                }
-            ]
+            logger.error("No valid subtasks found after validation")
+            raise ValueError("No valid subtasks found in LLM response")
         
         json_response["subtasks"] = validated_subtasks
 
