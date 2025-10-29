@@ -6,6 +6,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.17.4] - 2025-10-30
+
+### Fixed
+- Removed the hardcoded intake system prompt in `useResponsesConversation` so the frontend now defers to backend-provided instructions sourced from `intake_conversation_prompt.py`.
+
 ## [0.17.1] - 2025-10-29
 
 ### Added
