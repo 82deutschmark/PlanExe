@@ -123,7 +123,8 @@ def _enforce_openai_schema_requirements(schema: Dict[str, Any]) -> Dict[str, Any
                             required_seen[prop_name] = None
                     updated["required"] = list(required_seen.keys())
 
-                if "additionalProperties" not in updated:
+                additional_properties = updated.get("additionalProperties")
+                if additional_properties is not False:
                     updated["additionalProperties"] = False
             return updated
 

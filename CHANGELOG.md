@@ -6,6 +6,12 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.15.5] - 2025-10-28
+
+### Fixed
+- Forced every JSON schema sent to the Responses API to set `additionalProperties` to `false`, even when Pydantic emits permissive values, preventing HTTP 400 `invalid_json_schema` failures during `IdentifyPurposeTask` and related Luigi stages. @planexe/llm_util/simple_openai_llm.py#100-137, @planexe/llm_util/strict_response_model.py#31-50.
+- Hardened schema regression coverage by asserting strict enforcement in `test_schema_enforcement.py`, ensuring future changes fail fast if leniency creeps back in.
+
 ## [0.15.4] - 2025-10-28
 
 ### Changed
