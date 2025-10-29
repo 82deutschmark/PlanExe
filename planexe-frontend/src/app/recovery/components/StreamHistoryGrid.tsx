@@ -7,8 +7,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { History, Clock, Zap, CheckCircle, XCircle, AlertCircle, MousePointer2 } from 'lucide-react';
+import { History, CheckCircle, XCircle, AlertCircle, Eye, FileText, Brain, Activity, Database } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { LLMStreamState } from '../useRecoveryPlan';
 import { StreamDetailModal } from './StreamDetailModal';
 
@@ -57,7 +59,7 @@ export const StreamHistoryGrid: React.FC<StreamHistoryGridProps> = ({ streams })
               Completed Tasks
             </CardTitle>
             <div className="flex items-center gap-2">
-              <MousePointer2 className="h-3 w-3 text-indigo-500" />
+              <Eye className="h-3 w-3 text-indigo-500" />
               <span className="text-xs text-indigo-600 font-medium">Click for details</span>
               <span className="text-sm font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full">{streams.length}</span>
             </div>
@@ -80,45 +82,126 @@ export const StreamHistoryGrid: React.FC<StreamHistoryGridProps> = ({ streams })
                   : 0;
 
                 return (
-                  <button
-                    key={stream.interactionId}
-                    onClick={() => handleStreamClick(stream)}
-                    className={`p-3 text-left transition-all duration-200 cursor-pointer rounded-lg transform hover:scale-105 ${getStatusColor(stream.status)}`}
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <span className="text-xs font-bold text-gray-900 line-clamp-2 flex-1 leading-tight">
-                        {stream.stage}
-                      </span>
-                      {getStatusIcon(stream.status)}
-                    </div>
+                  <TooltipProvider key={stream.interactionId}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => handleStreamClick(stream)}
+                          className={`p-4 text-left transition-all duration-200 cursor-pointer rounded-lg transform hover:scale-105 ${getStatusColor(stream.status)} hover:shadow-lg`}
+                        >
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-bold text-gray-900 line-clamp-2 leading-tight mb-1">
+                                {stream.stage}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-mono font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded">#{stream.interactionId}</span>
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-current bg-white/50">
+                                  <Eye className="h-2.5 w-2.5 mr-1" />
+                                  View Details
+                                </Badge>
+                              </div>
+                            </div>
+                            {getStatusIcon(stream.status)}
+                          </div>
 
-                    <div className="text-[10px] text-gray-700 space-y-1 font-medium">
-                      <div className="flex items-center gap-1">
-                        <span className="text-gray-600">ID:</span>
-                        <span className="font-mono font-semibold">#{stream.interactionId}</span>
-                      </div>
+                          {/* Rich data indicators */}
+                          <div className="flex items-center gap-3 text-[10px] text-gray-600 mb-3">
+                            <div className="flex items-center gap-1">
+                              <FileText className="h-3 w-3" />
+                              <span>Output</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Brain className="h-3 w-3" />
+                              <span>Reasoning</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Activity className="h-3 w-3" />
+                              <span>{stream.events.length} Events</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Database className="h-3 w-3" />
+                              <span>Usage</span>
+                            </div>
+                          </div>
 
-                      {duration > 0 && (
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3 text-blue-600" />
-                          <span className="font-mono font-semibold text-blue-700">{duration.toFixed(2)}s</span>
+                          {/* Metrics with labels */}
+                          <div className="space-y-2 text-xs">
+                            {duration > 0 && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-gray-600 font-medium">Duration:</span>
+                                <span className="font-mono font-semibold text-blue-700">{duration.toFixed(2)}s</span>
+                              </div>
+                            )}
+
+                            {totalTokens > 0 && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-gray-600 font-medium">Tokens:</span>
+                                <span className="font-mono font-semibold text-purple-700">{totalTokens.toLocaleString()}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {stream.error && (
+                            <div className="mt-3 p-2 bg-rose-100 border border-rose-300 rounded-md">
+                              <div className="flex items-center gap-1 mb-1">
+                                <XCircle className="h-3 w-3 text-rose-600" />
+                                <span className="text-xs font-bold text-rose-900">Error Details:</span>
+                              </div>
+                              <div className="text-xs text-rose-800 break-words leading-tight font-mono bg-rose-50 p-1.5 rounded">
+                                {stream.error}
+                              </div>
+                            </div>
+                          )}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-md p-4 bg-slate-900 border-slate-700">
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <div className="p-1.5 bg-slate-800 rounded">
+                              {getStatusIcon(stream.status)}
+                            </div>
+                            <div>
+                              <div className="font-semibold text-white text-sm">{stream.stage}</div>
+                              <div className="text-slate-400 text-xs">Task #{stream.interactionId}</div>
+                            </div>
+                          </div>
+                          
+                          <div className="text-slate-300 text-xs leading-relaxed">
+                            Click to explore comprehensive task data including full LLM output, AI reasoning traces, usage metrics, and timeline events.
+                          </div>
+                          
+                          <div className="space-y-2 pt-2 border-t border-slate-700">
+                            <div className="text-slate-400 text-xs font-semibold uppercase tracking-wide">Available Data:</div>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div className="flex items-center gap-2 text-slate-300">
+                                <FileText className="h-3 w-3 text-blue-400" />
+                                <span>Full LLM Output</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-slate-300">
+                                <Brain className="h-3 w-3 text-purple-400" />
+                                <span>AI Reasoning</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-slate-300">
+                                <Activity className="h-3 w-3 text-green-400" />
+                                <span>{stream.events.length} Timeline Events</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-slate-300">
+                                <Database className="h-3 w-3 text-orange-400" />
+                                <span>Usage & Metrics</span>
+                              </div>
+                            </div>
+                            <div className="pt-2 text-center">
+                              <div className="inline-flex items-center gap-1.5 bg-blue-600 text-white px-3 py-1.5 rounded-md text-xs font-semibold">
+                                <Eye className="h-3 w-3" />
+                                Click to explore detailed data
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                      )}
-
-                      {totalTokens > 0 && (
-                        <div className="flex items-center gap-1">
-                          <Zap className="h-3 w-3 text-purple-600" />
-                          <span className="font-mono font-semibold text-purple-700">{totalTokens.toLocaleString()}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {stream.error && (
-                      <div className="mt-2 text-[9px] text-rose-800 font-semibold line-clamp-2 bg-rose-200/50 p-1 rounded">
-                        {stream.error}
-                      </div>
-                    )}
-                  </button>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 );
               })}
             </div>

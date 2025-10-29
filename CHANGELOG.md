@@ -11,6 +11,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 ### Added
 - Display of selected LLM model in `CurrentActivityStrip` with clear label and icon. Fields: `plan.llm_model` (frontend PlanResponse). File: `planexe-frontend/src/app/recovery/components/CurrentActivityStrip.tsx`
 
+## [0.17.2] - 2025-10-29
+
+### Changed
+- StreamHistoryGrid now mirrors the info-rich recovery styling: larger text labels, explicit data previews (Output, Reasoning, Events, Usage), "View Details" badges, and contextual tooltips. File: `planexe-frontend/src/app/recovery/components/StreamHistoryGrid.tsx`
+
 ## [0.17.0] - 2025-10-29
 
 ### Added
