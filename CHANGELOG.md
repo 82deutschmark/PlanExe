@@ -6,20 +6,13 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
-## [0.16.1] - 2025-10-29
+## [0.17.0] - 2025-10-29
 
 ### Added
-- **Cost Calculation and Display**: Added real-time cost tracking to CurrentActivityStrip
-  - Created `cost-calculator.ts` utility with model-specific pricing for GPT-5 Nano, GPT-5 Mini, and GPT-4o Mini
-  - Added cost calculation based on token usage and model pricing from `llm_config.json`
-  - Display shows total cost with dollar sign icon and green formatting
-  - Files: `planexe-frontend/src/lib/utils/cost-calculator.ts`, `planexe-frontend/src/app/recovery/components/CurrentActivityStrip.tsx`
+- Real-time LLM cost tracking in `CurrentActivityStrip`, powered by a shared `cost-calculator` utility and pricing metadata in `llm_config.json`. Files: `planexe-frontend/src/lib/utils/cost-calculator.ts`, `planexe-frontend/src/app/recovery/components/CurrentActivityStrip.tsx`, `llm_config.json`
 
-### Fixed
-- **Recovery Page Layout**: Corrected component positioning 
-  - Moved StreamHistoryGrid to top of page where it belongs (was incorrectly placed at bottom)
-  - StreamHistoryGrid now displays completed tasks prominently at the top of the recovery workspace
-  - File: `planexe-frontend/src/app/recovery/page.tsx`
+### Changed
+- Restored `StreamHistoryGrid` to the top of the recovery workspace and tightened `PipelineLogsPanel` spacing so logs no longer introduce excess vertical padding. Files: `planexe-frontend/src/app/recovery/page.tsx`, `planexe-frontend/src/components/PipelineDetails.tsx`
 
 ## [0.16.0] - 2025-10-29
 

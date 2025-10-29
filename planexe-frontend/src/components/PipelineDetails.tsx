@@ -415,15 +415,15 @@ export function PipelineLogsPanel({ planId, className }: PipelineLogsPanelProps)
   if (loading) {
     return (
       <Card className={className}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ScrollText className="h-5 w-5" />
+        <CardHeader className="px-3 py-2">
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <ScrollText className="h-4 w-4" />
             Pipeline Logs
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center p-8 text-sm text-muted-foreground">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        <CardContent className="px-3 pb-3 pt-0">
+          <div className="flex items-center justify-center rounded-md border border-slate-800/60 bg-slate-950/70 px-3 py-4 text-xs text-muted-foreground">
+            <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
             Loading latest log output…
           </div>
         </CardContent>
@@ -434,14 +434,16 @@ export function PipelineLogsPanel({ planId, className }: PipelineLogsPanelProps)
   if (error) {
     return (
       <Card className={className}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ScrollText className="h-5 w-5" />
+        <CardHeader className="px-3 py-2">
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <ScrollText className="h-4 w-4" />
             Pipeline Logs
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="p-4 text-center text-sm text-red-500">{error}</div>
+        <CardContent className="px-3 pb-3 pt-0">
+          <div className="rounded-md border border-red-500/40 bg-red-950/30 px-3 py-4 text-center text-xs text-red-300">
+            {error}
+          </div>
         </CardContent>
       </Card>
     )
@@ -451,18 +453,18 @@ export function PipelineLogsPanel({ planId, className }: PipelineLogsPanelProps)
 
   return (
     <Card className={className}>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <ScrollText className="h-5 w-5" />
+      <CardHeader className="px-3 py-2">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <ScrollText className="h-4 w-4" />
           Pipeline Logs
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="max-h-96 overflow-y-auto rounded-md bg-slate-950/90 p-4 font-mono text-xs text-emerald-300">
+      <CardContent className="px-3 pb-3 pt-0">
+        <div className="max-h-80 overflow-y-auto rounded-md border border-slate-800/60 bg-slate-950/80 px-3 py-3 font-mono text-[11px] leading-relaxed text-emerald-300">
           {logContent ? (
-            <pre className="whitespace-pre-wrap leading-relaxed">{logContent}</pre>
+            <pre className="whitespace-pre-wrap">{logContent}</pre>
           ) : (
-            <div className="py-8 text-center text-sm text-slate-400">
+            <div className="py-4 text-center text-xs text-slate-400">
               No log entries available yet.
             </div>
           )}
