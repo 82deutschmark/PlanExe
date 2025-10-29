@@ -8,9 +8,10 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Activity, Clock, Zap, Wifi, WifiOff, CheckCircle, Database } from 'lucide-react';
+import { Activity, Clock, Zap, Wifi, WifiOff, CheckCircle, Database, DollarSign } from 'lucide-react';
 import type { LLMStreamState, RecoveryConnectionState } from '../useRecoveryPlan';
 import type { PlanResponse } from '@/lib/api/fastapi-client';
+import { calculateCost, formatCost, getModelCost, type TokenUsage } from '@/lib/utils/cost-calculator';
 
 interface CurrentActivityStripProps {
   activeStream: LLMStreamState | null;
@@ -86,8 +87,24 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
         : 0;
       return sum + tokens;
     }, 0);
-    return { failed, succeeded, totalTokens };
-  }, [llmStreams]);
+    
+    // Calculate total cost
+    let totalCost = 0;
+    const modelKey = plan?.llm_model;
+    if (modelKey) {
+      const modelCost = getModelCost(modelKey);
+      if (modelCost) {
+        llmStreams.history.forEach(s => {
+          if (s.usage && typeof s.usage === 'object') {
+            const usage = s.usage as TokenUsage;
+            totalCost += calculateCost(usage, modelCost);
+          }
+        });
+      }
+    }
+    
+    return { failed, succeeded, totalTokens, totalCost };
+  }, [llmStreams, plan?.llm_model]);
   
   const planStatus = plan?.status || 'unknown';
   const statusColor = planStatus === 'completed' ? 'text-green-400'
@@ -185,6 +202,14 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
             <Zap className="h-4 w-4 text-yellow-400" />
             <span className="text-xs text-slate-400">TOTAL TOKENS:</span>
             <span className="text-xs font-mono">{(apiMetrics.totalTokens / 1000).toFixed(1)}k</span>
+          </div>
+          
+          <div className="h-5 w-px bg-slate-600" />
+
+          <div className="flex items-center gap-1.5">
+            <DollarSign className="h-4 w-4 text-green-400" />
+            <span className="text-xs text-slate-400">COST:</span>
+            <span className="text-xs font-mono font-semibold text-green-400">{formatCost(apiMetrics.totalCost)}</span>
           </div>
           
           <div className="h-5 w-px bg-slate-600" />

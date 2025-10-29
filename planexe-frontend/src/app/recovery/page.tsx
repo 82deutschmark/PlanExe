@@ -230,6 +230,9 @@ const RecoveryPageContent: React.FC = () => {
       </div>
       
       <main className="mx-auto flex max-w-7xl flex-col gap-2 px-2 py-2">
+        {/* Stream History Grid at top - shows completed tasks */}
+        <StreamHistoryGrid streams={llmStreams.history} />
+        
         <div className="grid gap-2 lg:grid-cols-[400px_minmax(0,1fr)]">
           <div className="flex flex-col gap-2">
             {/* Live Pipeline DAG showing all 61 tasks with real-time status */}
@@ -256,8 +259,6 @@ const RecoveryPageContent: React.FC = () => {
             <PipelineLogsPanel planId={planId} className="h-fit" />
           </div>
         </div>
-        {/* Completed tasks - Stream History Grid moved here */}
-        <StreamHistoryGrid streams={llmStreams.history} />
         {plan.data?.prompt && (
           <Card className="border-amber-200">
             <CardHeader className="pb-1">
