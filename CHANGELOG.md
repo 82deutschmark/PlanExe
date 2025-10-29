@@ -7,6 +7,19 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **PATCH**: Bug fixes (backward compatible)
 
 
+### [0.18.7] - 2025-10-29
+
+### Changed
+- **Image Generation: Service Extraction and Hardening**: Extracted image generation logic into dedicated service with improved architecture and error handling.
+  - **New Service**: Created `planexe_api/services/image_generation_service.py` with centralized image generation logic
+  - **Model Resolution**: Uses `PlanExeLLMConfig` to resolve image generation models from `llm_config.json`
+  - **Configurable**: Supports model and size overrides via request parameters with validation
+  - **Robust Error Handling**: Custom `ImageGenerationError` with timeout and retry logic (max 2 retries)
+  - **Security**: No logging of secrets, proper exception handling without exposing sensitive data
+  - **Slim Endpoint**: API endpoint now only handles validation and delegation, separating concerns from streaming
+  - **Response Format**: Returns `{ image_b64, model, size, format }` with transparent fallback indication
+  - Files: `planexe_api/services/image_generation_service.py`, `planexe_api/api.py` lines 394-431
+
 ### [0.18.6] - 2025-10-29
 
 ### Fixed
