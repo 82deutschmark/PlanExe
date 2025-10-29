@@ -6,6 +6,16 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.15.9] - 2025-10-29
+
+### Added
+- Integrated LivePipelineDAG component into the recovery page to provide real-time visual DAG showing all 61 Luigi tasks being assembled and completed. The component displays task status, dependencies, and allows clicking on completed/failed tasks to view detailed stream information. @planexe-frontend/src/app/recovery/page.tsx#25,237-239
+
+## [0.15.8] - 2025-10-29
+
+### Fixed
+- Stabilized WBS Level 1 task by switching to schema-driven Responses API calls with a tolerant freeform fallback. This removes ad‑hoc parsing and aligns the task with other structured LLM callers, reducing silent failures and improving metadata (duration, fallback_used). Files: `planexe/plan/create_wbs_level1.py`.
+
 ## [0.15.7] - 2025-10-28
 
 ### Fixed

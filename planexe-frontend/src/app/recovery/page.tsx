@@ -22,6 +22,7 @@ import { RecoveryReportPanel } from './components/ReportPanel';
 import { LiveStreamPanel } from './components/LiveStreamPanel';
 import { StreamHistoryGrid } from './components/StreamHistoryGrid';
 import { CurrentActivityStrip } from './components/CurrentActivityStrip';
+import { LivePipelineDAG } from './components/LivePipelineDAG';
 import { LuigiPipelineView } from '@/components/monitoring/LuigiPipelineView';
 import { useRecoveryPlan } from './useRecoveryPlan';
 import { ResumeDialog } from './components/ResumeDialog';
@@ -232,7 +233,9 @@ const RecoveryPageContent: React.FC = () => {
         <PipelineLogsPanel planId={planId} className="h-fit" />
         <div className="grid gap-2 lg:grid-cols-[400px_minmax(0,1fr)]">
           <div className="flex flex-col gap-2">
-            {/* Luigi Pipeline showing all tasks via log parsing */}
+            {/* Live Pipeline DAG showing all 61 tasks with real-time status */}
+            <LivePipelineDAG llmStreams={llmStreams} />
+            {/* Luigi Pipeline showing log-based progress */}
             <LuigiPipelineView planId={planId} />
           </div>
           <div className="flex flex-col gap-2">

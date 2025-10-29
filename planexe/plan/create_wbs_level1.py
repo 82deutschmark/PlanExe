@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 # Author: gpt-5-codex
-# Date: 2025-10-28T04:39:23Z
-# PURPOSE: Structured LLM response schemas for planexe.plan.create_wbs_level1 consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
-# SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
-
-# Author: gpt-5-codex
-# Date: 2025-10-26T00:00:00Z
-# PURPOSE: Harden WBS Level 1 generation by validating LLM output, normalizing fallback values, and preserving compatibility with the factory-driven configuration pipeline.
-# SRP and DRY check: Pass. Enhancements stay scoped to WBS Level 1 parsing while reusing shared utilities and avoiding duplicated logic already present elsewhere in the project.
+# Date: 2025-10-29T00:00:00Z
+# PURPOSE: Generate WBS Level 1 via the Responses API using a strict Pydantic
+#          schema, with tolerant fallback normalization. Aligns this task with
+#          the rest of the pipeline that uses `as_structured_llm(...)` and the
+#          schema registry, eliminating ad-hoc parsing that caused brittle
+#          failures and inconsistent metadata.
+# SRP and DRY check: Pass. The file focuses on Level 1 WBS generation and
+#          validation, reusing shared LLM adapters and schema registry without
+#          duplicating logic.
 """
 WBS Level 1: Create a Work Breakdown Structure (WBS) from a project plan.
 
@@ -28,10 +29,9 @@ from planexe.llm_util.strict_response_model import StrictResponseModel
 
 logger = logging.getLogger(__name__)
 
-from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole, StructuredLLMResponse
+from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 from planexe.llm_util.schema_registry import register_schema
-
-logger = logging.getLogger(__name__)
+from planexe.llm_util.schema_registry import get_schema_entry  # ensure schema is registered
 
 class WBSLevel1(StrictResponseModel):
     """
@@ -77,31 +77,49 @@ class CreateWBSLevel1:
             raise ValueError("Invalid LLM instance: missing as_structured_llm() or metadata attributes.")
         if not isinstance(query, str):
             raise ValueError("Invalid query.")
+        # Ensure schema is registered for Responses API formatting
+        register_schema(WBSLevel1)
 
         system_prompt = (
             "You generate concise Work Breakdown Structure level 1 summaries. "
-            "Return **only** a JSON object with exactly two snake_case keys: "
+            "Return a JSON object with exactly two snake_case keys: "
             "project_title and final_deliverable. Both values must be short strings "
             "(3-10 words). Do not include markdown, prose, bullet lists, or explanation."
         )
 
+        chat_message_list = [
+            SimpleChatMessage(role=SimpleMessageRole.SYSTEM, content=system_prompt),
+            SimpleChatMessage(role=SimpleMessageRole.USER, content=QUERY_PREAMBLE + query),
+        ]
+
         start_time = time.perf_counter()
-        response = llm.complete(QUERY_PREAMBLE + query, system_prompt=system_prompt)
-        raw_text = response.text if hasattr(response, "text") else str(response)
-        json_response, wbs_model, warnings = cls._parse_llm_response(raw_text)
+        # Prefer structured path; fall back to tolerant parsing if provider rejects schema
+        try:
+            sllm = llm.as_structured_llm(WBSLevel1)
+            chat_response = sllm.chat(chat_message_list)
+            wbs_model = chat_response.raw
+            raw_text = chat_response.text
+            json_response = wbs_model.model_dump()
+            warnings: list[str] = []
+        except Exception as structured_exc:
+            # Structured call failed; use tolerant freeform completion as a fallback
+            logger.warning("WBS Level 1 structured call failed; falling back to tolerant parse.", exc_info=structured_exc)
+            freeform = llm.complete(QUERY_PREAMBLE + query, system_prompt=system_prompt)
+            raw_text = freeform.text if hasattr(freeform, "text") else str(freeform)
+            json_response, wbs_model, warnings = cls._parse_llm_response(raw_text)
 
         end_time = time.perf_counter()
         duration = int(ceil(end_time - start_time))
 
         metadata_source = getattr(llm, "metadata", {})
-        if isinstance(metadata_source, dict):
-            metadata = dict(metadata_source)
-        else:
-            metadata = dict(getattr(metadata_source, "__dict__", {}))
+        metadata = dict(metadata_source) if isinstance(metadata_source, dict) else dict(getattr(metadata_source, "__dict__", {}))
         metadata["duration"] = duration
         metadata["response_char_count"] = len(raw_text)
         if warnings:
             metadata["normalization_warnings"] = warnings
+            metadata["fallback_used"] = True
+        else:
+            metadata["fallback_used"] = False
 
         project_id = str(uuid4())
 
