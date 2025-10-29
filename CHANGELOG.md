@@ -6,6 +6,24 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+### [0.18.2] - 2025-10-29
+
+### Fixed
+- **FilterDocumentsToCreateTask Compatibility**: Fixed llama-index dependency issue by restoring SimpleOpenAILLM compatibility. The task was using ChatMessage from llama-index but Luigi pipeline provides SimpleOpenAILLM, causing AttributeError during execution. Files: `planexe/document/filter_documents_to_create.py`.
+- **FilterDocumentsToFindTask Compatibility**: Confirmed the task already uses SimpleOpenAILLM correctly with SimpleChatMessage and SimpleMessageRole imports. No changes needed. File: `planexe/document/filter_documents_to_find.py`.
+- **CreateWBSLevel3Task Schema Validation**: Added comprehensive error handling and validation for LLM responses to prevent crashes when malformed JSON is received. The task now:
+  - Catches JSONDecodeError and creates fallback responses
+  - Validates response structure contains required 'subtasks' field
+  - Ensures each subtask has correct field types (name: str, description: str, resources_needed: list[str])
+  - Creates minimal fallback tasks when validation fails
+  - Applied to both sync `execute()` and async `aexecute()` methods
+  File: `planexe/plan/create_wbs_level3.py`.
+
+### Impact
+- **Pipeline Reliability**: These fixes resolve the three failing Luigi tasks that were blocking downstream execution (CreateScheduleTask, DraftDocumentsToCreateTask, DraftDocumentsToFindTask, ExecutiveSummaryTask).
+- **Error Resilience**: WBS Level 3 task now gracefully handles malformed LLM responses instead of crashing the entire pipeline.
+- **Compatibility**: Document filtering tasks now work correctly with the SimpleOpenAILLM infrastructure used throughout the Luigi pipeline.
+
 ### [0.18.1] - 2025-10-29 00:02
 
 ### Changed

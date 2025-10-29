@@ -17,6 +17,7 @@ The "progressive elaboration" technique is used to decompose big tasks into smal
 import os
 import json
 import time
+import logging
 from dataclasses import dataclass
 from math import ceil
 from uuid import uuid4
@@ -122,7 +123,71 @@ Only decompose this task:
 
         sllm = llm.as_structured_llm(WBSTaskDetails)
         response = sllm.complete(QUERY_PREAMBLE + query)
-        json_response = json.loads(response.text)
+        
+        # Add validation and error handling for LLM response
+        try:
+            json_response = json.loads(response.text)
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse LLM response as JSON: {e}")
+            # Create a fallback response with minimal valid structure
+            json_response = {
+                "subtasks": [
+                    {
+                        "name": "Fallback task due to parsing error",
+                        "description": f"Unable to parse LLM response: {str(e)}",
+                        "resources_needed": ["Project manager"]
+                    }
+                ]
+            }
+        
+        # Validate the response structure
+        if not isinstance(json_response, dict) or "subtasks" not in json_response:
+            logger.warning("Invalid response structure, creating fallback response")
+            json_response = {
+                "subtasks": [
+                    {
+                        "name": "Fallback task due to invalid structure",
+                        "description": "LLM response did not contain expected 'subtasks' field",
+                        "resources_needed": ["Project manager"]
+                    }
+                ]
+            }
+        
+        # Validate each subtask has required fields with correct types
+        validated_subtasks = []
+        for i, subtask in enumerate(json_response.get("subtasks", [])):
+            if not isinstance(subtask, dict):
+                logger.warning(f"Skipping invalid subtask {i}: not a dictionary")
+                continue
+                
+            # Ensure required fields exist with correct types
+            validated_subtask = {
+                "name": str(subtask.get("name", f"Task {i+1}")),
+                "description": str(subtask.get("description", "No description provided")),
+                "resources_needed": []
+            }
+            
+            # Validate resources_needed is a list of strings
+            resources = subtask.get("resources_needed", [])
+            if isinstance(resources, list):
+                validated_subtask["resources_needed"] = [str(r) for r in resources if r]
+            else:
+                validated_subtask["resources_needed"] = ["Project manager"]
+            
+            validated_subtasks.append(validated_subtask)
+        
+        # If no valid subtasks, create a minimal fallback
+        if not validated_subtasks:
+            logger.warning("No valid subtasks found, creating minimal fallback")
+            validated_subtasks = [
+                {
+                    "name": "Default task",
+                    "description": "Default task created due to validation failure",
+                    "resources_needed": ["Project manager"]
+                }
+            ]
+        
+        json_response["subtasks"] = validated_subtasks
 
         end_time = time.perf_counter()
         duration = int(ceil(end_time - start_time))
@@ -176,7 +241,71 @@ Only decompose this task:
         sllm = llm.as_structured_llm(WBSTaskDetails)
         # Use async complete method
         response = await sllm.acomplete(QUERY_PREAMBLE + query)
-        json_response = json.loads(response.text)
+        
+        # Add validation and error handling for LLM response
+        try:
+            json_response = json.loads(response.text)
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse LLM response as JSON: {e}")
+            # Create a fallback response with minimal valid structure
+            json_response = {
+                "subtasks": [
+                    {
+                        "name": "Fallback task due to parsing error",
+                        "description": f"Unable to parse LLM response: {str(e)}",
+                        "resources_needed": ["Project manager"]
+                    }
+                ]
+            }
+        
+        # Validate the response structure
+        if not isinstance(json_response, dict) or "subtasks" not in json_response:
+            logger.warning("Invalid response structure, creating fallback response")
+            json_response = {
+                "subtasks": [
+                    {
+                        "name": "Fallback task due to invalid structure",
+                        "description": "LLM response did not contain expected 'subtasks' field",
+                        "resources_needed": ["Project manager"]
+                    }
+                ]
+            }
+        
+        # Validate each subtask has required fields with correct types
+        validated_subtasks = []
+        for i, subtask in enumerate(json_response.get("subtasks", [])):
+            if not isinstance(subtask, dict):
+                logger.warning(f"Skipping invalid subtask {i}: not a dictionary")
+                continue
+                
+            # Ensure required fields exist with correct types
+            validated_subtask = {
+                "name": str(subtask.get("name", f"Task {i+1}")),
+                "description": str(subtask.get("description", "No description provided")),
+                "resources_needed": []
+            }
+            
+            # Validate resources_needed is a list of strings
+            resources = subtask.get("resources_needed", [])
+            if isinstance(resources, list):
+                validated_subtask["resources_needed"] = [str(r) for r in resources if r]
+            else:
+                validated_subtask["resources_needed"] = ["Project manager"]
+            
+            validated_subtasks.append(validated_subtask)
+        
+        # If no valid subtasks, create a minimal fallback
+        if not validated_subtasks:
+            logger.warning("No valid subtasks found, creating minimal fallback")
+            validated_subtasks = [
+                {
+                    "name": "Default task",
+                    "description": "Default task created due to validation failure",
+                    "resources_needed": ["Project manager"]
+                }
+            ]
+        
+        json_response["subtasks"] = validated_subtasks
 
         end_time = time.perf_counter()
         duration = int(ceil(end_time - start_time))
