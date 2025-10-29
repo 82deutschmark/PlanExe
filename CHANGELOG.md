@@ -11,6 +11,14 @@ This project follows [Semantic Versioning](https://semver.org/):
 ### Added
 - Integrated LivePipelineDAG component into the recovery page to provide real-time visual DAG showing all 61 Luigi tasks being assembled and completed. The component displays task status, dependencies, and allows clicking on completed/failed tasks to view detailed stream information. @planexe-frontend/src/app/recovery/page.tsx#25,237-239
 
+### Fixed
+- **CurrentActivityStrip Usability**: Made the status strip sticky and replaced confusing icons with clear text labels
+  - Added `sticky top-0 z-50` positioning with shadow for persistent visibility during scrolling
+  - Replaced all emoji icons (Activity, Clock, Zap, Wifi, Database, CheckCircle) with descriptive text labels
+  - Clear labels now show: "CURRENT TASK:", "TIME:", "TOKENS:", "CONNECTION:", "TASKS:", "TOTAL TOKENS:", "EFFORT:", "STATUS:"
+  - Improved readability by explicitly stating what each metric tracks
+  - File: `planexe-frontend/src/app/recovery/components/CurrentActivityStrip.tsx`
+
 ## [0.15.8] - 2025-10-29
 
 ### Fixed

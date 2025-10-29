@@ -7,7 +7,6 @@
 'use client';
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { Activity, Clock, Zap, Wifi, WifiOff, CheckCircle, Database } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import type { LLMStreamState, RecoveryConnectionState } from '../useRecoveryPlan';
 import type { PlanResponse } from '@/lib/api/fastapi-client';
@@ -73,10 +72,6 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
     return { failed, succeeded, totalTokens };
   }, [llmStreams]);
   
-  const connectionIcon = connection.status === 'connected' && connection.mode === 'websocket'
-    ? <Wifi className="h-4 w-4 text-green-400" />
-    : <WifiOff className="h-4 w-4 text-yellow-400" />;
-  
   const planStatus = plan?.status || 'unknown';
   const statusColor = planStatus === 'completed' ? 'text-green-400'
     : planStatus === 'failed' ? 'text-red-400'
@@ -86,27 +81,26 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
   const progressPercent = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
   
   return (
-    <div className="bg-slate-900 text-white px-4 py-2 border-b border-slate-700">
+    <div className="sticky top-0 z-50 bg-slate-900 text-white px-4 py-2 border-b border-slate-700 shadow-lg">
       <div className="flex items-center justify-between gap-4">
         {/* LEFT: Current Activity */}
         <div className="flex items-center gap-3">
           {activeStream ? (
             <>
-              <Activity className="h-5 w-5 text-blue-400 animate-pulse" />
               <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-blue-300">RUNNING:</span>
+                <span className="text-sm font-bold text-blue-300">CURRENT TASK:</span>
                 <span className="text-base font-mono font-semibold">{activeStream.stage}</span>
               </div>
               <div className="h-5 w-px bg-slate-600" />
               <div className="flex items-center gap-1.5">
-                <Clock className="h-4 w-4 text-slate-400" />
+                <span className="text-xs text-slate-400">TIME:</span>
                 <span className="text-sm font-mono tabular-nums font-semibold">{elapsedSeconds.toFixed(1)}s</span>
               </div>
               {currentTokens > 0 && (
                 <>
                   <div className="h-5 w-px bg-slate-600" />
                   <div className="flex items-center gap-1.5">
-                    <Zap className="h-4 w-4 text-yellow-400" />
+                    <span className="text-xs text-slate-400">TOKENS:</span>
                     <span className="text-sm font-mono">{currentTokens.toLocaleString()}</span>
                     {parseFloat(tokensPerSecond) > 0 && (
                       <span className="text-xs text-slate-400">({tokensPerSecond}/s)</span>
@@ -117,7 +111,6 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
             </>
           ) : (
             <>
-              <CheckCircle className="h-5 w-5 text-gray-400" />
               <span className="text-sm text-gray-300">IDLE - Waiting for next task</span>
             </>
           )}
@@ -143,8 +136,8 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
         {/* RIGHT: System Status */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
-            {connectionIcon}
-            <span className="text-xs text-slate-400">
+            <span className="text-xs text-slate-400">CONNECTION:</span>
+            <span className="text-xs font-semibold">
               {connection.status === 'connected' ? 'LIVE' : connection.mode.toUpperCase()}
             </span>
           </div>
@@ -152,7 +145,7 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
           <div className="h-5 w-px bg-slate-600" />
           
           <div className="flex items-center gap-1.5">
-            <Database className="h-4 w-4 text-slate-400" />
+            <span className="text-xs text-slate-400">TASKS:</span>
             <span className="text-xs">
               {apiMetrics.succeeded}<span className="text-slate-500">/</span>
               <span className="text-red-400">{apiMetrics.failed}</span>
@@ -162,7 +155,7 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
           <div className="h-5 w-px bg-slate-600" />
           
           <div className="flex items-center gap-1.5">
-            <Zap className="h-4 w-4 text-yellow-400" />
+            <span className="text-xs text-slate-400">TOTAL TOKENS:</span>
             <span className="text-xs font-mono">{(apiMetrics.totalTokens / 1000).toFixed(1)}k</span>
           </div>
           
@@ -170,16 +163,22 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
 
           {plan?.reasoning_effort && (
             <>
-              <Badge variant="outline" className="text-xs font-semibold text-purple-400 border-purple-400">
-                {plan.reasoning_effort.toUpperCase()}
-              </Badge>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-slate-400">EFFORT:</span>
+                <Badge variant="outline" className="text-xs font-semibold text-purple-400 border-purple-400">
+                  {plan.reasoning_effort.toUpperCase()}
+                </Badge>
+              </div>
               <div className="h-5 w-px bg-slate-600" />
             </>
           )}
 
-          <Badge variant="outline" className={`text-xs font-semibold ${statusColor} border-current`}>
-            {planStatus.toUpperCase()}
-          </Badge>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-slate-400">STATUS:</span>
+            <Badge variant="outline" className={`text-xs font-semibold ${statusColor} border-current`}>
+              {planStatus.toUpperCase()}
+            </Badge>
+          </div>
         </div>
       </div>
     </div>
