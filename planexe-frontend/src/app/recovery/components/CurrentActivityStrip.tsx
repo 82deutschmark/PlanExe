@@ -8,6 +8,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Activity, Clock, Zap, Wifi, WifiOff, CheckCircle, Database } from 'lucide-react';
 import type { LLMStreamState, RecoveryConnectionState } from '../useRecoveryPlan';
 import type { PlanResponse } from '@/lib/api/fastapi-client';
 
@@ -31,45 +32,48 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
   connection,
   llmStreams,
 }) => {
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [currentTaskElapsed, setCurrentTaskElapsed] = useState(0);
+  const [pipelineElapsed, setPipelineElapsed] = useState(0);
   
-  // Debug logging to see what data we're actually getting
-  console.log('[CurrentActivityStrip] Debug:', {
-    planReasoningEffort: plan?.reasoning_effort,
-    planData: plan,
-    completedCount,
-    totalTasks,
-    llmStreamsLength: llmStreams.history.length,
-    apiMetrics: {
-      failed: llmStreams.history.filter(s => s.status === 'failed').length,
-      succeeded: llmStreams.history.filter(s => s.status === 'completed').length,
-    }
-  });
-  
-  const startTime = activeStream?.lastUpdated 
+  const currentTaskStartTime = activeStream?.lastUpdated 
     ? new Date(activeStream.lastUpdated).getTime() 
     : Date.now();
   
+  const pipelineStartTime = plan?.created_at 
+    ? new Date(plan.created_at).getTime()
+    : Date.now();
+  
+  // Current task timer
   useEffect(() => {
     if (!activeStream) {
-      setElapsedSeconds(0);
+      setCurrentTaskElapsed(0);
       return;
     }
     
     const interval = setInterval(() => {
-      const elapsed = (Date.now() - startTime) / 1000;
-      setElapsedSeconds(elapsed);
+      const elapsed = (Date.now() - currentTaskStartTime) / 1000;
+      setCurrentTaskElapsed(elapsed);
     }, 100);
     
     return () => clearInterval(interval);
-  }, [activeStream, startTime]);
+  }, [activeStream, currentTaskStartTime]);
+  
+  // Pipeline timer
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const elapsed = (Date.now() - pipelineStartTime) / 1000;
+      setPipelineElapsed(elapsed);
+    }, 100);
+    
+    return () => clearInterval(interval);
+  }, [pipelineStartTime]);
   
   const currentTokens = activeStream?.usage && typeof activeStream.usage === 'object'
     ? (activeStream.usage as Record<string, unknown>).total_tokens as number || 0
     : 0;
   
-  const tokensPerSecond = elapsedSeconds > 0 && currentTokens > 0
-    ? (currentTokens / elapsedSeconds).toFixed(1)
+  const tokensPerSecond = currentTaskElapsed > 0 && currentTokens > 0
+    ? (currentTokens / currentTaskElapsed).toFixed(1)
     : '0';
   
   // Calculate API metrics from LLM streams
@@ -100,19 +104,24 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
         <div className="flex items-center gap-3">
           {activeStream ? (
             <>
+              <Activity className="h-4 w-4 text-blue-400 animate-pulse" />
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-blue-300">CURRENT TASK:</span>
                 <span className="text-base font-mono font-semibold">{activeStream.stage}</span>
               </div>
               <div className="h-5 w-px bg-slate-600" />
               <div className="flex items-center gap-1.5">
-                <span className="text-xs text-slate-400">TIME:</span>
-                <span className="text-sm font-mono tabular-nums font-semibold">{elapsedSeconds.toFixed(1)}s</span>
+                <Clock className="h-4 w-4 text-slate-400" />
+                <span className="text-xs text-slate-400">TASK:</span>
+                <span className="text-sm font-mono tabular-nums font-semibold">{currentTaskElapsed.toFixed(1)}s</span>
+                <span className="text-xs text-slate-400">PIPELINE:</span>
+                <span className="text-sm font-mono tabular-nums font-semibold">{pipelineElapsed.toFixed(1)}s</span>
               </div>
               {currentTokens > 0 && (
                 <>
                   <div className="h-5 w-px bg-slate-600" />
                   <div className="flex items-center gap-1.5">
+                    <Zap className="h-4 w-4 text-yellow-400" />
                     <span className="text-xs text-slate-400">TOKENS:</span>
                     <span className="text-sm font-mono">{currentTokens.toLocaleString()}</span>
                     {parseFloat(tokensPerSecond) > 0 && (
@@ -124,6 +133,7 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
             </>
           ) : (
             <>
+              <CheckCircle className="h-4 w-4 text-gray-400" />
               <span className="text-sm text-gray-300">IDLE - Waiting for next task</span>
             </>
           )}
@@ -149,6 +159,9 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
         {/* RIGHT: System Status */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
+            {connection.status === 'connected' && connection.mode === 'websocket'
+              ? <Wifi className="h-4 w-4 text-green-400" />
+              : <WifiOff className="h-4 w-4 text-yellow-400" />}
             <span className="text-xs text-slate-400">CONNECTION:</span>
             <span className="text-xs font-semibold">
               {connection.status === 'connected' ? 'LIVE' : connection.mode.toUpperCase()}
@@ -158,6 +171,7 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
           <div className="h-5 w-px bg-slate-600" />
           
           <div className="flex items-center gap-1.5">
+            <Database className="h-4 w-4 text-slate-400" />
             <span className="text-xs text-slate-400">TASKS:</span>
             <span className="text-xs">
               {apiMetrics.succeeded}<span className="text-slate-500">/</span>
@@ -168,6 +182,7 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
           <div className="h-5 w-px bg-slate-600" />
           
           <div className="flex items-center gap-1.5">
+            <Zap className="h-4 w-4 text-yellow-400" />
             <span className="text-xs text-slate-400">TOTAL TOKENS:</span>
             <span className="text-xs font-mono">{(apiMetrics.totalTokens / 1000).toFixed(1)}k</span>
           </div>

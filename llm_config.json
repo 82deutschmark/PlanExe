@@ -3,21 +3,33 @@
         "comment": "Primary OpenAI GPT-5 Nano model (Responses API, streaming + reasoning)",
         "priority": 1,
         "provider": "openai",
-        "model": "gpt-5-nano-2025-08-07"
+        "model": "gpt-5-nano-2025-08-07",
+        "cost": {
+            "input": 0.05,
+            "output": 0.40
+        }
     },
 
     "gpt-5-mini-2025-08-07": {
         "comment": "Secondary OpenAI GPT-5 Mini model (Responses API, streaming + reasoning)",
         "priority": 2,
         "provider": "openai",
-        "model": "gpt-5-mini-2025-08-07"
+        "model": "gpt-5-mini-2025-08-07",
+        "cost": {
+            "input": 0.25,
+            "output": 2.00
+        }
     },
 
-    "gpt-5-mini": {
-        "comment": "Old fast OpenAI model. 128K context. Cost-effective for production.",
+    "gpt-4o-mini-2024-07-18": {
+        "comment": "Ancient OpenAI model. 128K context. No reasoning, emergency fallback only",
         "priority": 3,
         "provider": "openai",
-        "model": "gpt-5-mini",
+        "model": "gpt-4o-mini-2024-07-18",
+        "cost": {
+            "input": 0.15,
+            "output": 0.60
+        },
         "arguments": {
             "api_key": "${OPENAI_API_KEY}",    
             "is_function_calling_model": true,
