@@ -40,7 +40,9 @@ class StrictResponseModel(BaseModel):
                     updated = dict(node)
                     if updated.get("type") == "object":
                         updated["additionalProperties"] = False
-                    for key, value in node.items():
+                    for key, value in list(updated.items()):
+                        if key == "additionalProperties":
+                            continue
                         updated[key] = _set_additional_properties_false(value)
                     return updated
                 if isinstance(node, list):

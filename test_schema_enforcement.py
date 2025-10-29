@@ -49,7 +49,9 @@ def test_automatic_enforcement():
     enforced_without = _enforce_openai_schema_requirements(schema_without)
     print("\nAFTER enforcement:")
     print(json.dumps(enforced_without, indent=2))
-    print(f"\nHas additionalProperties=false? {enforced_without.get('additionalProperties') == False}")
+    assert (
+        enforced_without.get("additionalProperties") is False
+    ), "Root object must set additionalProperties to False"
     
     # Test 2: StrictResponseModel base class
     print("\n" + "=" * 80)
@@ -58,9 +60,9 @@ def test_automatic_enforcement():
     strict_schema = StrictModel.model_json_schema()
     print("STRICT model schema (already enforced):")
     print(json.dumps(strict_schema, indent=2))
-    print(
-        f"\nStrict schema has additionalProperties=false? {strict_schema.get('additionalProperties') is False}"
-    )
+    assert (
+        strict_schema.get("additionalProperties") is False
+    ), "StrictResponseModel must emit additionalProperties=False at the root"
 
     # Test 3: Model WITH manual extra
     print("\n" + "=" * 80)
@@ -73,7 +75,9 @@ def test_automatic_enforcement():
     enforced_with = _enforce_openai_schema_requirements(schema_with)
     print("\nAFTER enforcement:")
     print(json.dumps(enforced_with, indent=2))
-    print(f"\nHas additionalProperties=false? {enforced_with.get('additionalProperties') == False}")
+    assert (
+        enforced_with.get("additionalProperties") is False
+    ), "Manual json_schema_extra overrides must remain strict"
 
     # Test 4: Nested models
     print("\n" + "=" * 80)
@@ -91,6 +95,12 @@ def test_automatic_enforcement():
     enforced_nested = _enforce_openai_schema_requirements(schema_nested)
     print("\nAFTER enforcement (nested):")
     print(json.dumps(enforced_nested, indent=2))
+    assert enforced_nested.get("additionalProperties") is False
+    for name, definition in enforced_nested.get("properties", {}).items():
+        if isinstance(definition, dict) and definition.get("type") == "object":
+            assert (
+                definition.get("additionalProperties") is False
+            ), f"Nested object '{name}' must disallow additional properties"
     
     print("\n" + "=" * 80)
     print("\nCONCLUSION:")
