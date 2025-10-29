@@ -25,7 +25,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertCircle, Loader2, MessageCircle, RefreshCcw, Send, Sparkles } from 'lucide-react';
 import {
   ConversationFinalizeResult,
-  ConversationMessage,
   useResponsesConversation,
 } from '@/lib/conversation/useResponsesConversation';
 import { CreatePlanRequest, EnrichedPlanIntake } from '@/lib/api/fastapi-client';
@@ -42,11 +41,6 @@ interface ConversationModalProps {
   onFinalize: (result: ConversationFinalizeResult) => Promise<void>;
   isFinalizing: boolean;
 }
-
-const MESSAGE_BG: Record<ConversationMessage['role'], string> = {
-  user: 'bg-indigo-950/40 border-indigo-800',
-  assistant: 'bg-slate-800 border-slate-700',
-};
 
 export const ConversationModal: React.FC<ConversationModalProps> = ({
   isOpen,
@@ -91,6 +85,7 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
   const [hasAttemptedStart, setHasAttemptedStart] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [extractedIntake, setExtractedIntake] = useState<EnrichedPlanIntake | null>(null);
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -106,6 +101,11 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
   useEffect(() => {
     setHasAttemptedStart(false);
   }, [sessionKey]);
+
+  // Auto-scroll to latest message
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isStreaming]);
 
   useEffect(() => {
     if (!isOpen || hasAttemptedStart) {
@@ -268,26 +268,35 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
               </header>
               <div className="flex-1 min-h-0 space-y-5 overflow-y-auto px-8 py-6">
                 {messages.map((message) => (
-                <article
-                  key={message.id}
-                  className={`rounded-lg border px-5 py-4 text-sm leading-relaxed text-slate-200 shadow-sm ${MESSAGE_BG[message.role]}`}
-                >
-                  <header className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    <span>{message.role === 'assistant' ? 'PlanExe Agent' : 'You'}</span>
-                    <span>{new Date(message.createdAt).toLocaleTimeString()}</span>
-                  </header>
-                  <p className="whitespace-pre-wrap">
-                    {message.content || (message.streaming ? 'Thinking…' : '')}
-                  </p>
-                  {message.streaming && (
-                    <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      Agent drafting response…
-                    </div>
-                  )}
-                </article>
-              ))}
-            </div>
+                  <article
+                    key={message.id}
+                    className={`rounded-lg border shadow-sm ${
+                      message.role === 'assistant'
+                        ? 'mx-auto max-w-4xl bg-gradient-to-br from-indigo-900/60 to-purple-900/40 border-indigo-700/50 px-6 py-5'
+                        : 'bg-indigo-950/40 border-indigo-800 px-5 py-4 ml-auto max-w-2xl'
+                    }`}
+                  >
+                    <header className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-wide">
+                      <span className={message.role === 'assistant' ? 'text-indigo-300' : 'text-slate-400'}>
+                        {message.role === 'assistant' ? '🤖 PlanExe Agent' : 'You'}
+                      </span>
+                      <span className="text-slate-500">{new Date(message.createdAt).toLocaleTimeString()}</span>
+                    </header>
+                    <p className={`whitespace-pre-wrap leading-relaxed ${
+                      message.role === 'assistant' ? 'text-base text-slate-100' : 'text-sm text-slate-200'
+                    }`}>
+                      {message.content || (message.streaming ? 'Thinking…' : '')}
+                    </p>
+                    {message.streaming && (
+                      <div className="mt-3 flex items-center gap-2 text-xs text-indigo-300">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Agent drafting response…
+                      </div>
+                    )}
+                  </article>
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
             <footer className="shrink-0 flex flex-col border-t border-slate-800 bg-slate-900/50 px-8 py-5">
               <div className="flex flex-col gap-3 flex-1 items-center text-center">
                 <h3 className="text-base font-semibold uppercase tracking-wide text-slate-300">
