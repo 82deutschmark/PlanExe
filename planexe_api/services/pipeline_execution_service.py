@@ -136,20 +136,31 @@ class PipelineExecutionService:
 
             # Reset any persisted artefacts from previous attempts so progress tracking
             # starts at zero and Luigi regenerates every output file.
+            # CRITICAL: This MUST succeed or Luigi will find old content and think tasks are complete
             try:
                 db_service.reset_plan_run_state(plan_id)
                 print(f"DEBUG: Cleared persisted artefacts for plan {plan_id} before rerun")
             except Exception as exc:
-                print(f"WARNING: Failed to reset stored artefacts for plan {plan_id}: {exc}")
-                # CRITICAL FIX: Roll back the session to prevent PendingRollbackError
-                # on subsequent database operations (e.g., update_plan calls)
+                error_msg = f"CRITICAL: Failed to reset stored artefacts for plan {plan_id}: {exc}"
+                print(f"ERROR: {error_msg}")
+                logger.error(error_msg)
+                # Update plan status to failed
                 try:
                     db_service.db.rollback()
-                    print(f"DEBUG: Rolled back database session for plan {plan_id}")
-                except Exception as rollback_exc:
-                    print(f"ERROR: Failed to rollback database session for plan {plan_id}: {rollback_exc}")
-                    # If rollback fails, we cannot proceed safely as subsequent DB operations will fail
-                    return
+                    db_service.update_plan(plan_id, {
+                        "status": PlanStatus.failed.value,
+                        "error_message": error_msg,
+                    })
+                except Exception as update_exc:
+                    print(f"ERROR: Failed to update plan status: {update_exc}")
+                # Broadcast failure via WebSocket
+                await websocket_manager.broadcast_to_plan(plan_id, {
+                    "type": "status",
+                    "status": "failed",
+                    "message": error_msg,
+                    "timestamp": _utcnow_iso(),
+                })
+                return  # DO NOT START LUIGI - old content will cause instant completion
 
             # Safety check: verify database connectivity before spawning Luigi
             db_url = environment.get("DATABASE_URL")

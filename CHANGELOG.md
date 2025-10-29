@@ -9,7 +9,9 @@ This project follows [Semantic Versioning](https://semver.org/):
 ### [0.18.2] - 2025-10-29
 
 ### Fixed
-- **CRITICAL: Pipeline Instant Completion Bug**: Fixed catastrophic bug where the pipeline appeared to complete instantly without executing any tasks. The `PlanTask.run_inner()` method was incorrectly marked as `async` but contained only synchronous code with no `await` statements. In Python, async functions without await complete immediately without executing their body. Removed the `async` keyword to restore synchronous execution. This bug was introduced in commit 20b3f44 during async batching implementation. File: `planexe/plan/run_plan_pipeline.py` line 252.
+- **CRITICAL: Database Reset Failure Causing Instant Completion**: Fixed catastrophic bug where the pipeline appeared to complete instantly without executing tasks. The `reset_plan_run_state()` call added in commit 7b25385 (last night) was catching exceptions and only logging warnings, allowing Luigi to start with stale database content. Since `PlanContentTarget.exists()` checks the database for content, Luigi found old records and thought all tasks were already complete. The fix makes database reset mandatory - if it fails, the pipeline now fails immediately with a clear error message instead of silently continuing. File: `planexe_api/services/pipeline_execution_service.py` lines 137-163.
+
+- **CRITICAL: Pipeline Async/Sync Mismatch**: Fixed bug where `PlanTask.run_inner()` was incorrectly marked as `async` but contained only synchronous code with no `await` statements. In Python, async functions without await complete immediately without executing their body. Removed the `async` keyword to restore synchronous execution. This bug was introduced in commit 20b3f44 during async batching implementation. File: `planexe/plan/run_plan_pipeline.py` line 252.
 
 - **FilterDocumentsToCreateTask Compatibility**: Added missing Pydantic imports (`BaseModel`, `Field`) that were accidentally removed, causing immediate module import failures. File: `planexe/document/filter_documents_to_create.py`.
 
@@ -22,10 +24,10 @@ This project follows [Semantic Versioning](https://semver.org/):
   File: `planexe/plan/create_wbs_level3.py`.
 
 ### Impact
-- **Pipeline Execution**: The pipeline now actually runs tasks instead of completing instantly without doing any work.
-- **Error Detection**: WBS Level 3 task properly fails when LLM responses are invalid, preventing silent failures.
-- **Debugging**: Enhanced error logging makes it easier to identify and fix LLM response issues.
-- **Module Loading**: Document filtering tasks can be imported without errors.
+- **Pipeline Execution**: The pipeline now properly clears old database content before starting, preventing Luigi from thinking tasks are already complete.
+- **Error Visibility**: Database reset failures now fail the entire pipeline startup with clear error messages instead of silently causing instant completion.
+- **Data Integrity**: Ensures each pipeline run starts with a clean slate in the database.
+- **Debugging**: Enhanced error logging makes it easier to identify database or LLM response issues.
 
 ### [0.18.1] - 2025-10-29 00:02
 
