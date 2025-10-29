@@ -91,6 +91,11 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
   const [hasAttemptedStart, setHasAttemptedStart] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [extractedIntake, setExtractedIntake] = useState<EnrichedPlanIntake | null>(null);
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -287,6 +292,7 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
                   )}
                 </article>
               ))}
+              <div ref={messagesEndRef} />
             </div>
             <footer className="shrink-0 flex flex-col border-t border-slate-800 bg-slate-900/50 px-8 py-5">
               <div className="flex flex-col gap-3 flex-1 items-center text-center">
