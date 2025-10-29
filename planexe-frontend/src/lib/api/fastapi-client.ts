@@ -391,6 +391,14 @@ export interface ConversationFinalizeResponse {
   completed_at?: string | null;
 }
 
+export interface ImageGenerationResponse {
+  conversation_id: string;
+  image_b64: string;
+  prompt: string;
+  model: string;
+  size: string;
+}
+
 // WebSocket Message Types
 export interface WebSocketLogMessage {
   type: 'log';
@@ -826,6 +834,23 @@ export class FastAPIClient {
     );
 
     return this.handleResponse<ConversationFinalizeResponse>(response);
+  }
+
+  async generateIntakeImage(
+    conversation_id: string,
+    prompt: string,
+  ): Promise<ImageGenerationResponse> {
+    const response = await fetch(
+      `${this.baseURL}/api/conversations/${encodeURIComponent(conversation_id)}/generate-image`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt }),
+      },
+    );
+    return this.handleResponse<ImageGenerationResponse>(response);
   }
 
   async createAnalysisStream(

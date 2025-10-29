@@ -388,6 +388,57 @@ async def create_conversation_followup_endpoint(
     return await conversation_service.followup(conversation_id=conversation_id, request=request)
 
 
+@app.post("/api/conversations/{conversation_id}/generate-image")
+async def generate_intake_image_endpoint(conversation_id: str, request: Request):
+    """Generate a concept image for the user's initial idea using gpt-image-1-mini."""
+    import base64
+    from openai import OpenAI
+    
+    if not STREAMING_ENABLED:
+        raise HTTPException(status_code=403, detail="STREAMING_DISABLED")
+    
+    try:
+        body = await request.json()
+        prompt = body.get("prompt", "").strip()
+        
+        if not prompt:
+            raise HTTPException(status_code=400, detail="Prompt is required")
+        
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=500, detail="OPENAI_API_KEY not configured")
+        
+        # Generate image using OpenAI
+        client = OpenAI(api_key=api_key)
+        response = client.images.generate(
+            model="gpt-image-1-mini",
+            prompt=prompt,
+            size="1024x1024",
+            response_format="b64_json",
+        )
+        
+        if not response.data or len(response.data) == 0:
+            raise HTTPException(status_code=500, detail="No image data returned from OpenAI")
+        
+        image_b64 = response.data[0].b64_json
+        if not image_b64:
+            raise HTTPException(status_code=500, detail="Image generation failed")
+        
+        return {
+            "conversation_id": conversation_id,
+            "image_b64": image_b64,
+            "prompt": prompt,
+            "model": "gpt-image-1-mini",
+            "size": "1024x1024",
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[IMAGE_GEN] Error generating intake image: {e}")
+        raise HTTPException(status_code=500, detail=f"Image generation failed: {str(e)}")
+
+
 @app.post("/api/stream/analyze", response_model=AnalysisStreamSessionResponse)
 async def create_analysis_stream_endpoint(
     request: AnalysisStreamRequest,

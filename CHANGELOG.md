@@ -6,6 +6,16 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+
+### [0.18.5] - 2025-10-29
+
+### Added
+- **Intake Conversation Visual Concept Generation**: User's initial idea is now visualized immediately during conversation intake using OpenAI `gpt-image-1-mini`. The system dispatches parallel image generation when the user submits their first prompt, displaying creative animated loading states (gradient shimmer, pulsing sparkles, rotating messages) for ~30 seconds while the image generates. The generated 1024x1024 PNG displays in the intake screen's right panel (60% height), with the reasoning summary shrunk to 40% below it. This provides immediate visual feedback and helps users refine their vision before pipeline execution begins.
+  - Backend endpoint: `POST /api/conversations/{id}/generate-image` @planexe_api/api.py#391-439
+  - Frontend hook integration: parallel fire-and-forget request in `startConversation()` @planexe-frontend/src/lib/conversation/useResponsesConversation.ts#354-368
+  - Creative loading component with animated gradients and sparkles @planexe-frontend/src/components/planning/IntakeImagePanel.tsx
+  - Layout redesign: split right panel (60% image, 40% reasoning) @planexe-frontend/src/components/planning/ConversationModal.tsx#371-391
+
 ### [0.18.4] - 2025-10-29
 
 ### Fixed

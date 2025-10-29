@@ -1,11 +1,10 @@
-# Author: ChatGPT using gpt-5-codex
-# Date: 2025-10-23T00:00:00Z
-# PURPOSE: Manage Luigi pipeline execution, broadcasting live telemetry to
-#          WebSocket clients while coordinating subprocess lifecycle and
-#          database writes.
-# SRP and DRY check: Pass - centralises execution orchestration without
-#          duplicating WebSocket or database logic that already exists in
-#          shared helpers.
+# Author: Cascade
+# Date: 2025-10-29T18:05:00Z
+# PURPOSE: Manage Luigi pipeline execution, streaming telemetry to WebSocket clients,
+#          coordinating subprocess lifecycle, and preparing run directories.
+# SRP and DRY check: Pass – centralises execution orchestration without duplicating
+#          WebSocket, database, or preflight file preparation logic that exists in
+#          dedicated helpers elsewhere in the project.
 
 """Luigi pipeline execution service with streaming-aware telemetry forwarding.
 
@@ -17,17 +16,17 @@ Code (Sonnet 4, 2025-09-27).
 """
 import json
 import os
+import shutil
 import subprocess
 import threading
 import time
-import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 import platform
 
-from planexe_api.models import CreatePlanRequest, PlanStatus
 from planexe_api.database import DatabaseService, PlanFile as DBPlanFile
+from planexe_api.models import CreatePlanRequest, PlanStatus
 from planexe_api.websocket_manager import websocket_manager
 from planexe.plan.pipeline_environment import PipelineEnvironmentEnum
 from planexe.plan.speedvsdetail import SpeedVsDetailEnum
@@ -220,7 +219,7 @@ class PipelineExecutionService:
                 return
 
             # Write pipeline input files
-            self._write_pipeline_inputs(run_id_dir, request)
+            self._write_pipeline_inputs(plan_id, run_id_dir, request, db_service)
 
             # Update plan status to running and broadcast
             db_service.update_plan(plan_id, {
@@ -412,8 +411,14 @@ class PipelineExecutionService:
             print(f"ERROR DB: Database connectivity test failed: {e}")
             return False
 
-    def _write_pipeline_inputs(self, run_id_dir: Path, request: CreatePlanRequest) -> None:
-        """Write input files required by Luigi pipeline"""
+    def _write_pipeline_inputs(
+        self,
+        plan_id: str,
+        run_id_dir: Path,
+        request: CreatePlanRequest,
+        db_service: DatabaseService,
+    ) -> None:
+        """Write input files required by Luigi pipeline."""
         # CRITICAL FIX: ALWAYS delete run directory before each plan to prevent Luigi from skipping tasks
         # Luigi checks if output files exist, and if they do, it considers tasks "already complete"
         # This was causing the production issue where Luigi would hang without executing tasks

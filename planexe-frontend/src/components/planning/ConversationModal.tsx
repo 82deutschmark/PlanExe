@@ -30,6 +30,7 @@ import {
 import { CreatePlanRequest, EnrichedPlanIntake } from '@/lib/api/fastapi-client';
 import { useConfigStore } from '@/lib/stores/config';
 import { EnrichedIntakeReview } from '@/components/planning/EnrichedIntakeReview';
+import { IntakeImagePanel } from '@/components/planning/IntakeImagePanel';
 
 const FALLBACK_MODEL_ID = 'gpt-5-nano-2025-08-07';
 
@@ -72,6 +73,9 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
     isStreaming,
     streamError,
     reasoningBuffer,
+    imageGenerationState,
+    generatedImageB64,
+    imageGenerationError,
   } = useResponsesConversation({
     initialPrompt,
     modelKey: resolvedModel,
@@ -365,7 +369,14 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
           </section>
 
           <aside className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
-            <Card className="flex flex-col flex-1 min-h-0 border-slate-800 bg-slate-900 overflow-hidden">
+            <div className="flex-[0.6] min-h-0">
+              <IntakeImagePanel
+                state={imageGenerationState}
+                imageB64={generatedImageB64}
+                error={imageGenerationError}
+              />
+            </div>
+            <Card className="flex flex-col flex-[0.4] min-h-0 border-slate-800 bg-slate-900 overflow-hidden">
               <CardHeader className="pb-3 shrink-0">
                 <CardTitle className="text-sm font-semibold uppercase tracking-wide text-slate-400">
                   Reasoning summary

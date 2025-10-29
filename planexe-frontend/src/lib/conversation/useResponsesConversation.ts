@@ -63,6 +63,9 @@ export interface UseResponsesConversationReturn {
   reasoningBuffer: string;
   jsonChunks: Array<Record<string, unknown>>;
   usage: Record<string, unknown> | null;
+  imageGenerationState: 'idle' | 'generating' | 'completed' | 'error';
+  generatedImageB64: string | null;
+  imageGenerationError: string | null;
 }
 
 const SYSTEM_PROMPT = `You are the PlanExe intake specialist. You are super enthusiastic and compliment the user a lot. You immediately see the bigger potential for the user's ideas.  You embody the  "Yes! And... " spirit of improv while mapping every answer to a structured schema with complete clarity. 
@@ -115,6 +118,9 @@ export function useResponsesConversation(
   }, []);
   const [lastFinal, setLastFinal] = useState<ConversationFinalPayload | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [imageGenerationState, setImageGenerationState] = useState<'idle' | 'generating' | 'completed' | 'error'>('idle');
+  const [generatedImageB64, setGeneratedImageB64] = useState<string | null>(null);
+  const [imageGenerationError, setImageGenerationError] = useState<string | null>(null);
 
   const messagesRef = useRef<ConversationMessage[]>(messages);
 
@@ -138,6 +144,9 @@ export function useResponsesConversation(
     persistResponseId(null);
     setLastFinal(null);
     setLastError(null);
+    setImageGenerationState('idle');
+    setGeneratedImageB64(null);
+    setImageGenerationError(null);
     closeStream(true);
   }, [initialPrompt, conversationKey, closeStream, updateMessages, persistResponseId]);
 
@@ -341,8 +350,25 @@ export function useResponsesConversation(
       createdAt: new Date().toISOString(),
     };
     updateMessages(() => [userMessage]);
+
+    // Start image generation in parallel (fire and forget)
+    const remoteConvId = await ensureRemoteConversation();
+    setImageGenerationState('generating');
+    fastApiClient.generateIntakeImage(remoteConvId, trimmed)
+      .then((response) => {
+        setGeneratedImageB64(response.image_b64);
+        setImageGenerationState('completed');
+        console.log('[useResponsesConversation] Image generation completed');
+      })
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : 'Image generation failed';
+        setImageGenerationError(message);
+        setImageGenerationState('error');
+        console.error('[useResponsesConversation] Image generation failed:', error);
+      });
+
     await streamAssistantReply(trimmed);
-  }, [initialPrompt, initialised, streamAssistantReply, updateMessages]);
+  }, [initialPrompt, initialised, streamAssistantReply, updateMessages, ensureRemoteConversation]);
 
   const sendUserMessage = useCallback(
     async (content: string) => {
@@ -417,6 +443,9 @@ export function useResponsesConversation(
     persistResponseId(null);
     setLastFinal(null);
     setLastError(null);
+    setImageGenerationState('idle');
+    setGeneratedImageB64(null);
+    setImageGenerationError(null);
     closeStream(true);
   }, [closeStream, persistResponseId, updateMessages]);
 
@@ -437,5 +466,8 @@ export function useResponsesConversation(
     reasoningBuffer: streamState.reasoningBuffer,
     jsonChunks: streamState.jsonChunks,
     usage: streamState.usage,
+    imageGenerationState,
+    generatedImageB64,
+    imageGenerationError,
   };
 }
