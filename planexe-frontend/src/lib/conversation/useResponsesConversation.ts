@@ -212,7 +212,7 @@ export function useResponsesConversation(
           initialPrompt: truncatedPrompt,
           ...(metadata ?? {}),
         },
-        reasoningEffort: (userReasoningEffort ?? defaults.reasoningEffort) as 'low' | 'medium' | 'high',
+        reasoningEffort: (userReasoningEffort ?? defaults.reasoningEffort) as 'minimal' | 'low' | 'medium' | 'high',
         reasoningSummary: defaults.reasoningSummary,
         textVerbosity: defaults.textVerbosity,
         store: true,

@@ -290,7 +290,7 @@ export interface ConversationTurnRequestPayload {
   previousResponseId?: string;
   instructions?: string;
   metadata?: Record<string, unknown>;
-  reasoningEffort?: 'low' | 'medium' | 'high';
+  reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high';
   reasoningSummary?: string;
   textVerbosity?: string;
   store?: boolean;

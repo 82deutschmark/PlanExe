@@ -6,6 +6,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+## [0.15.6] - 2025-10-28
+
+### Fixed
+- Expanded the conversation turn typing to accept all four reasoning effort levels so the frontend stays in sync with backend validation and avoids TS errors when "minimal" is selected. @planexe-frontend/src/lib/api/fastapi-client.ts#287-299
+
 ## [0.15.5] - 2025-10-28
 
 ### Fixed
