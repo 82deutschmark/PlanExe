@@ -31,7 +31,7 @@ class ImageGenerationService:
     DEFAULT_ALLOWED_SIZES = ["256x256", "512x512", "1024x1024", "1792x1024", "1024x1792"]
     DEFAULT_TIMEOUT_SECONDS = 60.0
     DEFAULT_MAX_RETRIES = 2
-    GENERATE_URL = "https://api.openai.com/v1/images"
+    GENERATE_URL = "https://api.openai.com/v1/images/generations"
     EDIT_URL = "https://api.openai.com/v1/images/edits"
 
     def __init__(self):
@@ -115,11 +115,26 @@ class ImageGenerationService:
         except Exception as exc:  # pragma: no cover - defensive
             raise ImageGenerationError(f"Invalid base64 data provided for {label}") from exc
 
+    async def _fetch_image_from_url(self, url: str, timeout: float = 30.0) -> Tuple[str, str]:
+        """Fetch an image from a URL and convert to base64, returning the data and a format label."""
+
+        try:
+            return base64.b64decode(encoded, validate=True)
+        except Exception as exc:  # pragma: no cover - defensive
+            raise ImageGenerationError(f"Invalid base64 data provided for {label}") from exc
+
+                image_bytes = response.content
+                return base64.b64encode(image_bytes).decode("utf-8"), "base64_from_url"
+        except httpx.TimeoutException:
+            raise ImageGenerationError("Timeout while fetching image from URL")
+        except Exception as exc:  # pragma: no cover - defensive
+            raise ImageGenerationError(f"Error fetching image from URL: {str(exc)}") from exc
+
     async def _generate_with_images_api(
         self,
         payload: Dict[str, Any],
         timeout: float = 60.0,
-    ) -> Tuple[str, str]:
+    ) -> Tuple[str, str, str]:
         """Generate an image using the JSON Images API."""
 
         headers = self._build_headers()
@@ -146,9 +161,15 @@ class ImageGenerationService:
 
             if image_b64:
                 revised_prompt = image_entry.get("revised_prompt") or payload.get("prompt")
-                return image_b64, revised_prompt
+                return image_b64, revised_prompt, "base64"
 
-            raise ImageGenerationError("No base64 data returned from OpenAI Images API")
+            image_url = image_entry.get("url")
+            if image_url:
+                fetched_b64, format_label = await self._fetch_image_from_url(image_url, timeout=timeout)
+                revised_prompt = image_entry.get("revised_prompt") or payload.get("prompt")
+                return fetched_b64, revised_prompt, format_label
+
+            raise ImageGenerationError("No base64 or URL data returned from OpenAI Images API")
 
         except httpx.TimeoutException:
             raise ImageGenerationError("Timeout while generating image")
@@ -286,7 +307,7 @@ class ImageGenerationService:
         last_error = None
         for attempt in range(retries + 1):
             try:
-                result_b64, applied_prompt = await self._generate_with_images_api(
+                result_b64, applied_prompt, format_label = await self._generate_with_images_api(
                     payload,
                     timeout_seconds,
                 )
@@ -295,7 +316,7 @@ class ImageGenerationService:
                     "image_b64": result_b64,
                     "model": model,
                     "size": actual_size,
-                    "format": "base64",
+                    "format": format_label,
                     "prompt": applied_prompt or clean_prompt,
                 }
 

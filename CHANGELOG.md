@@ -7,6 +7,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **PATCH**: Bug fixes (backward compatible)
 
 
+### [0.19.1] - 2025-10-30
+
+### Fixed
+- **Image Generation Endpoint**: Corrected the OpenAI generation URL back to `/v1/images/generations` and restored the URL-to-base64 fallback so gpt-image-1-mini requests succeed reliably again, including metadata propagation for UI display. (Files: `planexe_api/services/image_generation_service.py`)
+
 ### [0.19.0] - 2025-10-29
 
 ### Added
