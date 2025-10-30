@@ -56,6 +56,7 @@ export interface GeneratedImageMetadata {
   model: string;
   size: string;
   format: string;
+  compression?: number;
 }
 
 export interface UseResponsesConversationReturn {
@@ -390,17 +391,29 @@ export function useResponsesConversation(
     fastApiClient
       .generateIntakeImage(remoteConvId, trimmed, imageOptionsRef.current)
       .then((response) => {
+        if (response.conversation_id) {
+          setConversationId((prev) => {
+            if (prev) return prev;
+            return response.conversation_id ?? null;
+          });
+        }
         setGeneratedImageB64(response.image_b64);
         setGeneratedImagePrompt(response.prompt);
         const metadata: GeneratedImageMetadata = {
           model: response.model,
           size: response.size,
           format: response.format,
+          compression: response.compression ?? undefined,
         };
         setGeneratedImageMetadata(metadata);
         imageOptionsRef.current = {
           ...imageOptionsRef.current,
           size: response.size,
+          outputFormat: response.format !== 'base64' ? response.format : imageOptionsRef.current?.outputFormat,
+          outputCompression:
+            typeof response.compression === 'number'
+              ? response.compression
+              : imageOptionsRef.current?.outputCompression,
         };
         setImageGenerationState('completed');
         console.log('[useResponsesConversation] Image generation completed');
@@ -462,15 +475,26 @@ export function useResponsesConversation(
       if (options?.style) payload.style = options.style;
       if (options?.background) payload.background = options.background;
       if (options?.negativePrompt) payload.negativePrompt = options.negativePrompt;
+      if (options?.outputFormat) payload.outputFormat = options.outputFormat;
+      if (typeof options?.outputCompression === 'number') {
+        payload.outputCompression = options.outputCompression;
+      }
 
       try {
         const response = await fastApiClient.editIntakeImage(remoteConvId, payload);
+        if (response.conversation_id) {
+          setConversationId((prev) => {
+            if (prev) return prev;
+            return response.conversation_id ?? null;
+          });
+        }
         setGeneratedImageB64(response.image_b64);
         setGeneratedImagePrompt(response.prompt);
         const nextMetadata: GeneratedImageMetadata = {
           model: response.model,
           size: response.size,
           format: response.format,
+          compression: response.compression ?? undefined,
         };
         setGeneratedImageMetadata(nextMetadata);
         imageOptionsRef.current = {
@@ -481,6 +505,14 @@ export function useResponsesConversation(
           style: payload.style ?? options?.style,
           background: payload.background ?? options?.background,
           negativePrompt: payload.negativePrompt ?? options?.negativePrompt,
+          outputFormat:
+            response.format !== 'base64'
+              ? response.format
+              : payload.outputFormat ?? options?.outputFormat,
+          outputCompression:
+            typeof response.compression === 'number'
+              ? response.compression
+              : payload.outputCompression ?? options?.outputCompression,
         };
         setImageGenerationState('completed');
         console.log('[useResponsesConversation] Image edit completed');

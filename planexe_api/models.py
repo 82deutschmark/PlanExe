@@ -161,13 +161,28 @@ class APIError(BaseModel):
 class ImageRequestBase(BaseModel):
     """Shared fields for image generation and editing requests."""
 
+    conversation_id: Optional[str] = Field(
+        None,
+        description="Optional conversation identifier associated with the request",
+        min_length=1,
+    )
     prompt: str = Field(..., min_length=1, description="User-facing instructions for the image model")
     model_key: Optional[str] = Field(None, description="Optional configured model key override")
     size: Optional[str] = Field(None, description="Desired image dimensions, e.g. 1024x1024")
-    quality: Optional[str] = Field(None, description="Quality hint forwarded to OpenAI (standard, high)")
+    quality: Optional[str] = Field(None, description="Quality hint forwarded to OpenAI (low, medium, high, auto)")
     style: Optional[str] = Field(None, description="Style hint forwarded to OpenAI (natural, vivid)")
     background: Optional[str] = Field(None, description="Background directive forwarded to the image API")
     negative_prompt: Optional[str] = Field(None, description="Negative prompting text for the image API")
+    output_format: Optional[str] = Field(
+        None,
+        description="Requested output container format when available (png, jpeg, webp)",
+    )
+    output_compression: Optional[int] = Field(
+        None,
+        description="Output compression percentage for jpeg/webp responses (0-100)",
+        ge=0,
+        le=100,
+    )
 
     @field_validator("prompt")
     @classmethod
@@ -176,6 +191,32 @@ class ImageRequestBase(BaseModel):
         if not cleaned:
             raise ValueError("prompt cannot be empty")
         return cleaned
+
+    @field_validator("conversation_id")
+    @classmethod
+    def validate_conversation_id(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        return cleaned or None
+
+    @field_validator("output_format")
+    @classmethod
+    def validate_output_format(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        cleaned = value.strip().lower()
+        return cleaned or None
+
+    @field_validator("output_compression")
+    @classmethod
+    def validate_output_compression(
+        cls,
+        value: Optional[int],
+    ) -> Optional[int]:
+        if value is None:
+            return None
+        return int(value)
 
 
 class ImageGenerationRequest(ImageRequestBase):
@@ -192,12 +233,22 @@ class ImageEditRequest(ImageRequestBase):
 class ImageGenerationResponse(BaseModel):
     """Response payload returned after image generation or editing."""
 
-    conversation_id: str = Field(..., description="Conversation identifier tied to the image request")
+    conversation_id: Optional[str] = Field(
+        None,
+        description="Conversation identifier tied to the image request, when provided",
+        min_length=1,
+    )
     image_b64: str = Field(..., description="Base64-encoded PNG data")
     prompt: str = Field(..., description="Prompt used for the final image request")
     model: str = Field(..., description="Resolved model identifier used by the service")
     size: str = Field(..., description="Actual size supplied to the image API")
     format: str = Field(..., description="Image payload format metadata")
+    compression: Optional[int] = Field(
+        None,
+        description="Applied output compression percentage when available",
+        ge=0,
+        le=100,
+    )
 
 
 class PipelineDetailsResponse(BaseModel):

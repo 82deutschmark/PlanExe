@@ -392,12 +392,13 @@ export interface ConversationFinalizeResponse {
 }
 
 export interface ImageGenerationResponse {
-  conversation_id: string;
+  conversation_id?: string;
   image_b64: string;
   prompt: string;
   model: string;
   size: string;
   format: string;
+  compression?: number;
 }
 
 export interface ImageGenerationOptions {
@@ -407,6 +408,8 @@ export interface ImageGenerationOptions {
   style?: string;
   background?: string;
   negativePrompt?: string;
+  outputFormat?: string;
+  outputCompression?: number;
 }
 
 export interface ImageEditPayload extends ImageGenerationOptions {
@@ -857,16 +860,20 @@ export class FastAPIClient {
     prompt: string,
     options?: ImageGenerationOptions,
   ): Promise<ImageGenerationResponse> {
-    const body: Record<string, unknown> = { prompt };
+    const body: Record<string, unknown> = { prompt, conversation_id };
     if (options?.modelKey) body.model_key = options.modelKey;
     if (options?.size) body.size = options.size;
     if (options?.quality) body.quality = options.quality;
     if (options?.style) body.style = options.style;
     if (options?.background) body.background = options.background;
     if (options?.negativePrompt) body.negative_prompt = options.negativePrompt;
+    if (options?.outputFormat) body.output_format = options.outputFormat;
+    if (typeof options?.outputCompression === 'number') {
+      body.output_compression = options.outputCompression;
+    }
 
     const response = await fetch(
-      `${this.baseURL}/api/conversations/${encodeURIComponent(conversation_id)}/generate-image`,
+      `${this.baseURL}/api/images/generate`,
       {
         method: 'POST',
         headers: {
@@ -885,6 +892,7 @@ export class FastAPIClient {
     const body: Record<string, unknown> = {
       prompt: payload.prompt,
       base_image_b64: payload.baseImageB64,
+      conversation_id,
     };
     if (payload.maskB64) body.mask_b64 = payload.maskB64;
     if (payload.modelKey) body.model_key = payload.modelKey;
@@ -893,9 +901,13 @@ export class FastAPIClient {
     if (payload.style) body.style = payload.style;
     if (payload.background) body.background = payload.background;
     if (payload.negativePrompt) body.negative_prompt = payload.negativePrompt;
+    if (payload.outputFormat) body.output_format = payload.outputFormat;
+    if (typeof payload.outputCompression === 'number') {
+      body.output_compression = payload.outputCompression;
+    }
 
     const response = await fetch(
-      `${this.baseURL}/api/conversations/${encodeURIComponent(conversation_id)}/edit-image`,
+      `${this.baseURL}/api/images/edit`,
       {
         method: 'POST',
         headers: {

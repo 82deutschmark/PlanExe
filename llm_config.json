@@ -49,18 +49,27 @@
             "allowed_sizes": [
                 "1024x1024",
                 "1024x1536",
-                "1536x1024"
+                "1536x1024",
+                "auto"
             ],
             "timeout_seconds": 60,
             "max_retries": 2,
-            "quality": "medium",
+            "quality": "auto",
             "allowed_qualities": [
                 "low",
                 "medium",
-                "high"
+                "high",
+                "auto"
             ],
             "style": "natural",
             "background": "transparent",
+            "default_output_format": "png",
+            "allowed_output_formats": [
+                "png",
+                "jpeg",
+                "webp"
+            ],
+            "default_output_compression": 85,
             "responses_model_key": "gpt-5-nano-2025-08-07",
             "responses_instructions": "Return a single concept image encoded as base64 JSON and ensure it matches the requested size."
         }

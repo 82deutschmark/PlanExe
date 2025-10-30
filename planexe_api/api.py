@@ -389,18 +389,9 @@ async def create_conversation_followup_endpoint(
     return await conversation_service.followup(conversation_id=conversation_id, request=request)
 
 
-@app.post(
-    "/api/conversations/{conversation_id}/generate-image",
-    response_model=ImageGenerationResponse,
-)
-async def generate_intake_image_endpoint(
-    conversation_id: str,
-    request: ImageGenerationRequest,
-):
-    """Generate a concept image for the user's initial idea."""
-
-    if not STREAMING_ENABLED:
-        raise HTTPException(status_code=403, detail="STREAMING_DISABLED")
+@app.post("/api/images/generate", response_model=ImageGenerationResponse)
+async def generate_image_endpoint(request: ImageGenerationRequest):
+    """Generate a concept image using the OpenAI Images API."""
 
     try:
         result = await image_generation_service.generate_concept_image(
@@ -411,15 +402,18 @@ async def generate_intake_image_endpoint(
             style=request.style,
             background=request.background,
             negative_prompt=request.negative_prompt,
+            output_format=request.output_format,
+            output_compression=request.output_compression,
         )
 
         return ImageGenerationResponse(
-            conversation_id=conversation_id,
+            conversation_id=request.conversation_id,
             image_b64=result["image_b64"],
             prompt=result.get("prompt", request.prompt),
             model=result["model"],
             size=result["size"],
             format=result["format"],
+            compression=result.get("compression"),
         )
 
     except ImageGenerationError as e:
@@ -428,18 +422,9 @@ async def generate_intake_image_endpoint(
         raise HTTPException(status_code=500, detail="Image generation failed") from e
 
 
-@app.post(
-    "/api/conversations/{conversation_id}/edit-image",
-    response_model=ImageGenerationResponse,
-)
-async def edit_intake_image_endpoint(
-    conversation_id: str,
-    request: ImageEditRequest,
-):
-    """Apply edits to an existing concept image."""
-
-    if not STREAMING_ENABLED:
-        raise HTTPException(status_code=403, detail="STREAMING_DISABLED")
+@app.post("/api/images/edit", response_model=ImageGenerationResponse)
+async def edit_image_endpoint(request: ImageEditRequest):
+    """Apply edits to an existing concept image using the OpenAI Images API."""
 
     try:
         result = await image_generation_service.edit_concept_image(
@@ -452,15 +437,18 @@ async def edit_intake_image_endpoint(
             style=request.style,
             background=request.background,
             negative_prompt=request.negative_prompt,
+            output_format=request.output_format,
+            output_compression=request.output_compression,
         )
 
         return ImageGenerationResponse(
-            conversation_id=conversation_id,
+            conversation_id=request.conversation_id,
             image_b64=result["image_b64"],
             prompt=result.get("prompt", request.prompt),
             model=result["model"],
             size=result["size"],
             format=result["format"],
+            compression=result.get("compression"),
         )
 
     except ImageGenerationError as e:

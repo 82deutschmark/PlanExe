@@ -7,6 +7,22 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **PATCH**: Bug fixes (backward compatible)
 
 
+### [0.20.1] - 2025-10-30
+
+### Fixed
+- **Two-step gpt-image-1-mini flow**: Replaced the conversation-scoped image endpoints with dedicated `/api/images/generate` and `/api/images/edit` routes so the backend now mirrors the documented two-call pattern (Responses API for text plus Images API for renders), and passed the optional `conversation_id` through request bodies/responses. (Files: `planexe_api/api.py`, `planexe_api/models.py`)
+- **Frontend client alignment**: Updated the FastAPI client and intake conversation hook to call the new image routes, pass the `conversation_id`, and reconcile the optional identifier returned by the service. (Files: `planexe-frontend/src/lib/api/fastapi-client.ts`, `planexe-frontend/src/lib/conversation/useResponsesConversation.ts`)
+- **Best-practice documentation**: Clarified that PlanExe performs separate Responses and Images API calls per the October 2025 guidance. (Files: `docs/gpt-image-1-mini-best-practices.md`)
+
+### [0.20.0] - 2025-10-30
+
+### Added
+- **gpt-image-1-mini Best Practices Doc**: Documented the October 2025 OpenAI image guidance and the PlanExe defaults that follow it, covering quality tiers, size presets, formats, compression, and transparency safeguards. (Files: `docs/gpt-image-1-mini-best-practices.md`)
+
+### Changed
+- **Image Service Output Controls**: Extended the backend image generation/edit flows to forward `output_format` and `output_compression`, honour `auto` quality/size presets, guard unsupported transparent backgrounds, and echo the applied metadata. (Files: `planexe_api/services/image_generation_service.py`, `planexe_api/api.py`, `planexe_api/models.py`, `llm_config.json`)
+- **Frontend Image Metadata Handling**: Updated the FastAPI client and conversation hook/UI to send the new options, persist returned format/compression, and surface the metadata in the intake panel. (Files: `planexe-frontend/src/lib/api/fastapi-client.ts`, `planexe-frontend/src/lib/conversation/useResponsesConversation.ts`, `planexe-frontend/src/components/planning/IntakeImagePanel.tsx`)
+
 ### [0.19.3] - 2025-10-30
 
 ### Fixed

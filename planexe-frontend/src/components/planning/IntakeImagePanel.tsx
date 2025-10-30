@@ -123,6 +123,7 @@ export const IntakeImagePanel: React.FC<IntakeImagePanelProps> = ({
                 {metadata && (
                   <p className="text-slate-500">
                     {metadata.model} · {metadata.size} · {metadata.format.toUpperCase()}
+                    {typeof metadata.compression === 'number' ? ` (${metadata.compression}% compression)` : ''}
                   </p>
                 )}
               </div>
