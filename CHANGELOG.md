@@ -7,6 +7,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **PATCH**: Bug fixes (backward compatible)
 
 
+### [0.19.3] - 2025-10-30
+
+### Fixed
+- **gpt-image-1-mini Defaults**: Updated the image generation service and model configuration to match the latest OpenAI guidance, enforcing the `low/medium/high` quality tier and 1024/1536 dimension options so requests stop failing validation. (Files: `planexe_api/services/image_generation_service.py`, `llm_config.json`)
+
 ### [0.19.2] - 2025-10-30
 
 ### Fixed

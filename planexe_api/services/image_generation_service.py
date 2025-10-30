@@ -28,7 +28,7 @@ class ImageGenerationService:
     """Service for generating concept images using OpenAI's image generation APIs."""
 
     DEFAULT_MODEL = "gpt-image-1-mini"
-    DEFAULT_ALLOWED_SIZES = ["256x256", "512x512", "1024x1024", "1792x1024", "1024x1792"]
+    DEFAULT_ALLOWED_SIZES = ["1024x1024", "1024x1536", "1536x1024"]
     DEFAULT_TIMEOUT_SECONDS = 60.0
     DEFAULT_MAX_RETRIES = 2
     GENERATE_URL = "https://api.openai.com/v1/images/generations"
@@ -87,6 +87,39 @@ class ImageGenerationService:
         if self.organization:
             headers["OpenAI-Organization"] = self.organization
         return headers
+
+    def _normalise_quality(
+        self,
+        requested_quality: Optional[str],
+        defaults: Dict[str, Any],
+    ) -> Optional[str]:
+        """Resolve the `quality` parameter using configuration defaults and allowed values."""
+
+        allowed = []
+        configured = defaults.get("allowed_qualities")
+        if isinstance(configured, list):
+            allowed = [str(item).strip().lower() for item in configured if str(item).strip()]
+
+        def _clean(value: Optional[str]) -> Optional[str]:
+            if value is None:
+                return None
+            cleaned = str(value).strip().lower()
+            if not cleaned:
+                return None
+            if allowed:
+                return cleaned if cleaned in allowed else None
+            return cleaned
+
+        resolved_requested = _clean(requested_quality)
+        if resolved_requested:
+            return resolved_requested
+
+        default_quality = defaults.get("quality")
+        resolved_default = _clean(default_quality)
+        if resolved_default:
+            return resolved_default
+
+        return allowed[0] if allowed else None
 
     def _resolve_optional_setting(
         self,
@@ -295,7 +328,7 @@ class ImageGenerationService:
         model, model_config = self._resolve_model(model_key)
         defaults = self._get_image_defaults(model_config)
         actual_size = self._resolve_size(size, model_config)
-        actual_quality = self._resolve_optional_setting("quality", defaults, quality)
+        actual_quality = self._normalise_quality(quality, defaults)
         actual_style = self._resolve_optional_setting("style", defaults, style)
         actual_background = self._resolve_optional_setting("background", defaults, background)
         actual_negative = self._resolve_optional_setting("negative_prompt", defaults, negative_prompt)
@@ -369,7 +402,7 @@ class ImageGenerationService:
         model, model_config = self._resolve_model(model_key)
         defaults = self._get_image_defaults(model_config)
         actual_size = self._resolve_size(size, model_config)
-        actual_quality = self._resolve_optional_setting("quality", defaults, quality)
+        actual_quality = self._normalise_quality(quality, defaults)
         actual_style = self._resolve_optional_setting("style", defaults, style)
         actual_background = self._resolve_optional_setting("background", defaults, background)
         actual_negative = self._resolve_optional_setting("negative_prompt", defaults, negative_prompt)
