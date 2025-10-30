@@ -233,16 +233,21 @@ const RecoveryPageContent: React.FC = () => {
             <PipelineLogsPanel planId={planId} className="h-fit" />
           </div>
         </div>
-        {plan.data?.prompt && (
-          <Card className="border-amber-200">
-            <CardHeader className="pb-1">
-              <CardTitle className="text-sm text-amber-900">Initial Plan Request</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-2">
-              <p className="whitespace-pre-wrap text-xs text-gray-900">{plan.data.prompt}</p>
-            </CardContent>
-          </Card>
-        )}
+        <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+          {plan.data?.prompt && (
+            <Card className="border-amber-200">
+              <CardHeader className="pb-1">
+                <CardTitle className="text-sm text-amber-900">Initial Plan Request</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-2">
+                <p className="whitespace-pre-wrap text-xs text-gray-900">{plan.data.prompt}</p>
+              </CardContent>
+            </Card>
+          )}
+          {conceptImage && (
+            <ConceptImageThumbnail imageData={conceptImage} className="md:w-64" />
+          )}
+        </div>
         {/* Action strip with resume functionality moved to bottom */}
         <div className="mx-auto max-w-7xl px-2 pt-1">
           <div className="flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
