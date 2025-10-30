@@ -1,13 +1,11 @@
 #!/usr/bin/env python
-# Author: Cascade using `whatever model the user has selected`
-# Date: 2025-10-30 18:57:00Z
+# Author: gpt-5-codex
+# Date: 2025-10-30T19:33:27Z
 # PURPOSE: Standalone script to generate a concept image using PlanExe's ImageGenerationService.
-#          It demonstrates how to call the OpenAI Images API through the project's centralized
-#          service, handling configuration, retries, and base64 decoding. The generated image
-#          is saved to the current working directory.
-# SRP and DRY check: Pass. This file is a thin CLI wrapper around ImageGenerationService and
-#                    does not duplicate any logic from the service. Image service already exists
-#                    in the project and is reused here.
+#          Demonstrates the official GPT-Image-1 payload (size, quality, response format) and
+#          writes the decoded PNG/JPEG/WEBP output locally for quick validation.
+# SRP and DRY check: Pass. Thin CLI wrapper around ImageGenerationService without duplicating
+#                    service logic; reuses existing decode helpers and configuration.
 
 import asyncio
 import base64
@@ -42,6 +40,10 @@ async def main() -> int:
     output_path = _get_arg(2, "generated_concept.png") or "generated_concept.png"
     size = _get_arg(3, "1024x1024") or "1024x1024"
     model_key = _get_arg(4, "gpt-image-1-mini") or "gpt-image-1-mini"
+    quality = (_get_arg(5, "standard") or "standard").lower()
+    if quality not in {"standard", "hd"}:
+        print("Warning: quality must be 'standard' or 'hd'. Defaulting to 'standard'.")
+        quality = "standard"
 
     # Sanity check for API key presence
     if not os.getenv("OPENAI_API_KEY"):
@@ -54,6 +56,7 @@ async def main() -> int:
             prompt=prompt,
             model_key=model_key,
             size=size,
+            quality=quality,
         )
 
         image_b64 = result.get("image_b64")

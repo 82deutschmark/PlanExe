@@ -6,6 +6,16 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+### [0.21.6] - 2025-10-30
+
+### Fixed
+- **Images API parameter regression**: Stopped sending the unsupported `response_format` field to OpenAI and reset our defaults to the lower-cost `standard` quality so `/api/images/generate` stops returning 400 errors while still handling base64 fallbacks. (Files: `llm_config.json`, `planexe_api/services/image_generation_service.py`, `planexe-frontend/src/lib/api/fastapi-client.ts`, `planexe-frontend/src/lib/conversation/useResponsesConversation.ts`, `scripts/testing/generate_concept_image.py`, `docs/gpt-image-1-mini-best-practices.md`)
+
+### [0.21.5] - 2025-10-30
+
+### Changed
+- **GPT-Image-1 mini quality compliance**: Adopted the August 2025 `standard`/`hd` tiers across configuration, backend payloads, frontend defaults, and the CLI helper so every request includes the required `size="1024x1024"`, `response_format="b64_json"`, and `quality` hints from the latest cookbook guidance. (Files: `llm_config.json`, `planexe_api/services/image_generation_service.py`, `planexe_api/models.py`, `planexe-frontend/src/lib/api/fastapi-client.ts`, `planexe-frontend/src/lib/conversation/useResponsesConversation.ts`, `scripts/testing/generate_concept_image.py`, `docs/gpt-image-1-mini-best-practices.md`)
+
 ### [0.21.4] - 2025-10-30
 
 ### Fixed

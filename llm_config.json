@@ -53,11 +53,10 @@
                 "1024x1792",
                 "1792x1024"
             ],
+            "quality": "standard",
             "allowed_qualities": [
-                "auto",
-                "low",
-                "medium",
-                "high"
+                "standard",
+                "hd"
             ],
             "default_output_format": "png",
             "allowed_output_formats": [

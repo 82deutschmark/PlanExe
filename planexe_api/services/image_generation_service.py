@@ -1,5 +1,5 @@
 # Author: gpt-5-codex
-# Date: 2025-10-30T02:29:32Z
+# Date: 2025-10-30T19:33:27Z
 # PURPOSE: Centralise OpenAI gpt-image-1-mini usage for generation/edit flows, ensuring robust payload defaults and URL fallbacks.
 # SRP and DRY check: Pass. Service keeps single responsibility for image orchestration without duplicating HTTP fetch logic elsewhere.
 
@@ -14,7 +14,7 @@ import io
 import logging
 import os
 import asyncio
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, List
 
 import httpx
 from openai import OpenAI, APIError, APIStatusError, APITimeoutError
@@ -93,7 +93,7 @@ class ImageGenerationService:
     ) -> Optional[str]:
         """Resolve the `quality` parameter using configuration defaults and allowed values."""
 
-        allowed = []
+        allowed: List[str] = []
         configured = defaults.get("allowed_qualities")
         if isinstance(configured, list):
             allowed = [str(item).strip().lower() for item in configured if str(item).strip()]
@@ -109,12 +109,12 @@ class ImageGenerationService:
             return cleaned
 
         resolved_requested = _clean(requested_quality)
-        if resolved_requested and resolved_requested != "auto":
+        if resolved_requested:
             return resolved_requested
 
         default_quality = defaults.get("quality")
         resolved_default = _clean(default_quality)
-        if resolved_default and resolved_default != "auto":
+        if resolved_default:
             return resolved_default
 
         return allowed[0] if allowed else None
@@ -373,7 +373,6 @@ class ImageGenerationService:
             "model": data.get("model"),
             "prompt": data.get("prompt"),
             "size": data.get("size"),
-            "response_format": data.get("response_format"),
             "n": int(data.get("n", 1)),
             "image": image_stream,
         }
@@ -513,12 +512,11 @@ class ImageGenerationService:
             "prompt": clean_prompt,
             "size": actual_size,
             "n": 1,
-            "response_format": "b64_json",
         }
         # Only include fields supported by the Images Generations API.
         # Do NOT send style/negative_prompt/output_format/output_compression as they are unsupported here.
         optional_map = {
-            "quality": actual_quality if actual_quality in {"low", "medium", "high"} else None,
+            "quality": actual_quality if actual_quality in {"standard", "hd"} else None,
             "background": self._resolve_background(actual_background, actual_format),
         }
         for key, value in optional_map.items():
@@ -527,8 +525,6 @@ class ImageGenerationService:
             if isinstance(value, str) and not value.strip():
                 continue
             payload[key] = value
-
-        print("DEBUG: OpenAI image generation payload ->", payload)
 
         last_error = None
         for attempt in range(retries + 1):
@@ -603,12 +599,11 @@ class ImageGenerationService:
             "prompt": clean_prompt,
             "size": actual_size,
             "n": 1,
-            "response_format": "b64_json",
         }
         # For edits, allow background (e.g., transparent) alongside the quality hint.
         # Do NOT send style/negative_prompt/output_format/output_compression (not supported by API).
         optional_map = {
-            "quality": actual_quality if actual_quality in {"low", "medium", "high"} else None,
+            "quality": actual_quality if actual_quality in {"standard", "hd"} else None,
             "background": self._resolve_background(actual_background, actual_format),
         }
         for key, value in optional_map.items():
@@ -617,8 +612,6 @@ class ImageGenerationService:
             if isinstance(value, str) and not value.strip():
                 continue
             data[key] = value
-
-        print("DEBUG: OpenAI image edit payload ->", data)
 
         last_error = None
         for attempt in range(retries + 1):
