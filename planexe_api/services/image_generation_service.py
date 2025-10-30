@@ -450,6 +450,8 @@ class ImageGenerationService:
                 continue
             payload[key] = value
 
+        print("DEBUG: OpenAI image generation payload ->", payload)
+
         last_error = None
         for attempt in range(retries + 1):
             try:
@@ -540,6 +542,8 @@ class ImageGenerationService:
             if isinstance(value, str) and not value.strip():
                 continue
             data[key] = value
+
+        print("DEBUG: OpenAI image edit payload ->", data)
 
         last_error = None
         for attempt in range(retries + 1):
