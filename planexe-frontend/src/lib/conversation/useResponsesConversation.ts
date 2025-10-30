@@ -426,7 +426,7 @@ export function useResponsesConversation(
       });
 
     await streamAssistantReply(trimmed);
-  }, [initialPrompt, initialised, streamAssistantReply, updateMessages, ensureRemoteConversation]);
+  }, [initialPrompt, initialised, modelKey, streamAssistantReply, updateMessages, ensureRemoteConversation]);
 
   const sendUserMessage = useCallback(
     async (content: string) => {
