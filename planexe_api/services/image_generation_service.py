@@ -29,6 +29,7 @@ class ImageGenerationService:
 
     DEFAULT_MODEL = "gpt-image-1-mini"
     DEFAULT_ALLOWED_SIZES = ["1024x1024", "1024x1536", "1536x1024"]
+    DEFAULT_ALLOWED_FORMATS = ["png", "jpeg", "webp"]
     DEFAULT_TIMEOUT_SECONDS = 60.0
     DEFAULT_MAX_RETRIES = 2
     GENERATE_URL = "https://api.openai.com/v1/images/generations"
@@ -121,6 +122,93 @@ class ImageGenerationService:
 
         return allowed[0] if allowed else None
 
+    def _normalise_output_format(
+        self,
+        requested_format: Optional[str],
+        defaults: Dict[str, Any],
+    ) -> Optional[str]:
+        """Resolve output format preferences using configuration defaults."""
+
+        allowed = []
+        configured = defaults.get("allowed_output_formats")
+        if isinstance(configured, list):
+            allowed = [str(item).strip().lower() for item in configured if str(item).strip()]
+        if not allowed:
+            allowed = self.DEFAULT_ALLOWED_FORMATS
+
+        def _clean(value: Optional[str]) -> Optional[str]:
+            if value is None:
+                return None
+            cleaned = str(value).strip().lower()
+            if not cleaned:
+                return None
+            return cleaned if cleaned in allowed else None
+
+        resolved_requested = _clean(requested_format)
+        if resolved_requested:
+            return resolved_requested
+
+        default_format = defaults.get("default_output_format")
+        resolved_default = _clean(default_format)
+        if resolved_default:
+            return resolved_default
+
+        return allowed[0]
+
+    def _normalise_output_compression(
+        self,
+        requested_compression: Optional[int],
+        output_format: Optional[str],
+        defaults: Dict[str, Any],
+    ) -> Optional[int]:
+        """Resolve compression hints ensuring compatibility with the selected format."""
+
+        def _clean(value: Optional[int]) -> Optional[int]:
+            if value is None:
+                return None
+            try:
+                int_value = int(value)
+            except (TypeError, ValueError):  # pragma: no cover - defensive
+                return None
+            if 0 <= int_value <= 100:
+                return int_value
+            return None
+
+        allowed_formats = {"jpeg", "webp"}
+        if output_format not in allowed_formats:
+            return None
+
+        resolved_requested = _clean(requested_compression)
+        if resolved_requested is not None:
+            return resolved_requested
+
+        default_value = defaults.get("default_output_compression")
+        resolved_default = _clean(default_value)
+        if resolved_default is not None:
+            return resolved_default
+
+        return None
+
+    def _resolve_background(
+        self,
+        requested_background: Optional[str],
+        output_format: Optional[str],
+    ) -> Optional[str]:
+        """Ensure transparent backgrounds are only applied to supported formats."""
+
+        if requested_background is None:
+            return None
+
+        cleaned = str(requested_background).strip()
+        if not cleaned:
+            return None
+
+        normalised = cleaned.lower()
+        if normalised == "transparent" and output_format not in {"png", "webp", None}:
+            return None
+
+        return cleaned
+
     def _resolve_optional_setting(
         self,
         key: str,
@@ -208,7 +296,8 @@ class ImageGenerationService:
 
             if image_b64:
                 revised_prompt = image_entry.get("revised_prompt") or payload.get("prompt")
-                return image_b64, revised_prompt, "base64"
+                format_hint = payload.get("output_format") or "base64"
+                return image_b64, revised_prompt, format_hint
 
             image_url = image_entry.get("url")
             if image_url:
@@ -230,7 +319,7 @@ class ImageGenerationService:
         data: Dict[str, Any],
         files: Dict[str, Tuple[str, bytes, str]],
         timeout: float,
-    ) -> Tuple[str, str]:
+    ) -> Tuple[str, str, str]:
         """Submit an edit request to the Images API using multipart form data."""
 
         headers = self._build_headers(content_type=None)
@@ -257,7 +346,8 @@ class ImageGenerationService:
             image_b64 = image_entry.get("b64_json")
             if image_b64:
                 revised_prompt = image_entry.get("revised_prompt") or data.get("prompt")
-                return image_b64, revised_prompt
+                format_hint = data.get("output_format") or "base64"
+                return image_b64, revised_prompt, format_hint
 
             raise ImageGenerationError("No base64 data returned from OpenAI edit API")
 
@@ -299,6 +389,8 @@ class ImageGenerationService:
         style: Optional[str] = None,
         background: Optional[str] = None,
         negative_prompt: Optional[str] = None,
+        output_format: Optional[str] = None,
+        output_compression: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Generate a concept image and return base64 data with metadata.
@@ -332,6 +424,8 @@ class ImageGenerationService:
         actual_style = self._resolve_optional_setting("style", defaults, style)
         actual_background = self._resolve_optional_setting("background", defaults, background)
         actual_negative = self._resolve_optional_setting("negative_prompt", defaults, negative_prompt)
+        actual_format = self._normalise_output_format(output_format, defaults)
+        actual_compression = self._normalise_output_compression(output_compression, actual_format, defaults)
         timeout_seconds, retries = self._resolve_timeout_and_retries(defaults, timeout, max_retries)
 
         payload: Dict[str, Any] = {
@@ -344,12 +438,17 @@ class ImageGenerationService:
         optional_map = {
             "quality": actual_quality,
             "style": actual_style,
-            "background": actual_background,
+            "background": self._resolve_background(actual_background, actual_format),
             "negative_prompt": actual_negative,
+            "output_format": actual_format,
+            "output_compression": actual_compression,
         }
         for key, value in optional_map.items():
-            if value:
-                payload[key] = value
+            if value is None:
+                continue
+            if isinstance(value, str) and not value.strip():
+                continue
+            payload[key] = value
 
         last_error = None
         for attempt in range(retries + 1):
@@ -364,6 +463,7 @@ class ImageGenerationService:
                     "model": model,
                     "size": actual_size,
                     "format": format_label,
+                    "compression": actual_compression,
                     "prompt": applied_prompt or clean_prompt,
                 }
 
@@ -390,6 +490,8 @@ class ImageGenerationService:
         style: Optional[str] = None,
         background: Optional[str] = None,
         negative_prompt: Optional[str] = None,
+        output_format: Optional[str] = None,
+        output_compression: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Apply edits to an existing concept image."""
 
@@ -406,6 +508,8 @@ class ImageGenerationService:
         actual_style = self._resolve_optional_setting("style", defaults, style)
         actual_background = self._resolve_optional_setting("background", defaults, background)
         actual_negative = self._resolve_optional_setting("negative_prompt", defaults, negative_prompt)
+        actual_format = self._normalise_output_format(output_format, defaults)
+        actual_compression = self._normalise_output_compression(output_compression, actual_format, defaults)
         timeout_seconds, retries = self._resolve_timeout_and_retries(defaults, timeout, max_retries)
 
         image_bytes = self._decode_base64_image(base_image_b64, "base image")
@@ -426,17 +530,22 @@ class ImageGenerationService:
         optional_map = {
             "quality": actual_quality,
             "style": actual_style,
-            "background": actual_background,
+            "background": self._resolve_background(actual_background, actual_format),
             "negative_prompt": actual_negative,
+            "output_format": actual_format,
+            "output_compression": actual_compression,
         }
         for key, value in optional_map.items():
-            if value:
-                data[key] = value
+            if value is None:
+                continue
+            if isinstance(value, str) and not value.strip():
+                continue
+            data[key] = value
 
         last_error = None
         for attempt in range(retries + 1):
             try:
-                result_b64, applied_prompt = await self._edit_with_images_api(
+                result_b64, applied_prompt, format_label = await self._edit_with_images_api(
                     data,
                     files,
                     timeout_seconds,
@@ -446,7 +555,8 @@ class ImageGenerationService:
                     "image_b64": result_b64,
                     "model": model,
                     "size": actual_size,
-                    "format": "base64",
+                    "format": format_label,
+                    "compression": actual_compression,
                     "prompt": applied_prompt or clean_prompt,
                 }
 

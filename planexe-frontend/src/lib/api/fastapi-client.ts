@@ -398,6 +398,7 @@ export interface ImageGenerationResponse {
   model: string;
   size: string;
   format: string;
+  compression?: number;
 }
 
 export interface ImageGenerationOptions {
@@ -407,6 +408,8 @@ export interface ImageGenerationOptions {
   style?: string;
   background?: string;
   negativePrompt?: string;
+  outputFormat?: string;
+  outputCompression?: number;
 }
 
 export interface ImageEditPayload extends ImageGenerationOptions {
@@ -864,6 +867,10 @@ export class FastAPIClient {
     if (options?.style) body.style = options.style;
     if (options?.background) body.background = options.background;
     if (options?.negativePrompt) body.negative_prompt = options.negativePrompt;
+    if (options?.outputFormat) body.output_format = options.outputFormat;
+    if (typeof options?.outputCompression === 'number') {
+      body.output_compression = options.outputCompression;
+    }
 
     const response = await fetch(
       `${this.baseURL}/api/conversations/${encodeURIComponent(conversation_id)}/generate-image`,
@@ -893,6 +900,10 @@ export class FastAPIClient {
     if (payload.style) body.style = payload.style;
     if (payload.background) body.background = payload.background;
     if (payload.negativePrompt) body.negative_prompt = payload.negativePrompt;
+    if (payload.outputFormat) body.output_format = payload.outputFormat;
+    if (typeof payload.outputCompression === 'number') {
+      body.output_compression = payload.outputCompression;
+    }
 
     const response = await fetch(
       `${this.baseURL}/api/conversations/${encodeURIComponent(conversation_id)}/edit-image`,
