@@ -133,28 +133,33 @@ export const IntakeImagePanel: React.FC<IntakeImagePanelProps> = ({
         )}
 
         {isWorking && (
-          <div className="relative w-full h-full rounded-lg overflow-hidden bg-gradient-to-br from-indigo-900/40 via-purple-900/40 to-pink-900/40">
+          <div className="relative w-full h-full rounded-lg overflow-hidden bg-gradient-to-br from-indigo-900/60 via-purple-900/60 to-pink-900/60 border-2 border-purple-500/30">
             {/* Animated gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" />
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
 
-            {/* Sparkle effects */}
+            {/* Sparkle effects - larger and more prominent */}
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="relative">
-                <Sparkles className="h-16 w-16 text-purple-300 animate-pulse" />
-                <Sparkles className="h-8 w-8 text-indigo-300 absolute -top-4 -right-4 animate-ping" style={{ animationDelay: '0.5s' }} />
-                <Sparkles className="h-6 w-6 text-pink-300 absolute -bottom-2 -left-2 animate-ping" style={{ animationDelay: '1s' }} />
+                <Sparkles className="h-24 w-24 text-purple-300 animate-pulse" />
+                <Sparkles className="h-12 w-12 text-indigo-300 absolute -top-6 -right-6 animate-ping" style={{ animationDelay: '0.5s' }} />
+                <Sparkles className="h-10 w-10 text-pink-300 absolute -bottom-4 -left-4 animate-ping" style={{ animationDelay: '1s' }} />
               </div>
             </div>
 
-            {/* Loading message */}
-            <div className="absolute bottom-4 left-0 right-0 text-center">
-              <p className="text-lg font-medium text-slate-200 animate-fade-in">
-                {activeMessage}
-              </p>
-              <div className="mt-2 flex justify-center gap-1">
-                <div className="h-2 w-2 rounded-full bg-purple-400 animate-bounce" />
-                <div className="h-2 w-2 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '0.2s' }} />
-                <div className="h-2 w-2 rounded-full bg-pink-400 animate-bounce" style={{ animationDelay: '0.4s' }} />
+            {/* Loading message - much more prominent */}
+            <div className="absolute bottom-8 left-0 right-0 text-center px-4">
+              <div className="bg-slate-900/80 backdrop-blur-sm rounded-lg px-6 py-4 inline-block border border-purple-500/30">
+                <p className="text-2xl font-bold text-white mb-2 animate-pulse">
+                  {activeMessage}
+                </p>
+                <div className="mt-3 flex justify-center gap-2">
+                  <div className="h-3 w-3 rounded-full bg-purple-400 animate-bounce" />
+                  <div className="h-3 w-3 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '0.2s' }} />
+                  <div className="h-3 w-3 rounded-full bg-pink-400 animate-bounce" style={{ animationDelay: '0.4s' }} />
+                </div>
+                <p className="text-sm text-purple-200 mt-2 animate-fade-in">
+                  This may take 15-30 seconds...
+                </p>
               </div>
             </div>
           </div>
