@@ -28,6 +28,8 @@ import { ResumeDialog } from './components/ResumeDialog';
 import { CompletionSummaryModal } from './components/CompletionSummaryModal';
 import { PIPELINE_TASKS } from './constants/pipeline-tasks';
 import type { MissingSectionResponse } from '@/lib/api/fastapi-client';
+import { useConceptImage } from '@/lib/hooks/useConceptImage';
+import { ConceptImageThumbnail } from '@/components/planning/ConceptImageThumbnail';
 
 const MissingPlanMessage: React.FC = () => (
   <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">

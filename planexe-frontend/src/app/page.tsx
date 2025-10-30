@@ -175,6 +175,22 @@ const HomePage: React.FC = () => {
       }
       const plan = await fastApiClient.createPlan(payload);
       console.log('[PlanExe] Plan created successfully:', plan);
+
+      // Copy concept image from conversationId to planId in sessionStorage
+      if (typeof window !== 'undefined' && conversationSessionKey) {
+        try {
+          const convKey = `planexe_concept_image_${conversationSessionKey}`;
+          const imageData = sessionStorage.getItem(convKey);
+          if (imageData) {
+            const planKey = `planexe_concept_image_${plan.plan_id}`;
+            sessionStorage.setItem(planKey, imageData);
+            console.log('[PlanExe] Concept image linked to plan ID');
+          }
+        } catch (error) {
+          console.warn('[PlanExe] Failed to link concept image to plan:', error);
+        }
+      }
+
       resetConversationState();
 
       const workspaceUrl = `/recovery?planId=${encodeURIComponent(plan.plan_id)}`;
