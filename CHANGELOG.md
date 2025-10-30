@@ -7,6 +7,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **PATCH**: Bug fixes (backward compatible)
 
 
+### [0.19.2] - 2025-10-30
+
+### Fixed
+- **Image URL Fallback**: Reinstated the asynchronous HTTP fetch and formatting logic used during URL-based image retrieval, resolving the indentation regression that broke service imports. (Files: `planexe_api/services/image_generation_service.py`)
+
 ### [0.19.1] - 2025-10-30
 
 ### Fixed

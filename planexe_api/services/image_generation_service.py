@@ -1,7 +1,7 @@
 # Author: gpt-5-codex
-# Date: 2025-10-29T20:39:49Z
-# PURPOSE: Centralise OpenAI gpt-image-1-mini usage for both generation and editing, aligning with current API semantics.
-# SRP and DRY check: Pass. Maintains single responsibility for image orchestration with reusable validation and retries.
+# Date: 2025-10-30T02:29:32Z
+# PURPOSE: Centralise OpenAI gpt-image-1-mini usage for generation/edit flows, ensuring robust payload defaults and URL fallbacks.
+# SRP and DRY check: Pass. Service keeps single responsibility for image orchestration without duplicating HTTP fetch logic elsewhere.
 
 """
 Image generation service for PlanExe concept visualization.
@@ -116,19 +116,33 @@ class ImageGenerationService:
             raise ImageGenerationError(f"Invalid base64 data provided for {label}") from exc
 
     async def _fetch_image_from_url(self, url: str, timeout: float = 30.0) -> Tuple[str, str]:
-        """Fetch an image from a URL and convert to base64, returning the data and a format label."""
+        """Fetch an image from a URL and convert it to base64 along with a best-effort format label."""
 
         try:
-            return base64.b64decode(encoded, validate=True)
-        except Exception as exc:  # pragma: no cover - defensive
-            raise ImageGenerationError(f"Invalid base64 data provided for {label}") from exc
-
-                image_bytes = response.content
-                return base64.b64encode(image_bytes).decode("utf-8"), "base64_from_url"
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.get(url)
         except httpx.TimeoutException:
             raise ImageGenerationError("Timeout while fetching image from URL")
-        except Exception as exc:  # pragma: no cover - defensive
-            raise ImageGenerationError(f"Error fetching image from URL: {str(exc)}") from exc
+        except httpx.RequestError as exc:  # pragma: no cover - network defensive
+            raise ImageGenerationError(f"Network error fetching image from URL: {str(exc)}") from exc
+
+        if response.status_code >= 400:
+            detail = response.text
+            raise ImageGenerationError(
+                f"Failed to fetch image from URL ({response.status_code}): {detail}"
+            )
+
+        image_bytes = response.content
+        if not image_bytes:
+            raise ImageGenerationError("Fetched image response contained no data")
+
+        content_type = response.headers.get("content-type", "")
+        if "image/" in content_type:
+            format_label = content_type.split("/")[-1].split(";")[0].strip() or "binary"
+        else:
+            format_label = "binary"
+
+        return base64.b64encode(image_bytes).decode("utf-8"), format_label
 
     async def _generate_with_images_api(
         self,
