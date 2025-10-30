@@ -6,6 +6,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+### [0.21.3] - 2025-10-30
+
+### Added
+- Testing utility script to generate a concept image using the centralized ImageGenerationService. This provides a simple, documented way to verify OpenAI Images API integration from the CLI and saves the resulting image locally. (File: `scripts/testing/generate_concept_image.py`)
+
 
 ### [0.21.2] - 2025-10-30
 
