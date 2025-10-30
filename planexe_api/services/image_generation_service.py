@@ -10,13 +10,14 @@ Provides robust image generation using OpenAI's gpt-image-1-mini model with
 multiple fallback strategies and comprehensive error handling.
 """
 import base64
-import json
+import io
 import logging
 import os
 import asyncio
 from typing import Optional, Dict, Any, Tuple
 
 import httpx
+from openai import OpenAI, APIError, APIStatusError, APITimeoutError
 
 from planexe.utils.planexe_llmconfig import PlanExeLLMConfig
 
@@ -36,8 +37,6 @@ class ImageGenerationService:
     DEFAULT_ALLOWED_FORMATS = ["png", "jpeg", "webp"]
     DEFAULT_TIMEOUT_SECONDS = 60.0
     DEFAULT_MAX_RETRIES = 2
-    GENERATE_URL = "https://api.openai.com/v1/images/generations"
-    EDIT_URL = "https://api.openai.com/v1/images/edits"
 
     def __init__(self):
         """Initialize the image generation service."""
@@ -46,6 +45,9 @@ class ImageGenerationService:
 
         if not self.api_key:
             raise ImageGenerationError("OPENAI_API_KEY not configured")
+
+        # Instantiate an OpenAI client so platform headers (project/org) are handled centrally.
+        self.client = OpenAI(api_key=self.api_key)
 
     def _get_image_defaults(self, model_config: Dict[str, Any]) -> Dict[str, Any]:
         """Retrieve image-specific defaults from the model configuration."""
@@ -84,15 +86,6 @@ class ImageGenerationService:
 
         return allowed_sizes[0]
     
-    def _build_headers(self, content_type: Optional[str] = "application/json") -> Dict[str, str]:
-        """Build HTTP headers for OpenAI API requests."""
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-        }
-        if content_type:
-            headers["Content-Type"] = content_type
-        return headers
-
     def _normalise_quality(
         self,
         requested_quality: Optional[str],
@@ -274,97 +267,82 @@ class ImageGenerationService:
         payload: Dict[str, Any],
         timeout: float = 60.0,
     ) -> Tuple[str, str, str]:
-        """Generate an image using the JSON Images API."""
-
-        headers = self._build_headers()
+        """Generate an image using the OpenAI SDK."""
 
         logger.info(
             f"Requesting image generation: model={payload.get('model')}, "
             f"size={payload.get('size')}, prompt='{payload.get('prompt', '')[:100]}...'"
         )
 
+        client = self.client.with_options(timeout=timeout)
+
         try:
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                response = await client.post(
-                    self.GENERATE_URL,
-                    headers=headers,
-                    json=payload,
-                )
-
-            if response.status_code >= 400:
-                logger.error(
-                    f"OpenAI Images API error: status={response.status_code}, "
-                    f"model={payload.get('model')}, size={payload.get('size')}, "
-                    f"prompt_length={len(payload.get('prompt', ''))}"
-                )
-
-                # Try to parse structured error response
-                error_detail = response.text
-                error_type = "unknown"
-                error_message = error_detail
-
+            result = await asyncio.to_thread(client.images.generate, **payload)
+        except APITimeoutError as exc:
+            logger.error(f"Image generation timeout after {timeout}s")
+            raise ImageGenerationError(f"Timeout while generating image (after {timeout}s)") from exc
+        except APIStatusError as exc:
+            logger.error(
+                "OpenAI Images API error",
+                extra={
+                    "status": getattr(exc, "status_code", None),
+                    "model": payload.get("model"),
+                    "size": payload.get("size"),
+                },
+            )
+            response = getattr(exc, "response", None)
+            error_type = "unknown"
+            error_message = str(exc)
+            if response is not None:
                 try:
                     error_json = response.json()
                     if isinstance(error_json, dict):
                         error_obj = error_json.get("error", {})
                         if isinstance(error_obj, dict):
-                            error_type = error_obj.get("type", "unknown")
-                            error_message = error_obj.get("message", error_detail)
-                            error_code = error_obj.get("code")
-                            error_param = error_obj.get("param")
+                            error_type = error_obj.get("type", error_type)
+                            error_message = error_obj.get("message", error_message)
+                except Exception:  # pragma: no cover - defensive parse guard
+                    logger.error("Failed to parse error payload from OpenAI response")
+            raise ImageGenerationError(
+                f"OpenAI API error ({getattr(exc, 'status_code', 'unknown')}): {error_type} - {error_message}"
+            ) from exc
+        except APIError as exc:  # pragma: no cover - defensive catch-all from SDK
+            logger.error(f"OpenAI API error during image generation: {exc}")
+            raise ImageGenerationError(str(exc)) from exc
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error(f"Unexpected error during image generation: {exc}", exc_info=True)
+            raise ImageGenerationError(f"Unexpected error during image generation: {exc}") from exc
 
-                            logger.error(
-                                f"OpenAI error details: type={error_type}, code={error_code}, "
-                                f"param={error_param}, message={error_message}"
-                            )
-                except Exception:
-                    # If JSON parsing fails, use text response
-                    logger.error(f"Raw error response: {error_detail[:500]}")
+        images = getattr(result, "data", None) or []
+        if not images:
+            logger.error("No image data in OpenAI response")
+            raise ImageGenerationError("No image data returned from OpenAI")
 
-                raise ImageGenerationError(
-                    f"OpenAI API error ({response.status_code}): {error_type} - {error_message}"
-                )
+        image_entry = images[0] or {}
+        image_b64 = image_entry.get("b64_json")
 
-            data = response.json()
-            images = data.get("data") or []
-            if not images:
-                logger.error("No image data in OpenAI response")
-                raise ImageGenerationError("No image data returned from OpenAI")
+        if image_b64:
+            revised_prompt = image_entry.get("revised_prompt") or payload.get("prompt")
+            # Base64 responses are PNG by default
+            format_hint = "png"
+            logger.info(
+                f"Image generation successful: format={format_hint}, "
+                f"prompt='{revised_prompt[:100]}...'"
+            )
+            return image_b64, revised_prompt, format_hint
 
-            image_entry = images[0] or {}
-            image_b64 = image_entry.get("b64_json")
+        image_url = image_entry.get("url")
+        if image_url:
+            fetched_b64, format_label = await self._fetch_image_from_url(image_url, timeout=timeout)
+            revised_prompt = image_entry.get("revised_prompt") or payload.get("prompt")
+            logger.info(
+                f"Image generation successful via URL: format={format_label}, "
+                f"prompt='{revised_prompt[:100]}...'"
+            )
+            return fetched_b64, revised_prompt, format_label
 
-            if image_b64:
-                revised_prompt = image_entry.get("revised_prompt") or payload.get("prompt")
-                # Base64 responses are PNG by default
-                format_hint = "png"
-                logger.info(
-                    f"Image generation successful: format={format_hint}, "
-                    f"prompt='{revised_prompt[:100]}...'"
-                )
-                return image_b64, revised_prompt, format_hint
-
-            image_url = image_entry.get("url")
-            if image_url:
-                fetched_b64, format_label = await self._fetch_image_from_url(image_url, timeout=timeout)
-                revised_prompt = image_entry.get("revised_prompt") or payload.get("prompt")
-                logger.info(
-                    f"Image generation successful via URL: format={format_label}, "
-                    f"prompt='{revised_prompt[:100]}...'"
-                )
-                return fetched_b64, revised_prompt, format_label
-
-            logger.error("No base64 or URL in OpenAI image response")
-            raise ImageGenerationError("No base64 or URL data returned from OpenAI Images API")
-
-        except httpx.TimeoutException as e:
-            logger.error(f"Image generation timeout after {timeout}s")
-            raise ImageGenerationError(f"Timeout while generating image (after {timeout}s)") from e
-        except ImageGenerationError:
-            raise
-        except Exception as e:  # pragma: no cover - defensive
-            logger.error(f"Unexpected error during image generation: {str(e)}", exc_info=True)
-            raise ImageGenerationError(f"Unexpected error during image generation: {str(e)}") from e
+        logger.error("No base64 or URL in OpenAI image response")
+        raise ImageGenerationError("No base64 or URL data returned from OpenAI Images API")
 
     async def _edit_with_images_api(
         self,
@@ -372,82 +350,95 @@ class ImageGenerationService:
         files: Dict[str, Tuple[str, bytes, str]],
         timeout: float,
     ) -> Tuple[str, str, str]:
-        """Submit an edit request to the Images API using multipart form data."""
-
-        headers = self._build_headers(content_type=None)
+        """Submit an edit request to the Images API using the OpenAI SDK."""
 
         logger.info(
             f"Requesting image edit: model={data.get('model')}, "
             f"size={data.get('size')}, prompt='{data.get('prompt', '')[:100]}...'"
         )
 
+        client = self.client.with_options(timeout=timeout)
+
+        image_name, image_bytes, _ = files["image"]
+        image_stream = io.BytesIO(image_bytes)
+        image_stream.name = image_name
+
+        mask_stream = None
+        if "mask" in files:
+            mask_name, mask_bytes, _ = files["mask"]
+            mask_stream = io.BytesIO(mask_bytes)
+            mask_stream.name = mask_name
+
+        sdk_kwargs: Dict[str, Any] = {
+            "model": data.get("model"),
+            "prompt": data.get("prompt"),
+            "size": data.get("size"),
+            "response_format": data.get("response_format"),
+            "n": int(data.get("n", 1)),
+            "image": image_stream,
+        }
+
+        # Optional fields supported by the Images edit API
+        for optional_key in ("quality", "style", "background"):
+            if optional_key in data and data[optional_key] is not None:
+                sdk_kwargs[optional_key] = data[optional_key]
+
+        if mask_stream is not None:
+            sdk_kwargs["mask"] = mask_stream
+
         try:
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                response = await client.post(
-                    self.EDIT_URL,
-                    headers=headers,
-                    data=data,
-                    files=files,
-                )
-
-            if response.status_code >= 400:
-                logger.error(
-                    f"OpenAI Edit API error: status={response.status_code}, "
-                    f"model={data.get('model')}, size={data.get('size')}"
-                )
-
-                # Try to parse structured error response
-                error_detail = response.text
-                error_type = "unknown"
-                error_message = error_detail
-
+            result = await asyncio.to_thread(client.images.edit, **sdk_kwargs)
+        except APITimeoutError as exc:
+            logger.error(f"Image edit timeout after {timeout}s")
+            raise ImageGenerationError(f"Timeout while editing image (after {timeout}s)") from exc
+        except APIStatusError as exc:
+            logger.error(
+                "OpenAI edit API error",
+                extra={
+                    "status": getattr(exc, "status_code", None),
+                    "model": data.get("model"),
+                    "size": data.get("size"),
+                },
+            )
+            response = getattr(exc, "response", None)
+            error_type = "unknown"
+            error_message = str(exc)
+            if response is not None:
                 try:
                     error_json = response.json()
                     if isinstance(error_json, dict):
                         error_obj = error_json.get("error", {})
                         if isinstance(error_obj, dict):
-                            error_type = error_obj.get("type", "unknown")
-                            error_message = error_obj.get("message", error_detail)
-                            error_code = error_obj.get("code")
-                            error_param = error_obj.get("param")
+                            error_type = error_obj.get("type", error_type)
+                            error_message = error_obj.get("message", error_message)
+                except Exception:  # pragma: no cover - defensive parse guard
+                    logger.error("Failed to parse error payload from OpenAI edit response")
+            raise ImageGenerationError(
+                f"OpenAI edit API error ({getattr(exc, 'status_code', 'unknown')}): {error_type} - {error_message}"
+            ) from exc
+        except APIError as exc:  # pragma: no cover - defensive catch-all from SDK
+            logger.error(f"OpenAI API error during image editing: {exc}")
+            raise ImageGenerationError(str(exc)) from exc
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error(f"Unexpected error during image editing: {exc}", exc_info=True)
+            raise ImageGenerationError(f"Unexpected error during image editing: {exc}") from exc
 
-                            logger.error(
-                                f"OpenAI edit error details: type={error_type}, code={error_code}, "
-                                f"param={error_param}, message={error_message}"
-                            )
-                except Exception:
-                    logger.error(f"Raw error response: {error_detail[:500]}")
+        images = getattr(result, "data", None) or []
+        if not images:
+            logger.error("No image data in OpenAI edit response")
+            raise ImageGenerationError("No image data returned from OpenAI edit API")
 
-                raise ImageGenerationError(
-                    f"OpenAI edit API error ({response.status_code}): {error_type} - {error_message}"
-                )
+        image_entry = images[0] or {}
+        image_b64 = image_entry.get("b64_json")
+        if image_b64:
+            revised_prompt = image_entry.get("revised_prompt") or data.get("prompt")
+            # Base64 responses are PNG by default
+            format_hint = "png"
+            logger.info(f"Image edit successful: format={format_hint}")
+            return image_b64, revised_prompt, format_hint
 
-            response_data = response.json()
-            images = response_data.get("data") or []
-            if not images:
-                logger.error("No image data in OpenAI edit response")
-                raise ImageGenerationError("No image data returned from OpenAI edit API")
-
-            image_entry = images[0] or {}
-            image_b64 = image_entry.get("b64_json")
-            if image_b64:
-                revised_prompt = image_entry.get("revised_prompt") or data.get("prompt")
-                # Base64 responses are PNG by default
-                format_hint = "png"
-                logger.info(f"Image edit successful: format={format_hint}")
-                return image_b64, revised_prompt, format_hint
-
-            logger.error("No base64 data in OpenAI edit response")
-            raise ImageGenerationError("No base64 data returned from OpenAI edit API")
-
-        except httpx.TimeoutException as e:
-            logger.error(f"Image edit timeout after {timeout}s")
-            raise ImageGenerationError(f"Timeout while editing image (after {timeout}s)") from e
-        except ImageGenerationError:
-            raise
-        except Exception as e:  # pragma: no cover - defensive
-            logger.error(f"Unexpected error during image editing: {str(e)}", exc_info=True)
-            raise ImageGenerationError(f"Unexpected error during image editing: {str(e)}") from e
+        logger.error("No base64 data in OpenAI edit response")
+        raise ImageGenerationError("No base64 data returned from OpenAI edit API")
 
     def _resolve_timeout_and_retries(
         self,

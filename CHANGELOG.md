@@ -7,6 +7,18 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **PATCH**: Bug fixes (backward compatible)
 
 
+### [0.21.2] - 2025-10-30
+
+### Fixed
+- **Image generation transport**: Replaced manual `httpx` calls with the official OpenAI SDK in the image service so required platform headers (e.g., `OpenAI-Project`) are sent automatically and generation/edit requests succeed reliably. (Files: `planexe_api/services/image_generation_service.py`)
+- **Incident notes**: Captured failure analysis and refactor plan for future reference. (Files: `docs/30Oct.md`)
+
+### [0.21.1] - 2025-10-30
+
+### Fixed
+- **CreateWBSLevel3Task batch handling**: Allow per-chunk failures without raising `'Exception' object has no attribute 'raw_response_dict'`, persist successful chunks, and fail clearly when no decompositions succeed. (Files: `planexe/plan/run_plan_pipeline.py`)
+- **IdentifyPurpose dict parsing**: Pass `reasoning_effort="medium"` and strip metadata/system/user fields before building `PlanPurposeInfo` so document filtering, drafting, and SWOT tasks no longer emit `Error parsing identify_purpose_dict.` (Files: `planexe/document/identify_documents.py`, `planexe/document/filter_documents_to_find.py`, `planexe/document/filter_documents_to_create.py`, `planexe/document/draft_document_to_create.py`, `planexe/document/draft_document_to_find.py`, `planexe/swot/swot_analysis.py`, `planexe/plan/run_plan_pipeline.py`)
+
 ### [0.20.4] - 2025-10-30
 
 ### Fixed
