@@ -6,6 +6,13 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+### [0.21.8] - 2025-10-30
+
+### Fixed
+- **Images SDK object response handling**: Prevented `'Image' object has no attribute 'get'` by reading fields from Images SDK objects via attribute access when dict keys are not present. Added a safe accessor and used it in both generation and edit flows.
+  - Service: `ImageGenerationService` now uses a helper to read `b64_json`, `url`, and `revised_prompt` from either dicts or SDK objects.
+  - Impact: Stops unexpected_error crashes during image generation and edits while keeping logging and fallbacks intact.
+
 ### [0.21.7] - 2025-10-30
 
 ### Fixed
