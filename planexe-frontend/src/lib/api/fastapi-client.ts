@@ -424,7 +424,7 @@ export interface ImageGenerationResponse {
 export interface ImageGenerationOptions {
   modelKey?: string;
   size?: string;
-  quality?: string;
+  quality?: 'standard' | 'hd';
   style?: string;
   background?: string;
   negativePrompt?: string;
@@ -907,10 +907,16 @@ export class FastAPIClient {
     prompt: string,
     options?: ImageGenerationOptions,
   ): Promise<ImageGenerationResponse> {
-    const body: Record<string, unknown> = { prompt, conversation_id };
+    const resolvedSize = options?.size ?? '1024x1024';
+    const resolvedQuality = options?.quality ?? 'standard';
+
+    const body: Record<string, unknown> = {
+      prompt,
+      conversation_id,
+      size: resolvedSize,
+      quality: resolvedQuality,
+    };
     if (options?.modelKey) body.model_key = options.modelKey;
-    if (options?.size) body.size = options.size;
-    if (options?.quality) body.quality = options.quality;
     if (options?.style) body.style = options.style;
     if (options?.background) body.background = options.background;
     if (options?.negativePrompt) body.negative_prompt = options.negativePrompt;
@@ -936,15 +942,18 @@ export class FastAPIClient {
     conversation_id: string,
     payload: ImageEditPayload,
   ): Promise<ImageGenerationResponse> {
+    const resolvedSize = payload.size ?? '1024x1024';
+    const resolvedQuality = payload.quality ?? 'standard';
+
     const body: Record<string, unknown> = {
       prompt: payload.prompt,
       base_image_b64: payload.baseImageB64,
       conversation_id,
+      size: resolvedSize,
+      quality: resolvedQuality,
     };
     if (payload.maskB64) body.mask_b64 = payload.maskB64;
     if (payload.modelKey) body.model_key = payload.modelKey;
-    if (payload.size) body.size = payload.size;
-    if (payload.quality) body.quality = payload.quality;
     if (payload.style) body.style = payload.style;
     if (payload.background) body.background = payload.background;
     if (payload.negativePrompt) body.negative_prompt = payload.negativePrompt;

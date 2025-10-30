@@ -1,5 +1,5 @@
 # Author: gpt-5-codex
-# Date: 2025-10-29T20:39:49Z
+# Date: 2025-10-30T19:33:27Z
 # PURPOSE: Define validated request/response schemas for the FastAPI surface, including new image generation/editing payloads.
 # SRP and DRY check: Pass. Centralises all API schema definitions while reusing validation helpers across endpoints.
 
@@ -169,7 +169,7 @@ class ImageRequestBase(BaseModel):
     prompt: str = Field(..., min_length=1, description="User-facing instructions for the image model")
     model_key: Optional[str] = Field(None, description="Optional configured model key override")
     size: Optional[str] = Field(None, description="Desired image dimensions, e.g. 1024x1024")
-    quality: Optional[str] = Field(None, description="Quality hint forwarded to OpenAI (low, medium, high, auto)")
+    quality: Optional[str] = Field(None, description="Quality hint forwarded to OpenAI (standard or hd)")
     style: Optional[str] = Field(None, description="Style hint forwarded to OpenAI (natural, vivid)")
     background: Optional[str] = Field(None, description="Background directive forwarded to the image API")
     negative_prompt: Optional[str] = Field(None, description="Negative prompting text for the image API")
@@ -207,6 +207,19 @@ class ImageRequestBase(BaseModel):
             return None
         cleaned = value.strip().lower()
         return cleaned or None
+
+    @field_validator("quality")
+    @classmethod
+    def validate_quality(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        cleaned = value.strip().lower()
+        if not cleaned:
+            return None
+        allowed = {"standard", "hd"}
+        if cleaned not in allowed:
+            raise ValueError("quality must be one of: standard, hd")
+        return cleaned
 
     @field_validator("output_compression")
     @classmethod

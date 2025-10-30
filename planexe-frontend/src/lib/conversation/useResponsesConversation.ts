@@ -411,7 +411,11 @@ export function useResponsesConversation(
     const remoteConvId = await ensureRemoteConversation();
     setImageGenerationState('generating');
     setImageGenerationError(null);
-    imageOptionsRef.current = { modelKey: DEFAULT_IMAGE_MODEL_KEY };
+    imageOptionsRef.current = {
+      modelKey: DEFAULT_IMAGE_MODEL_KEY,
+      size: '1024x1024',
+      quality: 'standard',
+    };
     fastApiClient
       .generateIntakeImage(remoteConvId, trimmed, imageOptionsRef.current)
       .then((response) => {
@@ -434,7 +438,8 @@ export function useResponsesConversation(
         imageOptionsRef.current = {
           ...imageOptionsRef.current,
           modelKey: imageOptionsRef.current?.modelKey ?? DEFAULT_IMAGE_MODEL_KEY,
-          size: response.size,
+          size: response.size || imageOptionsRef.current?.size || '1024x1024',
+          quality: imageOptionsRef.current?.quality ?? 'standard',
           outputFormat:
             resolvedFormat !== 'base64'
               ? resolvedFormat
