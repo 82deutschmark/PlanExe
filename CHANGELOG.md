@@ -7,6 +7,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **PATCH**: Bug fixes (backward compatible)
 
 
+### [0.19.4] - 2025-10-30
+
+### Fixed
+- **Conversation Hook Dependency**: Added missing `modelKey` dependency to `startConversation` callback to satisfy React Hook lint rules and ensure the hook reacts to model changes. (Files: `planexe-frontend/src/lib/conversation/useResponsesConversation.ts`)
+
 ### [0.19.3] - 2025-10-30
 
 ### Fixed
