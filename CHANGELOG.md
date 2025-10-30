@@ -11,6 +11,18 @@ This project follows [Semantic Versioning](https://semver.org/):
 
 ### Fixed
 - **OpenAI image payload validation**: Removed unsupported `response_format` and `style` fields from the backend image service so calls to `gpt-image-1-mini` succeed against the current Images API schema while preserving quality/background handling. (Files: `planexe_api/services/image_generation_service.py`)
+### [0.21.0] - 2025-10-30
+
+### Removed
+- **Image edit/refine functionality**: Removed the "Refine Concept" card and image editing flow from the intake modal to simplify the UI and focus on core image generation. (Files: `planexe-frontend/src/components/planning/ConversationModal.tsx`, `planexe-frontend/src/components/planning/IntakeImagePanel.tsx`, `planexe-frontend/src/lib/conversation/useResponsesConversation.ts`)
+
+### Added
+- **Verbose error handling for image generation**: Implemented end-to-end structured error responses with detailed logging, error type classification, and context information. Backend now parses OpenAI API error responses and includes model/size/prompt context. Frontend displays expandable error details with copy-to-clipboard functionality. (Files: `planexe_api/services/image_generation_service.py`, `planexe_api/api.py`, `planexe-frontend/src/lib/api/fastapi-client.ts`, `planexe-frontend/src/lib/conversation/useResponsesConversation.ts`, `planexe-frontend/src/components/planning/IntakeImagePanel.tsx`)
+- **Logging throughout image service**: Added comprehensive logging at request start, OpenAI API calls, success/failure points, with structured error parsing and timeout context. (Files: `planexe_api/services/image_generation_service.py`)
+
+### Changed
+- **API error responses**: Updated image generation and edit endpoints to return structured error objects with `error_type`, `message`, and `context` fields instead of simple error strings. (Files: `planexe_api/api.py`)
+- **Frontend error handling**: Introduced `ApiError` class to preserve full error details from backend responses, including status codes and structured error information. (Files: `planexe-frontend/src/lib/api/fastapi-client.ts`)
 
 ### [0.20.3] - 2025-10-30
 

@@ -13,6 +13,26 @@ import {
   getConversationDefaults,
 } from '@/lib/config/responses';
 
+// Structured API Error
+export interface ApiErrorDetails {
+  error?: string;
+  error_type?: string;
+  message?: string;
+  context?: Record<string, unknown>;
+}
+
+export class ApiError extends Error {
+  public readonly details: ApiErrorDetails;
+  public readonly status: number;
+
+  constructor(message: string, status: number, details: ApiErrorDetails) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.details = details;
+  }
+}
+
 // FastAPI Backend Types (EXACT match with backend)
 export interface CreatePlanRequest {
   prompt: string;
@@ -596,8 +616,35 @@ export class FastAPIClient {
 
   private async handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: response.statusText }));
-      throw new Error(error.error || `HTTP ${response.status}: ${response.statusText}`);
+      let errorDetails: ApiErrorDetails = {};
+
+      try {
+        const errorBody = await response.json();
+
+        // Check if the error body is a structured error (has error_type or message)
+        if (typeof errorBody === 'object' && errorBody !== null) {
+          if ('error_type' in errorBody || 'message' in errorBody || 'context' in errorBody) {
+            // Structured error from our updated API
+            errorDetails = errorBody as ApiErrorDetails;
+          } else if ('error' in errorBody) {
+            // Legacy error format
+            errorDetails = { error: errorBody.error, message: errorBody.error };
+          } else {
+            // Unknown format, use the whole body as details
+            errorDetails = { message: JSON.stringify(errorBody) };
+          }
+        }
+      } catch {
+        // If JSON parsing fails, use status text
+        errorDetails = { error: response.statusText, message: response.statusText };
+      }
+
+      const displayMessage =
+        errorDetails.message ||
+        errorDetails.error ||
+        `HTTP ${response.status}: ${response.statusText}`;
+
+      throw new ApiError(displayMessage, response.status, errorDetails);
     }
     return response.json();
   }
