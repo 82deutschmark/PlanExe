@@ -9,9 +9,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle, Sparkles, Wand2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { AlertCircle, ChevronDown, ChevronUp, Sparkles, Wand2, Copy } from 'lucide-react';
 import {
   GeneratedImageMetadata,
+  ImageGenerationErrorDetails,
   ImageGenerationState,
 } from '@/lib/conversation/useResponsesConversation';
 
@@ -20,7 +22,7 @@ interface IntakeImagePanelProps {
   imageB64: string | null;
   prompt: string | null;
   metadata: GeneratedImageMetadata | null;
-  error: string | null;
+  error: ImageGenerationErrorDetails | null;
 }
 
 const LOADING_MESSAGES = [
@@ -87,6 +89,8 @@ export const IntakeImagePanel: React.FC<IntakeImagePanelProps> = ({
   error,
 }) => {
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
   const isGenerating = state === 'generating';
   const isEditing = state === 'editing';
   const isWorking = isGenerating || isEditing;
@@ -193,11 +197,70 @@ export const IntakeImagePanel: React.FC<IntakeImagePanelProps> = ({
           </div>
         )}
 
-        {state === 'error' && (
-          <div className="text-center">
-            <AlertCircle className="h-12 w-12 mx-auto mb-3 text-red-400" />
-            <p className="text-sm text-red-300 mb-2">Image generation failed</p>
-            {error && <p className="text-xs text-slate-400">{error}</p>}
+        {state === 'error' && error && (
+          <div className="w-full px-4 py-3 space-y-3">
+            <div className="text-center">
+              <AlertCircle className="h-12 w-12 mx-auto mb-3 text-red-400" />
+              <p className="text-sm font-semibold text-red-300 mb-1">Image generation failed</p>
+              <p className="text-sm text-slate-300">{error.message}</p>
+            </div>
+
+            {(error.error_type || error.context) && (
+              <div className="rounded-lg border border-red-800 bg-red-950/30 p-3 text-left">
+                <button
+                  onClick={() => setShowErrorDetails(!showErrorDetails)}
+                  className="flex w-full items-center justify-between text-xs font-semibold text-red-300 uppercase tracking-wide hover:text-red-200"
+                >
+                  <span>Error Details</span>
+                  {showErrorDetails ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </button>
+
+                {showErrorDetails && (
+                  <div className="mt-3 space-y-2 text-xs text-slate-300">
+                    {error.error_type && (
+                      <div>
+                        <span className="font-semibold text-slate-200">Error Type:</span>{' '}
+                        <span className="font-mono text-red-300">{error.error_type}</span>
+                      </div>
+                    )}
+
+                    {error.context && Object.keys(error.context).length > 0 && (
+                      <div>
+                        <span className="font-semibold text-slate-200">Context:</span>
+                        <div className="mt-1 rounded bg-slate-950/50 p-2 font-mono text-xs">
+                          {Object.entries(error.context).map(([key, value]) => (
+                            <div key={key} className="text-slate-400">
+                              <span className="text-slate-300">{key}:</span>{' '}
+                              {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const errorText = JSON.stringify(error, null, 2);
+                        navigator.clipboard.writeText(errorText).then(() => {
+                          setCopySuccess(true);
+                          setTimeout(() => setCopySuccess(false), 2000);
+                        });
+                      }}
+                      className="mt-2 w-full"
+                    >
+                      <Copy className="mr-2 h-3 w-3" />
+                      {copySuccess ? 'Copied!' : 'Copy Error Details'}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </CardContent>

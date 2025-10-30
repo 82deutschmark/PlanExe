@@ -417,9 +417,41 @@ async def generate_image_endpoint(request: ImageGenerationRequest):
         )
 
     except ImageGenerationError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        error_message = str(e)
+        # Parse error type from message if present (format: "error_type - message")
+        error_type = "image_generation_error"
+        if " - " in error_message:
+            parts = error_message.split(" - ", 1)
+            if len(parts) == 2 and ":" in parts[0]:
+                # Extract error type from "OpenAI API error (status): type - message"
+                error_type = parts[0].split(":")[-1].strip()
+
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Image generation failed",
+                "error_type": error_type,
+                "message": error_message,
+                "context": {
+                    "model": request.model_key,
+                    "size": request.size,
+                    "prompt_length": len(request.prompt) if request.prompt else 0,
+                }
+            }
+        )
     except Exception as e:  # pragma: no cover - defensive
-        raise HTTPException(status_code=500, detail="Image generation failed") from e
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Image generation failed",
+                "error_type": "unexpected_error",
+                "message": str(e),
+                "context": {
+                    "model": request.model_key,
+                    "size": request.size,
+                }
+            }
+        ) from e
 
 
 @app.post("/api/images/edit", response_model=ImageGenerationResponse)
@@ -452,9 +484,41 @@ async def edit_image_endpoint(request: ImageEditRequest):
         )
 
     except ImageGenerationError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        error_message = str(e)
+        # Parse error type from message if present (format: "error_type - message")
+        error_type = "image_edit_error"
+        if " - " in error_message:
+            parts = error_message.split(" - ", 1)
+            if len(parts) == 2 and ":" in parts[0]:
+                # Extract error type from "OpenAI edit API error (status): type - message"
+                error_type = parts[0].split(":")[-1].strip()
+
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Image edit failed",
+                "error_type": error_type,
+                "message": error_message,
+                "context": {
+                    "model": request.model_key,
+                    "size": request.size,
+                    "prompt_length": len(request.prompt) if request.prompt else 0,
+                }
+            }
+        )
     except Exception as e:  # pragma: no cover - defensive
-        raise HTTPException(status_code=500, detail="Image edit failed") from e
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Image edit failed",
+                "error_type": "unexpected_error",
+                "message": str(e),
+                "context": {
+                    "model": request.model_key,
+                    "size": request.size,
+                }
+            }
+        ) from e
 
 
 @app.post("/api/stream/analyze", response_model=AnalysisStreamSessionResponse)
