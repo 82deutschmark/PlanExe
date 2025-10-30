@@ -33,7 +33,7 @@ class ImageGenerationService:
     """Service for generating concept images using OpenAI's image generation APIs."""
 
     DEFAULT_MODEL = "gpt-image-1-mini"
-    DEFAULT_ALLOWED_SIZES = ["1024x1024", "1024x1536", "1536x1024"]
+    DEFAULT_ALLOWED_SIZES = ["1024x1024", "1024x1536", "1536x1024", "1024x1792", "1792x1024"]
     DEFAULT_ALLOWED_FORMATS = ["png", "jpeg", "webp"]
     DEFAULT_TIMEOUT_SECONDS = 60.0
     DEFAULT_MAX_RETRIES = 2
@@ -72,7 +72,7 @@ class ImageGenerationService:
         """Validate and resolve image size using configuration defaults."""
         defaults = self._get_image_defaults(model_config)
         allowed_sizes = defaults.get("allowed_sizes") or self.DEFAULT_ALLOWED_SIZES
-        default_size = defaults.get("default_size") or self.DEFAULT_ALLOWED_SIZES[2]
+        default_size = defaults.get("default_size") or self.DEFAULT_ALLOWED_SIZES[0]
 
         normalized_requested = (requested_size or "").strip()
         # Never forward 'auto' to the Images API; map to default
@@ -513,6 +513,7 @@ class ImageGenerationService:
             "prompt": clean_prompt,
             "size": actual_size,
             "n": 1,
+            "response_format": "b64_json",
         }
         # Only include fields supported by the Images Generations API.
         # Do NOT send style/negative_prompt/output_format/output_compression as they are unsupported here.
@@ -601,7 +602,8 @@ class ImageGenerationService:
             "model": model,
             "prompt": clean_prompt,
             "size": actual_size,
-            "n": "1",
+            "n": 1,
+            "response_format": "b64_json",
         }
         # For edits, allow background (e.g., transparent) alongside the quality hint.
         # Do NOT send style/negative_prompt/output_format/output_compression (not supported by API).
