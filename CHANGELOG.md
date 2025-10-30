@@ -6,6 +6,15 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+### [0.21.9] - 2025-10-30
+
+### Fixed
+- **Conversation modal viewport for images**: Increased the image panel dimensions to properly display generated concept images without cutoff.
+  - Layout: Changed grid proportions from `1.45fr:1fr` to `1fr:1.25fr` (conversation:image), giving the image panel ~55% width instead of ~41%.
+  - Vertical: Adjusted flex ratios from `0.7:0.3` to `0.85:0.15` (image:reasoning), allocating 85% of vertical space to the image panel.
+  - Impact: Generated images now display at a comfortable size without being cramped or cut off in the intake modal.
+  - Files: `planexe-frontend/src/components/planning/ConversationModal.tsx`
+
 ### [0.21.8] - 2025-10-30
 
 ### Fixed
