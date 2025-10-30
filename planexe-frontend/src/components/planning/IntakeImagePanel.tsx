@@ -165,6 +165,14 @@ export const IntakeImagePanel: React.FC<IntakeImagePanelProps> = ({
                 src={imageSrc ?? ''}
                 alt="Generated concept"
                 className="h-full w-full rounded-lg border border-indigo-700/50 object-contain shadow-xl"
+                onError={(e) => {
+                  // Fallback: if a bare base64 without data URI sneaks in, try png prefix
+                  const el = e.currentTarget as HTMLImageElement;
+                  const val = el.getAttribute('src') || '';
+                  if (val && !val.startsWith('data:') && /^[A-Za-z0-9+/=]+$/.test(val)) {
+                    el.src = `data:image/png;base64,${val}`;
+                  }
+                }}
               />
             </div>
             {(prompt || metadata) && (
