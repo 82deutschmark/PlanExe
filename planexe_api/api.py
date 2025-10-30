@@ -411,6 +411,8 @@ async def generate_intake_image_endpoint(
             style=request.style,
             background=request.background,
             negative_prompt=request.negative_prompt,
+            output_format=request.output_format,
+            output_compression=request.output_compression,
         )
 
         return ImageGenerationResponse(
@@ -420,6 +422,7 @@ async def generate_intake_image_endpoint(
             model=result["model"],
             size=result["size"],
             format=result["format"],
+            compression=result.get("compression"),
         )
 
     except ImageGenerationError as e:
@@ -452,6 +455,8 @@ async def edit_intake_image_endpoint(
             style=request.style,
             background=request.background,
             negative_prompt=request.negative_prompt,
+            output_format=request.output_format,
+            output_compression=request.output_compression,
         )
 
         return ImageGenerationResponse(
@@ -461,6 +466,7 @@ async def edit_intake_image_endpoint(
             model=result["model"],
             size=result["size"],
             format=result["format"],
+            compression=result.get("compression"),
         )
 
     except ImageGenerationError as e:

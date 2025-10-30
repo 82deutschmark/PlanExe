@@ -7,10 +7,14 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **PATCH**: Bug fixes (backward compatible)
 
 
-### [0.19.4] - 2025-10-30
+### [0.20.0] - 2025-10-30
 
-### Fixed
-- **Conversation Hook Dependency**: Added missing `modelKey` dependency to `startConversation` callback to satisfy React Hook lint rules and ensure the hook reacts to model changes. (Files: `planexe-frontend/src/lib/conversation/useResponsesConversation.ts`)
+### Added
+- **gpt-image-1-mini Best Practices Doc**: Documented the October 2025 OpenAI image guidance and the PlanExe defaults that follow it, covering quality tiers, size presets, formats, compression, and transparency safeguards. (Files: `docs/gpt-image-1-mini-best-practices.md`)
+
+### Changed
+- **Image Service Output Controls**: Extended the backend image generation/edit flows to forward `output_format` and `output_compression`, honour `auto` quality/size presets, guard unsupported transparent backgrounds, and echo the applied metadata. (Files: `planexe_api/services/image_generation_service.py`, `planexe_api/api.py`, `planexe_api/models.py`, `llm_config.json`)
+- **Frontend Image Metadata Handling**: Updated the FastAPI client and conversation hook/UI to send the new options, persist returned format/compression, and surface the metadata in the intake panel. (Files: `planexe-frontend/src/lib/api/fastapi-client.ts`, `planexe-frontend/src/lib/conversation/useResponsesConversation.ts`, `planexe-frontend/src/components/planning/IntakeImagePanel.tsx`)
 
 ### [0.19.3] - 2025-10-30
 
