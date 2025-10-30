@@ -31,6 +31,7 @@ import { CreatePlanRequest, EnrichedPlanIntake } from '@/lib/api/fastapi-client'
 import { useConfigStore } from '@/lib/stores/config';
 import { EnrichedIntakeReview } from '@/components/planning/EnrichedIntakeReview';
 import { IntakeImagePanel } from '@/components/planning/IntakeImagePanel';
+import { IntakeImageLightbox } from '@/components/planning/IntakeImageLightbox';
 
 const FALLBACK_MODEL_ID = 'gpt-5-nano-2025-08-07';
 
@@ -91,6 +92,7 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
   const [hasAttemptedStart, setHasAttemptedStart] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [extractedIntake, setExtractedIntake] = useState<EnrichedPlanIntake | null>(null);
+  const [showImageLightbox, setShowImageLightbox] = useState(false);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -100,6 +102,7 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
       setHasAttemptedStart(false);
       setShowReview(false);
       setExtractedIntake(null);
+      setShowImageLightbox(false);
       resetConversation();
     }
   }, [isOpen, resetConversation]);
@@ -256,7 +259,7 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
             />
           </div>
         ) : (
-          <div className="flex-1 min-h-0 grid grid-cols-1 gap-5 px-6 py-3 overflow-hidden xl:grid-cols-[0.8fr_1.6fr]">
+          <div className="flex-1 min-h-0 grid grid-cols-1 gap-5 px-6 py-3 overflow-hidden xl:grid-cols-[1.2fr_1fr]">
             <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-slate-800 bg-slate-900 shadow-sm">
               <header className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
                 <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
@@ -371,7 +374,7 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
           </section>
 
           <aside className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
-            <div className="flex flex-[0.92] min-h-0 flex-col gap-4">
+            <div className="flex flex-[0.65] min-h-0 flex-col gap-4">
               <div className="flex flex-1 min-h-0">
                 <IntakeImagePanel
                   state={imageGenerationState}
@@ -379,10 +382,11 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
                   prompt={generatedImagePrompt}
                   metadata={generatedImageMetadata}
                   error={imageGenerationError}
+                  onExpandImage={() => setShowImageLightbox(true)}
                 />
               </div>
             </div>
-            <Card className="flex flex-col flex-[0.08] min-h-0 border-slate-800 bg-slate-900 overflow-hidden">
+            <Card className="flex flex-col flex-[0.35] min-h-0 border-slate-800 bg-slate-900 overflow-hidden">
               <CardHeader className="pb-3 shrink-0">
                 <CardTitle className="text-sm font-semibold uppercase tracking-wide text-slate-400">
                   Reasoning summary
@@ -399,6 +403,15 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
           </aside>
         </div>
         )}
+
+        {/* Image Lightbox for full-size viewing */}
+        <IntakeImageLightbox
+          isOpen={showImageLightbox}
+          onClose={() => setShowImageLightbox(false)}
+          imageB64={generatedImageB64}
+          prompt={generatedImagePrompt}
+          metadata={generatedImageMetadata}
+        />
       </DialogContent>
     </Dialog>
   );

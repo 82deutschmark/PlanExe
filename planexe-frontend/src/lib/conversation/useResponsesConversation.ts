@@ -451,6 +451,26 @@ export function useResponsesConversation(
         };
         setImageGenerationState('completed');
         console.log('[useResponsesConversation] Image generation completed');
+
+        // Persist to sessionStorage for reuse on other pages
+        if (typeof window !== 'undefined' && remoteConvId) {
+          try {
+            sessionStorage.setItem(`planexe_concept_image_${remoteConvId}`, JSON.stringify({
+              imageB64: response.image_b64,
+              prompt: response.prompt,
+              metadata: {
+                model: response.model,
+                size: response.size,
+                format: resolvedFormat,
+                compression: response.compression ?? undefined,
+              },
+              timestamp: Date.now(),
+            }));
+            console.log('[useResponsesConversation] Image persisted to sessionStorage');
+          } catch (error) {
+            console.warn('[useResponsesConversation] Failed to persist image to sessionStorage:', error);
+          }
+        }
       })
       .catch((error) => {
         let errorDetails: ImageGenerationErrorDetails;

@@ -10,7 +10,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, ChevronDown, ChevronUp, Sparkles, Wand2, Copy } from 'lucide-react';
+import { AlertCircle, ChevronDown, ChevronUp, Sparkles, Wand2, Copy, Maximize2 } from 'lucide-react';
 import {
   GeneratedImageMetadata,
   ImageGenerationErrorDetails,
@@ -23,6 +23,7 @@ interface IntakeImagePanelProps {
   prompt: string | null;
   metadata: GeneratedImageMetadata | null;
   error: ImageGenerationErrorDetails | null;
+  onExpandImage?: () => void;
 }
 
 const LOADING_MESSAGES = [
@@ -87,10 +88,12 @@ export const IntakeImagePanel: React.FC<IntakeImagePanelProps> = ({
   prompt,
   metadata,
   error,
+  onExpandImage,
 }) => {
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
   const [showErrorDetails, setShowErrorDetails] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const isGenerating = state === 'generating';
   const isEditing = state === 'editing';
   const isWorking = isGenerating || isEditing;
@@ -102,14 +105,22 @@ export const IntakeImagePanel: React.FC<IntakeImagePanelProps> = ({
 
   useEffect(() => {
     if (!isGenerating) {
+      setElapsedSeconds(0);
       return;
     }
 
-    const interval = setInterval(() => {
+    const messageInterval = setInterval(() => {
       setLoadingMessageIndex((prev) => (prev + 1) % LOADING_MESSAGES.length);
     }, 2500);
 
-    return () => clearInterval(interval);
+    const timerInterval = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+
+    return () => {
+      clearInterval(messageInterval);
+      clearInterval(timerInterval);
+    };
   }, [isGenerating]);
 
   const activeMessage = isGenerating
@@ -148,8 +159,11 @@ export const IntakeImagePanel: React.FC<IntakeImagePanelProps> = ({
 
             {/* Loading message - much more prominent */}
             <div className="absolute bottom-8 left-0 right-0 text-center px-4">
-              <div className="bg-slate-900/80 backdrop-blur-sm rounded-lg px-6 py-4 inline-block border border-purple-500/30">
-                <p className="text-2xl font-bold text-white mb-2 animate-pulse">
+              <div className="bg-slate-900/90 backdrop-blur-sm rounded-lg px-6 py-5 inline-block border-2 border-purple-500/50 shadow-2xl">
+                <div className="text-4xl font-bold text-purple-300 mb-3 tabular-nums">
+                  {elapsedSeconds}s
+                </div>
+                <p className="text-xl font-semibold text-white mb-2 animate-pulse">
                   {activeMessage}
                 </p>
                 <div className="mt-3 flex justify-center gap-2">
@@ -157,8 +171,8 @@ export const IntakeImagePanel: React.FC<IntakeImagePanelProps> = ({
                   <div className="h-3 w-3 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '0.2s' }} />
                   <div className="h-3 w-3 rounded-full bg-pink-400 animate-bounce" style={{ animationDelay: '0.4s' }} />
                 </div>
-                <p className="text-sm text-purple-200 mt-2 animate-fade-in">
-                  This may take 15-30 seconds...
+                <p className="text-sm text-purple-200 mt-3 animate-fade-in">
+                  Typically takes 15-30 seconds
                 </p>
               </div>
             </div>
@@ -167,22 +181,55 @@ export const IntakeImagePanel: React.FC<IntakeImagePanelProps> = ({
 
         {state === 'completed' && imageB64 && (
           <div className="w-full h-full flex flex-col gap-3">
-            <div className="flex-1 flex items-center justify-center">
-              {/* Base64 data URL cannot leverage next/image optimisations */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={imageSrc ?? ''}
-                alt="Generated concept"
-                className="h-full w-full rounded-lg border border-indigo-700/50 object-contain shadow-xl"
-                onError={(e) => {
-                  // Fallback: if a bare base64 without data URI sneaks in, try png prefix
-                  const el = e.currentTarget as HTMLImageElement;
-                  const val = el.getAttribute('src') || '';
-                  if (val && !val.startsWith('data:') && /^[A-Za-z0-9+/=]+$/.test(val)) {
-                    el.src = `data:image/png;base64,${val}`;
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 overflow-hidden">
+              {/* Thumbnail container with click to expand */}
+              <div
+                className="relative group cursor-pointer"
+                onClick={onExpandImage}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onExpandImage?.();
                   }
                 }}
-              />
+              >
+                {/* Base64 data URL cannot leverage next/image optimisations */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={imageSrc ?? ''}
+                  alt="Generated concept (click to expand)"
+                  className="max-h-[300px] w-auto rounded-lg border-2 border-indigo-700/50 object-contain shadow-xl transition-all group-hover:border-indigo-500 group-hover:shadow-2xl"
+                  onError={(e) => {
+                    // Fallback: if a bare base64 without data URI sneaks in, try png prefix
+                    const el = e.currentTarget as HTMLImageElement;
+                    const val = el.getAttribute('src') || '';
+                    if (val && !val.startsWith('data:') && /^[A-Za-z0-9+/=]+$/.test(val)) {
+                      el.src = `data:image/png;base64,${val}`;
+                    }
+                  }}
+                />
+                {/* Hover overlay */}
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg">
+                  <div className="flex flex-col items-center gap-2 text-white">
+                    <Maximize2 className="h-8 w-8" />
+                    <span className="text-sm font-semibold">Click to view full size</span>
+                  </div>
+                </div>
+              </div>
+              {/* Expand button below image */}
+              {onExpandImage && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onExpandImage}
+                  className="border-indigo-700/50 bg-indigo-950/40 text-indigo-200 hover:bg-indigo-900/60 hover:text-indigo-100"
+                >
+                  <Maximize2 className="mr-2 h-4 w-4" />
+                  View Full Size
+                </Button>
+              )}
             </div>
             {(prompt || metadata) && (
               <div className="rounded-lg border border-indigo-800/40 bg-slate-950/50 px-3 py-2 text-xs text-slate-300">
