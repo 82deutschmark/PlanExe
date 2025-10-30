@@ -391,6 +391,12 @@ export function useResponsesConversation(
     fastApiClient
       .generateIntakeImage(remoteConvId, trimmed, imageOptionsRef.current)
       .then((response) => {
+        if (response.conversation_id) {
+          setConversationId((prev) => {
+            if (prev) return prev;
+            return response.conversation_id ?? null;
+          });
+        }
         setGeneratedImageB64(response.image_b64);
         setGeneratedImagePrompt(response.prompt);
         const metadata: GeneratedImageMetadata = {
@@ -476,6 +482,12 @@ export function useResponsesConversation(
 
       try {
         const response = await fastApiClient.editIntakeImage(remoteConvId, payload);
+        if (response.conversation_id) {
+          setConversationId((prev) => {
+            if (prev) return prev;
+            return response.conversation_id ?? null;
+          });
+        }
         setGeneratedImageB64(response.image_b64);
         setGeneratedImagePrompt(response.prompt);
         const nextMetadata: GeneratedImageMetadata = {

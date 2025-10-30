@@ -392,7 +392,7 @@ export interface ConversationFinalizeResponse {
 }
 
 export interface ImageGenerationResponse {
-  conversation_id: string;
+  conversation_id?: string;
   image_b64: string;
   prompt: string;
   model: string;
@@ -860,7 +860,7 @@ export class FastAPIClient {
     prompt: string,
     options?: ImageGenerationOptions,
   ): Promise<ImageGenerationResponse> {
-    const body: Record<string, unknown> = { prompt };
+    const body: Record<string, unknown> = { prompt, conversation_id };
     if (options?.modelKey) body.model_key = options.modelKey;
     if (options?.size) body.size = options.size;
     if (options?.quality) body.quality = options.quality;
@@ -873,7 +873,7 @@ export class FastAPIClient {
     }
 
     const response = await fetch(
-      `${this.baseURL}/api/conversations/${encodeURIComponent(conversation_id)}/generate-image`,
+      `${this.baseURL}/api/images/generate`,
       {
         method: 'POST',
         headers: {
@@ -892,6 +892,7 @@ export class FastAPIClient {
     const body: Record<string, unknown> = {
       prompt: payload.prompt,
       base_image_b64: payload.baseImageB64,
+      conversation_id,
     };
     if (payload.maskB64) body.mask_b64 = payload.maskB64;
     if (payload.modelKey) body.model_key = payload.modelKey;
@@ -906,7 +907,7 @@ export class FastAPIClient {
     }
 
     const response = await fetch(
-      `${this.baseURL}/api/conversations/${encodeURIComponent(conversation_id)}/edit-image`,
+      `${this.baseURL}/api/images/edit`,
       {
         method: 'POST',
         headers: {

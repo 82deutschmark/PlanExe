@@ -161,6 +161,11 @@ class APIError(BaseModel):
 class ImageRequestBase(BaseModel):
     """Shared fields for image generation and editing requests."""
 
+    conversation_id: Optional[str] = Field(
+        None,
+        description="Optional conversation identifier associated with the request",
+        min_length=1,
+    )
     prompt: str = Field(..., min_length=1, description="User-facing instructions for the image model")
     model_key: Optional[str] = Field(None, description="Optional configured model key override")
     size: Optional[str] = Field(None, description="Desired image dimensions, e.g. 1024x1024")
@@ -186,6 +191,14 @@ class ImageRequestBase(BaseModel):
         if not cleaned:
             raise ValueError("prompt cannot be empty")
         return cleaned
+
+    @field_validator("conversation_id")
+    @classmethod
+    def validate_conversation_id(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        return cleaned or None
 
     @field_validator("output_format")
     @classmethod
@@ -220,7 +233,11 @@ class ImageEditRequest(ImageRequestBase):
 class ImageGenerationResponse(BaseModel):
     """Response payload returned after image generation or editing."""
 
-    conversation_id: str = Field(..., description="Conversation identifier tied to the image request")
+    conversation_id: Optional[str] = Field(
+        None,
+        description="Conversation identifier tied to the image request, when provided",
+        min_length=1,
+    )
     image_b64: str = Field(..., description="Base64-encoded PNG data")
     prompt: str = Field(..., description="Prompt used for the final image request")
     model: str = Field(..., description="Resolved model identifier used by the service")
