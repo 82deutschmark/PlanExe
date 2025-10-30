@@ -82,6 +82,9 @@ const RecoveryPageContent: React.FC = () => {
     llmStreams,
   } = recovery;
 
+  // Retrieve concept image if available
+  const conceptImage = useConceptImage(planId);
+
   // Compute missing targets for resume functionality
   const missingTargets = useMemo((): MissingSectionResponse[] => {
     const targets: MissingSectionResponse[] = [];
