@@ -119,10 +119,9 @@ class ImageGenerationService:
         """Fetch an image from a URL and convert to base64, returning the data and a format label."""
 
         try:
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                response = await client.get(url)
-                if response.status_code >= 400:
-                    raise ImageGenerationError(f"Failed to fetch image from URL: {response.status_code}")
+            return base64.b64decode(encoded, validate=True)
+        except Exception as exc:  # pragma: no cover - defensive
+            raise ImageGenerationError(f"Invalid base64 data provided for {label}") from exc
 
                 image_bytes = response.content
                 return base64.b64encode(image_bytes).decode("utf-8"), "base64_from_url"
