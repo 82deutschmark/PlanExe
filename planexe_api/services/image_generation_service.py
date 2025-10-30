@@ -432,7 +432,6 @@ class ImageGenerationService:
             "model": model,
             "prompt": clean_prompt,
             "size": actual_size,
-            "response_format": "b64_json",
             "n": 1,
         }
         optional_map = {
@@ -524,7 +523,6 @@ class ImageGenerationService:
             "model": model,
             "prompt": clean_prompt,
             "size": actual_size,
-            "response_format": "b64_json",
             "n": "1",
         }
         optional_map = {
