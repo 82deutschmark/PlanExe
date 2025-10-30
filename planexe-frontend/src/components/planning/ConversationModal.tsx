@@ -263,12 +263,12 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
       }}
     >
       <DialogContent className="!fixed !inset-0 !top-0 !left-0 !right-0 !bottom-0 !h-screen !w-screen !max-w-none !translate-x-0 !translate-y-0 !transform-none overflow-hidden border-0 bg-slate-950 p-0 shadow-none !m-0">
-        <DialogHeader className="shrink-0 px-6 py-4 border-b border-slate-800">
-          <DialogTitle className="flex items-center gap-3 text-3xl font-semibold text-slate-100">
+        <DialogHeader className="shrink-0 px-6 py-3 border-b border-slate-800">
+          <DialogTitle className="flex items-center gap-3 text-2xl font-semibold text-slate-100">
             <Sparkles className="h-6 w-6 text-indigo-400" />
             Enrich your plan request
           </DialogTitle>
-          <DialogDescription className="max-w-3xl text-base text-slate-400">
+          <DialogDescription className="max-w-3xl text-sm text-slate-400">
             We send your initial brief to the planning agent, who will guide you through the must-have details before Luigi starts.
           </DialogDescription>
         </DialogHeader>
@@ -283,9 +283,9 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
             />
           </div>
         ) : (
-          <div className="flex-1 min-h-0 grid grid-cols-1 gap-6 px-6 py-4 overflow-hidden xl:grid-cols-[1.5fr_1fr]">
+          <div className="flex-1 min-h-0 grid grid-cols-1 gap-5 px-6 py-3 overflow-hidden xl:grid-cols-[1.45fr_1fr]">
             <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-slate-800 bg-slate-900 shadow-sm">
-              <header className="flex items-center justify-between border-b border-slate-800 px-8 py-5">
+              <header className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
                 <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
                   <MessageCircle className="h-4 w-4 text-indigo-400" />
                   Conversation timeline
@@ -299,7 +299,7 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
                   </Badge>
                 </div>
               </header>
-              <div className="flex-1 min-h-0 space-y-5 overflow-y-auto px-8 py-6">
+              <div className="flex-1 min-h-0 space-y-5 overflow-y-auto px-6 py-5">
                 {messages.map((message) => (
                   <article
                     key={message.id}
@@ -330,7 +330,7 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
                 ))}
                 <div ref={messagesEndRef} />
               </div>
-            <footer className="shrink-0 flex flex-col border-t border-slate-800 bg-slate-900/50 px-8 py-5">
+            <footer className="shrink-0 flex flex-col border-t border-slate-800 bg-slate-900/50 px-6 py-4">
               <div className="flex flex-col gap-3 flex-1 items-center text-center">
                 <h3 className="text-base font-semibold uppercase tracking-wide text-slate-300">
                   Share more details to guide the agent
@@ -398,14 +398,16 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
           </section>
 
           <aside className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
-            <div className="flex flex-[0.6] min-h-0 flex-col gap-4">
-              <IntakeImagePanel
-                state={imageGenerationState}
-                imageB64={generatedImageB64}
-                prompt={generatedImagePrompt}
-                metadata={generatedImageMetadata}
-                error={imageGenerationError}
-              />
+            <div className="flex flex-[0.7] min-h-0 flex-col gap-4">
+              <div className="flex flex-1 min-h-0">
+                <IntakeImagePanel
+                  state={imageGenerationState}
+                  imageB64={generatedImageB64}
+                  prompt={generatedImagePrompt}
+                  metadata={generatedImageMetadata}
+                  error={imageGenerationError}
+                />
+              </div>
               <Card className="border-slate-800 bg-slate-900">
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
@@ -471,7 +473,7 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
                 </CardContent>
               </Card>
             </div>
-            <Card className="flex flex-col flex-[0.4] min-h-0 border-slate-800 bg-slate-900 overflow-hidden">
+            <Card className="flex flex-col flex-[0.3] min-h-0 border-slate-800 bg-slate-900 overflow-hidden">
               <CardHeader className="pb-3 shrink-0">
                 <CardTitle className="text-sm font-semibold uppercase tracking-wide text-slate-400">
                   Reasoning summary

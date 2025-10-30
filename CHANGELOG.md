@@ -7,6 +7,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **PATCH**: Bug fixes (backward compatible)
 
 
+### [0.20.3] - 2025-10-30
+
+### Changed
+- **Intake modal layout**: Tightened header spacing, widened the concept image panel, and compressed surrounding cards so the generated image has more vertical room with less wasted top space. (Files: `planexe-frontend/src/components/planning/ConversationModal.tsx`, `planexe-frontend/src/components/planning/IntakeImagePanel.tsx`)
+
 ### [0.20.2] - 2025-10-30
 
 ### Fixed

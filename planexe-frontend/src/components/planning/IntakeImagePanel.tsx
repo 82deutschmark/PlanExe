@@ -113,14 +113,14 @@ export const IntakeImagePanel: React.FC<IntakeImagePanelProps> = ({
     : 'Applying your edit…';
 
   return (
-    <Card className="flex flex-col border-slate-800 bg-slate-900 overflow-hidden h-full">
-      <CardHeader className="pb-3 shrink-0">
+    <Card className="flex h-full flex-col overflow-hidden border-slate-800 bg-slate-900">
+      <CardHeader className="shrink-0 px-4 py-3">
         <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
           <Wand2 className="h-4 w-4 text-purple-400" />
           Concept Image
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 min-h-0 flex items-center justify-center p-4">
+      <CardContent className="flex min-h-0 flex-1 items-center justify-center p-3 md:p-4">
         {state === 'idle' && (
           <div className="text-center text-slate-500 text-sm">
             <Sparkles className="h-12 w-12 mx-auto mb-3 text-slate-600" />
@@ -159,10 +159,12 @@ export const IntakeImagePanel: React.FC<IntakeImagePanelProps> = ({
         {state === 'completed' && imageB64 && (
           <div className="w-full h-full flex flex-col gap-3">
             <div className="flex-1 flex items-center justify-center">
+              {/* Base64 data URL cannot leverage next/image optimisations */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={imageSrc ?? ''}
                 alt="Generated concept"
-                className="max-w-full max-h-full object-contain rounded-lg border border-indigo-700/50 shadow-xl"
+                className="h-full w-full rounded-lg border border-indigo-700/50 object-contain shadow-xl"
               />
             </div>
             {(prompt || metadata) && (
