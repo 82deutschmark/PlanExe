@@ -1,4 +1,4 @@
-"""
+﻿"""
 # Author: o4-mini
 # Date: 2025-10-25T00:00:00Z
 # PURPOSE: Filter the list of documents-to-create down to the highest-impact subset using structured LLM output. Robust to out-of-range integer IDs emitted by the LLM by safely mapping integers to UUIDs, skipping invalid entries, and synthesizing placeholders when needed so downstream tasks never crash.
@@ -269,8 +269,12 @@ class FilterDocumentsToCreate:
 
         if identify_purpose_dict is None:
             logging.info("No identify_purpose_dict provided, identifying purpose.")
-            identify_purpose = IdentifyPurpose.execute(llm, user_prompt)
-            identify_purpose_dict = identify_purpose.to_dict()
+            identify_purpose = IdentifyPurpose.execute(llm, user_prompt, reasoning_effort="medium")
+            identify_purpose_dict = identify_purpose.to_dict(
+                include_metadata=False,
+                include_system_prompt=False,
+                include_user_prompt=False,
+            )
         else:
             logging.info("identify_purpose_dict provided, using it.")
 
@@ -480,3 +484,5 @@ if __name__ == "__main__":
 
     print("\n\nFiltered documents:")
     print(json.dumps(result.filtered_documents_raw_json, indent=2))
+
+

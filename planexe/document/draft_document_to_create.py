@@ -1,4 +1,4 @@
-"""
+﻿"""
 Based on a short description, draft the content of a document to create.
 
 PROMPT> python -m planexe.document.draft_document_to_create
@@ -134,7 +134,7 @@ class DraftDocumentToCreate:
         if identify_purpose_dict is None:
             logging.info("No identify_purpose_dict provided, identifying purpose.")
             identify_purpose = IdentifyPurpose.execute(llm, user_prompt, reasoning_effort="medium")
-            identify_purpose_dict = identify_purpose.to_dict()
+            identify_purpose_dict = identify_purpose.to_dict(include_metadata=False, include_system_prompt=False, include_user_prompt=False)
         else:
             logging.info("identify_purpose_dict provided, using it.")
 
@@ -212,7 +212,7 @@ class DraftDocumentToCreate:
         if identify_purpose_dict is None:
             logging.info("No identify_purpose_dict provided, identifying purpose.")
             identify_purpose = await IdentifyPurpose.aexecute(llm, user_prompt, reasoning_effort="medium")
-            identify_purpose_dict = identify_purpose.to_dict()
+            identify_purpose_dict = identify_purpose.to_dict(include_metadata=False, include_system_prompt=False, include_user_prompt=False)
         else:
             logging.info("identify_purpose_dict provided, using it.")
 

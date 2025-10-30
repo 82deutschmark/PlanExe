@@ -1,4 +1,4 @@
-# Author: Cascade
+﻿# Author: Cascade
 # Date: 2025-10-25T18:45:00Z
 # PURPOSE: Luigi pipeline orchestrator for PlanExe full-stack runs, now aligned with SimpleOpenAILLM adapters and centralized LLM configuration.
 # SRP and DRY check: Pass. File solely manages pipeline coordination and reuses shared tasks/executors without duplicating functionality.
@@ -592,7 +592,7 @@ class IdentifyPurposeTask(PlanTask):
             duration_seconds = time.time() - start_time
 
             # Update LLM interaction COMPLETE
-            response_dict = identify_purpose.to_dict()
+            response_dict = identify_purpose.to_dict(include_metadata=False, include_system_prompt=False, include_user_prompt=False)
             db_service.update_llm_interaction(interaction_id, {
                 "status": "completed",
                 "response_text": json.dumps(response_dict),
@@ -5198,6 +5198,25 @@ class CreateWBSLevel3Task(PlanTask):
                     interaction_id = chunk_data['interaction_id']
                     
                     try:
+                        # Handle per-chunk exceptions returned from run_batch_async gracefully
+                        if isinstance(create_wbs_level3, Exception):
+                            err_msg = str(create_wbs_level3)
+                            db_service.update_llm_interaction(
+                                interaction_id,
+                                {
+                                    "status": "failed",
+                                    "error_message": err_msg,
+                                    "completed_at": datetime.utcnow(),
+                                },
+                            )
+                            logger.error(
+                                "WBS Level 3 task %d failed with exception: %s",
+                                chunk_index,
+                                err_msg,
+                            )
+                            # Continue processing other chunks instead of failing the whole task
+                            continue
+
                         wbs_level3_raw_dict = create_wbs_level3.raw_response_dict()
                         db_service.update_llm_interaction(interaction_id, {"status": "completed", "response_text": json.dumps(wbs_level3_raw_dict), "completed_at": datetime.utcnow(), "duration_seconds": create_wbs_level3.metadata.get("duration", 0)})
                         raw_content = json.dumps(wbs_level3_raw_dict, indent=2)
@@ -5211,12 +5230,22 @@ class CreateWBSLevel3Task(PlanTask):
                     except Exception as e:
                         db_service.update_llm_interaction(interaction_id, {"status": "failed", "error_message": str(e), "completed_at": datetime.utcnow()})
                         logger.error(f"WBS Level 3 task {chunk_index} LLM interaction failed.", exc_info=True)
-                        raise ValueError(f"WBS Level 3 task {chunk_index} LLM interaction failed.") from e
+                        # Do not re-raise here to allow remaining chunks to complete
+                        continue
                 
                 return wbs_level3_result_accumulated
             
             # Run the concurrent execution
             wbs_level3_result_accumulated = await decompose_tasks_concurrently()
+            if not wbs_level3_result_accumulated:
+                logger.error("All WBS Level 3 decompositions failed; no results to aggregate")
+                # Persist an empty aggregation to keep DB-first contract and make failure explicit
+                aggregated_content = json.dumps([], indent=2)
+                db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.WBS_LEVEL3.value, "stage": "wbs_level3_aggregated", "content_type": "json", "content": aggregated_content, "content_size_bytes": len(aggregated_content.encode('utf-8'))})
+                aggregated_path = self.file_path(FilenameEnum.WBS_LEVEL3)
+                with open(aggregated_path, 'w') as f:
+                    json.dump([], f, indent=2)
+                raise ValueError("CreateWBSLevel3Task: all chunk decompositions failed")
             aggregated_content = json.dumps(wbs_level3_result_accumulated, indent=2)
             db_service.create_plan_content({"plan_id": plan_id, "filename": FilenameEnum.WBS_LEVEL3.value, "stage": "wbs_level3_aggregated", "content_type": "json", "content": aggregated_content, "content_size_bytes": len(aggregated_content.encode('utf-8'))})
             aggregated_path = self.file_path(FilenameEnum.WBS_LEVEL3)
@@ -6427,4 +6456,5 @@ if __name__ == '__main__':
     except Exception as e:
         logger.error(f"Failed to run pipeline: {e}")
         sys.exit(1)
+
 

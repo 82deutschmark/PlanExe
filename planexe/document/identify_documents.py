@@ -1,4 +1,4 @@
-# Author: Cascade
+﻿# Author: Cascade
 # Date: 2025-10-25T17:30:00Z
 # PURPOSE: Identify required documents for planning via centralized SimpleOpenAILLM abstractions, using structured outputs with cleanup helpers and no direct llama_index imports.
 # SRP and DRY check: Pass. The module encapsulates document identification logic while delegating messaging to shared utilities without duplicating logic.
@@ -288,8 +288,12 @@ class IdentifyDocuments:
 
         if identify_purpose_dict is None:
             logging.info("No identify_purpose_dict provided, identifying purpose.")
-            identify_purpose = IdentifyPurpose.execute(llm, user_prompt)
-            identify_purpose_dict = identify_purpose.to_dict()
+            identify_purpose = IdentifyPurpose.execute(llm, user_prompt, reasoning_effort="medium")
+            identify_purpose_dict = identify_purpose.to_dict(
+                include_metadata=False,
+                include_system_prompt=False,
+                include_user_prompt=False,
+            )
         else:
             logging.info("identify_purpose_dict provided, using it.")
 
@@ -515,3 +519,5 @@ if __name__ == "__main__":
     print(json.dumps(json_response, indent=2))
 
     print(f"\n\nMarkdown:\n{result.markdown}") 
+
+

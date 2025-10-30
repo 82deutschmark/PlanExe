@@ -1,4 +1,4 @@
-# Author: Cascade
+﻿# Author: Cascade
 # Date: 2025-10-25T17:30:00Z
 # PURPOSE: Filter identified documents down to the highest-impact subset using structured outputs through the centralized SimpleOpenAILLM adapter, with safeguards for missing IDs and logging.
 # SRP and DRY check: Pass. Filtering logic and orchestration remain localized while messaging leverages shared utilities.
@@ -257,8 +257,12 @@ class FilterDocumentsToFind:
 
         if identify_purpose_dict is None:
             logging.info("No identify_purpose_dict provided, identifying purpose.")
-            identify_purpose = IdentifyPurpose.execute(llm, user_prompt)
-            identify_purpose_dict = identify_purpose.to_dict()
+            identify_purpose = IdentifyPurpose.execute(llm, user_prompt, reasoning_effort="medium")
+            identify_purpose_dict = identify_purpose.to_dict(
+                include_metadata=False,
+                include_system_prompt=False,
+                include_user_prompt=False,
+            )
         else:
             logging.info("identify_purpose_dict provided, using it.")
 
@@ -476,3 +480,5 @@ if __name__ == "__main__":
 
     print("\n\nFiltered documents:")
     print(json.dumps(result.filtered_documents_raw_json, indent=2))
+
+

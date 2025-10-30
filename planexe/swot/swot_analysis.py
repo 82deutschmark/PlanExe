@@ -1,4 +1,4 @@
-# Author: Cascade
+﻿# Author: Cascade
 # Date: 2025-10-25T18:10:00Z
 # PURPOSE: Orchestrate full SWOT analysis using SimpleOpenAILLM adapters, delegating phase logic without llama_index dependencies.
 # SRP and DRY check: Pass. Module coordinates SWOT stages while reusing shared IdentifyPurpose and phase helpers.
@@ -57,8 +57,8 @@ class SWOTAnalysis:
 
         if identify_purpose_dict is None:
             logging.info("No identify_purpose_dict provided, identifying purpose.")
-            identify_purpose = IdentifyPurpose.execute(llm, query)
-            identify_purpose_dict = identify_purpose.to_dict()
+            identify_purpose = IdentifyPurpose.execute(llm, query, reasoning_effort="medium")
+            identify_purpose_dict = identify_purpose.to_dict(include_metadata=False, include_system_prompt=False, include_user_prompt=False)
         else:
             logging.info("identify_purpose_dict provided, using it.")
 
@@ -134,44 +134,44 @@ class SWOTAnalysis:
             rows.append(f"\n## Purpose\n{self.purpose}")
             rows.append(f"\n## Purpose detailed\n{self.purpose_detailed}")
 
-        rows.append("\n## Strengths 👍💪🦾")
+        rows.append("\n## Strengths ðŸ‘ðŸ’ªðŸ¦¾")
         for item in self.response_conduct.get('strengths', []):
             rows.append(f"- {item}")
 
-        rows.append("\n## Weaknesses 👎😱🪫⚠️")
+        rows.append("\n## Weaknesses ðŸ‘ŽðŸ˜±ðŸª«âš ï¸")
         for item in self.response_conduct.get('weaknesses', []):
             rows.append(f"- {item}")
 
-        rows.append("\n## Opportunities 🌈🌐")
+        rows.append("\n## Opportunities ðŸŒˆðŸŒ")
         for item in self.response_conduct.get('opportunities', []):
             rows.append(f"- {item}")
 
-        rows.append("\n## Threats ☠️🛑🚨☢︎💩☣︎")
+        rows.append("\n## Threats â˜ ï¸ðŸ›‘ðŸš¨â˜¢ï¸ŽðŸ’©â˜£ï¸Ž")
         for item in self.response_conduct.get('threats', []):
             rows.append(f"- {item}")
 
-        rows.append("\n## Recommendations 💡✅")
+        rows.append("\n## Recommendations ðŸ’¡âœ…")
         for item in self.response_conduct.get('recommendations', []):
             rows.append(f"- {item}")
 
-        rows.append("\n## Strategic Objectives 🎯🔭⛳🏅")
+        rows.append("\n## Strategic Objectives ðŸŽ¯ðŸ”­â›³ðŸ…")
         for item in self.response_conduct.get('strategic_objectives', []):
             rows.append(f"- {item}")
 
-        rows.append("\n## Assumptions 🤔🧠🔍")
+        rows.append("\n## Assumptions ðŸ¤”ðŸ§ ðŸ”")
         for item in self.response_conduct.get('assumptions', []):
             rows.append(f"- {item}")
 
-        rows.append("\n## Missing Information 🧩🤷‍♂️🤷‍♀️")
+        rows.append("\n## Missing Information ðŸ§©ðŸ¤·â€â™‚ï¸ðŸ¤·â€â™€ï¸")
         for item in self.response_conduct.get('missing_information', []):
             rows.append(f"- {item}")
 
-        rows.append("\n## Questions 🙋❓💬📌")
+        rows.append("\n## Questions ðŸ™‹â“ðŸ’¬ðŸ“Œ")
         for item in self.response_conduct.get('user_questions', []):
             rows.append(f"- {item}")
 
         if include_metadata:
-            rows.append("\n## Metadata 📊🔧💾")
+            rows.append("\n## Metadata ðŸ“ŠðŸ”§ðŸ’¾")
             rows.append("```json")
             json_dict = self.metadata.copy()
             json_dict['duration_response_type'] = self.response_purpose.get('metadata', {}).get('duration', 0)
@@ -211,3 +211,5 @@ if __name__ == "__main__":
 
     print("\n\nMarkdown:")
     print(result.to_markdown(include_metadata=False))
+
+
