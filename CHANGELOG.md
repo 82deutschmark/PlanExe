@@ -17,6 +17,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 ### Fixed
 - **Intake image MIME types**: Corrected the concept preview to respect the `gpt-image-1-mini` response format so JPEG/WEBP renders display correctly instead of forcing a PNG data URL. (Files: `planexe-frontend/src/components/planning/IntakeImagePanel.tsx`, `planexe-frontend/src/lib/conversation/useResponsesConversation.ts`)
 
+### [0.20.3] - 2025-10-30
+
+### Fixed
+- **Images API payload compliance**: Sanitized image generation/edit requests to remove unsupported fields (`background` for generation, `negative_prompt`, `output_format`, `output_compression`) and mapped `auto` quality/size to server defaults. Also reinstated `response_format: b64_json` and default result format to `png` for base64 responses. This resolves 400 errors while other OpenAI calls continued to work. (Files: `planexe_api/services/image_generation_service.py`)
+
 ### [0.20.1] - 2025-10-30
 
 ### Fixed

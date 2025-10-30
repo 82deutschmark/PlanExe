@@ -39,8 +39,7 @@ class ImageGenerationService:
         """Initialize the image generation service."""
         self.llm_config = PlanExeLLMConfig.load()
         self.api_key = os.getenv("OPENAI_API_KEY")
-        self.organization = os.getenv("OPENAI_ORG_ID") or os.getenv("OPENAI_ORGANIZATION")
-        
+
         if not self.api_key:
             raise ImageGenerationError("OPENAI_API_KEY not configured")
 
@@ -70,6 +69,9 @@ class ImageGenerationService:
         default_size = defaults.get("default_size") or self.DEFAULT_ALLOWED_SIZES[2]
 
         normalized_requested = (requested_size or "").strip()
+        # Never forward 'auto' to the Images API; map to default
+        if normalized_requested.lower() == "auto":
+            normalized_requested = ""
         if normalized_requested and normalized_requested in allowed_sizes:
             return normalized_requested
 
@@ -85,8 +87,6 @@ class ImageGenerationService:
         }
         if content_type:
             headers["Content-Type"] = content_type
-        if self.organization:
-            headers["OpenAI-Organization"] = self.organization
         return headers
 
     def _normalise_quality(
@@ -112,12 +112,12 @@ class ImageGenerationService:
             return cleaned
 
         resolved_requested = _clean(requested_quality)
-        if resolved_requested:
+        if resolved_requested and resolved_requested != "auto":
             return resolved_requested
 
         default_quality = defaults.get("quality")
         resolved_default = _clean(default_quality)
-        if resolved_default:
+        if resolved_default and resolved_default != "auto":
             return resolved_default
 
         return allowed[0] if allowed else None
@@ -296,7 +296,8 @@ class ImageGenerationService:
 
             if image_b64:
                 revised_prompt = image_entry.get("revised_prompt") or payload.get("prompt")
-                format_hint = payload.get("output_format") or "base64"
+                # Base64 responses are PNG by default
+                format_hint = "png"
                 return image_b64, revised_prompt, format_hint
 
             image_url = image_entry.get("url")
@@ -346,7 +347,8 @@ class ImageGenerationService:
             image_b64 = image_entry.get("b64_json")
             if image_b64:
                 revised_prompt = image_entry.get("revised_prompt") or data.get("prompt")
-                format_hint = data.get("output_format") or "base64"
+                # Base64 responses are PNG by default
+                format_hint = "png"
                 return image_b64, revised_prompt, format_hint
 
             raise ImageGenerationError("No base64 data returned from OpenAI edit API")
@@ -432,15 +434,14 @@ class ImageGenerationService:
             "model": model,
             "prompt": clean_prompt,
             "size": actual_size,
+            "response_format": "b64_json",
             "n": 1,
         }
+        # Only include fields supported by the Images Generations API.
+        # Do NOT send background/negative_prompt/output_format/output_compression as they are unsupported here.
         optional_map = {
-            "quality": actual_quality,
-            "style": actual_style,
-            "background": self._resolve_background(actual_background, actual_format),
-            "negative_prompt": actual_negative,
-            "output_format": actual_format,
-            "output_compression": actual_compression,
+            "quality": actual_quality if actual_quality in {"low", "medium", "high"} else None,
+            "style": actual_style if (isinstance(actual_style, str) and actual_style in {"natural", "vivid"}) else None,
         }
         for key, value in optional_map.items():
             if value is None:
@@ -461,7 +462,7 @@ class ImageGenerationService:
                     "image_b64": result_b64,
                     "model": model,
                     "size": actual_size,
-                    "format": format_label,
+                    "format": format_label or "png",
                     "compression": actual_compression,
                     "prompt": applied_prompt or clean_prompt,
                 }
@@ -523,15 +524,15 @@ class ImageGenerationService:
             "model": model,
             "prompt": clean_prompt,
             "size": actual_size,
+            "response_format": "b64_json",
             "n": "1",
         }
+        # For edits, allow background (e.g., transparent) in addition to quality/style.
+        # Do NOT send negative_prompt/output_format/output_compression (not supported by API).
         optional_map = {
-            "quality": actual_quality,
-            "style": actual_style,
+            "quality": actual_quality if actual_quality in {"low", "medium", "high"} else None,
+            "style": actual_style if (isinstance(actual_style, str) and actual_style in {"natural", "vivid"}) else None,
             "background": self._resolve_background(actual_background, actual_format),
-            "negative_prompt": actual_negative,
-            "output_format": actual_format,
-            "output_compression": actual_compression,
         }
         for key, value in optional_map.items():
             if value is None:
@@ -553,7 +554,7 @@ class ImageGenerationService:
                     "image_b64": result_b64,
                     "model": model,
                     "size": actual_size,
-                    "format": format_label,
+                    "format": format_label or "png",
                     "compression": actual_compression,
                     "prompt": applied_prompt or clean_prompt,
                 }
