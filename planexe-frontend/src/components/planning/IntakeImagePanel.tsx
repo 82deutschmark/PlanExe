@@ -32,6 +32,53 @@ const LOADING_MESSAGES = [
   'Creating imagery...',
 ];
 
+const DEFAULT_IMAGE_FORMAT = 'png';
+
+const normaliseImageFormat = (format?: string | null): string => {
+  if (!format) {
+    return DEFAULT_IMAGE_FORMAT;
+  }
+  const cleaned = format.trim().toLowerCase();
+  if (!cleaned) {
+    return DEFAULT_IMAGE_FORMAT;
+  }
+  if (cleaned === 'jpg') {
+    return 'jpeg';
+  }
+  if (cleaned === 'base64') {
+    return DEFAULT_IMAGE_FORMAT;
+  }
+  if (['png', 'jpeg', 'webp'].includes(cleaned)) {
+    return cleaned;
+  }
+  return DEFAULT_IMAGE_FORMAT;
+};
+
+const imageMimeTypeForFormat = (format: string): string => {
+  switch (format) {
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'webp':
+      return 'image/webp';
+    default:
+      return 'image/png';
+  }
+};
+
+const displayLabelForFormat = (rawFormat?: string | null, fallback?: string): string => {
+  if (!rawFormat) {
+    return (fallback ?? DEFAULT_IMAGE_FORMAT).toUpperCase();
+  }
+  const cleaned = rawFormat.trim().toLowerCase();
+  if (!cleaned || cleaned === 'base64') {
+    return (fallback ?? DEFAULT_IMAGE_FORMAT).toUpperCase();
+  }
+  if (cleaned === 'jpg') {
+    return 'JPEG';
+  }
+  return cleaned.toUpperCase();
+};
+
 export const IntakeImagePanel: React.FC<IntakeImagePanelProps> = ({
   state,
   imageB64,
@@ -43,6 +90,11 @@ export const IntakeImagePanel: React.FC<IntakeImagePanelProps> = ({
   const isGenerating = state === 'generating';
   const isEditing = state === 'editing';
   const isWorking = isGenerating || isEditing;
+
+  const resolvedFormat = normaliseImageFormat(metadata?.format);
+  const imageMimeType = imageMimeTypeForFormat(resolvedFormat);
+  const displayFormat = displayLabelForFormat(metadata?.format, resolvedFormat);
+  const imageSrc = imageB64 ? `data:${imageMimeType};base64,${imageB64}` : null;
 
   useEffect(() => {
     if (!isGenerating) {
@@ -108,7 +160,7 @@ export const IntakeImagePanel: React.FC<IntakeImagePanelProps> = ({
           <div className="w-full h-full flex flex-col gap-3">
             <div className="flex-1 flex items-center justify-center">
               <img
-                src={`data:image/png;base64,${imageB64}`}
+                src={imageSrc ?? ''}
                 alt="Generated concept"
                 className="max-w-full max-h-full object-contain rounded-lg border border-indigo-700/50 shadow-xl"
               />
@@ -122,7 +174,7 @@ export const IntakeImagePanel: React.FC<IntakeImagePanelProps> = ({
                 )}
                 {metadata && (
                   <p className="text-slate-500">
-                    {metadata.model} · {metadata.size} · {metadata.format.toUpperCase()}
+                    {metadata.model} · {metadata.size} · {displayFormat}
                     {typeof metadata.compression === 'number' ? ` (${metadata.compression}% compression)` : ''}
                   </p>
                 )}

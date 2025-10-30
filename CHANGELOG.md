@@ -7,6 +7,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **PATCH**: Bug fixes (backward compatible)
 
 
+### [0.20.2] - 2025-10-30
+
+### Fixed
+- **Intake image MIME types**: Corrected the concept preview to respect the `gpt-image-1-mini` response format so JPEG/WEBP renders display correctly instead of forcing a PNG data URL. (Files: `planexe-frontend/src/components/planning/IntakeImagePanel.tsx`, `planexe-frontend/src/lib/conversation/useResponsesConversation.ts`)
+
 ### [0.20.1] - 2025-10-30
 
 ### Fixed
