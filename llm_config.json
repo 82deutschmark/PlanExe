@@ -55,6 +55,9 @@
             ],
             "timeout_seconds": 60,
             "max_retries": 2,
+            "quality": "standard",
+            "style": "natural",
+            "background": "transparent",
             "responses_model_key": "gpt-5-nano-2025-08-07",
             "responses_instructions": "Return a single concept image encoded as base64 JSON and ensure it matches the requested size."
         }
