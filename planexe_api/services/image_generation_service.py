@@ -1,7 +1,9 @@
-# Author: gpt-5-codex
-# Date: 2025-10-30T19:33:27Z
-# PURPOSE: Centralise OpenAI gpt-image-1-mini usage for generation/edit flows, ensuring robust payload defaults and URL fallbacks.
-# SRP and DRY check: Pass. Service keeps single responsibility for image orchestration without duplicating HTTP fetch logic elsewhere.
+# Author: Cascade using `Cascade`
+# Date: 2025-10-30T19:53:00Z
+# PURPOSE: Centralize OpenAI gpt-image-1-mini usage for generation/edit flows with validated payload defaults, quality/size normalization,
+#          retries, and URL fallback handling. Integrates with PlanExeLLMConfig (llm_config.json) to resolve defaults and constraints.
+#          This service is used by FastAPI endpoints to provide concept image generation and editing and returns base64 data plus metadata.
+# SRP and DRY check: Pass. Single responsibility for image orchestration; avoids duplicate HTTP/OpenAI logic elsewhere and reuses shared config.
 
 """
 Image generation service for PlanExe concept visualization.
@@ -97,6 +99,9 @@ class ImageGenerationService:
         configured = defaults.get("allowed_qualities")
         if isinstance(configured, list):
             allowed = [str(item).strip().lower() for item in configured if str(item).strip()]
+        # If not configured, fall back to the current documented OpenAI set
+        if not allowed:
+            allowed = ["low", "medium", "high", "auto"]
 
         def _clean(value: Optional[str]) -> Optional[str]:
             if value is None:
@@ -516,7 +521,8 @@ class ImageGenerationService:
         # Only include fields supported by the Images Generations API.
         # Do NOT send style/negative_prompt/output_format/output_compression as they are unsupported here.
         optional_map = {
-            "quality": actual_quality if actual_quality in {"standard", "hd"} else None,
+            # Pass through validated quality including low/medium/high/auto
+            "quality": actual_quality,
             "background": self._resolve_background(actual_background, actual_format),
         }
         for key, value in optional_map.items():
@@ -603,7 +609,8 @@ class ImageGenerationService:
         # For edits, allow background (e.g., transparent) alongside the quality hint.
         # Do NOT send style/negative_prompt/output_format/output_compression (not supported by API).
         optional_map = {
-            "quality": actual_quality if actual_quality in {"standard", "hd"} else None,
+            # Pass through validated quality including low/medium/high/auto
+            "quality": actual_quality,
             "background": self._resolve_background(actual_background, actual_format),
         }
         for key, value in optional_map.items():

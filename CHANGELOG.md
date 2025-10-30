@@ -6,6 +6,14 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+### [0.21.7] - 2025-10-30
+
+### Fixed
+- **OpenAI Images quality compliance**: Replaced deprecated `standard/hd` quality values with the supported set and updated defaults.
+  - Config: `llm_config.json` now uses `quality: "high"` and `allowed_qualities: ["low", "medium", "high", "auto"]`.
+  - Service: `ImageGenerationService` passes through validated `low/medium/high/auto` for both generate and edit flows and no longer filters to `{"standard","hd"}`.
+  - Impact: Prevents 400 `invalid_request_error` caused by invalid `quality: "standard"` while keeping size/format/compression handling unchanged.
+
 ### [0.21.6] - 2025-10-30
 
 ### Fixed
