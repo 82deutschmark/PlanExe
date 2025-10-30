@@ -59,6 +59,23 @@ export interface GeneratedImageMetadata {
   compression?: number;
 }
 
+const normalizeResponseFormat = (format?: string | null): string => {
+  if (!format) {
+    return 'base64';
+  }
+  const cleaned = format.trim().toLowerCase();
+  if (!cleaned) {
+    return 'base64';
+  }
+  if (cleaned === 'jpg') {
+    return 'jpeg';
+  }
+  if (['png', 'jpeg', 'webp', 'base64'].includes(cleaned)) {
+    return cleaned;
+  }
+  return 'base64';
+};
+
 export interface UseResponsesConversationReturn {
   messages: ConversationMessage[];
   conversationId: string | null;
@@ -399,17 +416,21 @@ export function useResponsesConversation(
         }
         setGeneratedImageB64(response.image_b64);
         setGeneratedImagePrompt(response.prompt);
+        const resolvedFormat = normalizeResponseFormat(response.format);
         const metadata: GeneratedImageMetadata = {
           model: response.model,
           size: response.size,
-          format: response.format,
+          format: resolvedFormat,
           compression: response.compression ?? undefined,
         };
         setGeneratedImageMetadata(metadata);
         imageOptionsRef.current = {
           ...imageOptionsRef.current,
           size: response.size,
-          outputFormat: response.format !== 'base64' ? response.format : imageOptionsRef.current?.outputFormat,
+          outputFormat:
+            resolvedFormat !== 'base64'
+              ? resolvedFormat
+              : imageOptionsRef.current?.outputFormat,
           outputCompression:
             typeof response.compression === 'number'
               ? response.compression
@@ -490,10 +511,11 @@ export function useResponsesConversation(
         }
         setGeneratedImageB64(response.image_b64);
         setGeneratedImagePrompt(response.prompt);
+        const resolvedFormat = normalizeResponseFormat(response.format);
         const nextMetadata: GeneratedImageMetadata = {
           model: response.model,
           size: response.size,
-          format: response.format,
+          format: resolvedFormat,
           compression: response.compression ?? undefined,
         };
         setGeneratedImageMetadata(nextMetadata);
@@ -506,8 +528,8 @@ export function useResponsesConversation(
           background: payload.background ?? options?.background,
           negativePrompt: payload.negativePrompt ?? options?.negativePrompt,
           outputFormat:
-            response.format !== 'base64'
-              ? response.format
+            resolvedFormat !== 'base64'
+              ? resolvedFormat
               : payload.outputFormat ?? options?.outputFormat,
           outputCompression:
             typeof response.compression === 'number'
