@@ -512,9 +512,7 @@ class ImageGenerationService:
         defaults = self._get_image_defaults(model_config)
         actual_size = self._resolve_size(size, model_config)
         actual_quality = self._normalise_quality(quality, defaults)
-        actual_style = self._resolve_optional_setting("style", defaults, style)
         actual_background = self._resolve_optional_setting("background", defaults, background)
-        actual_negative = self._resolve_optional_setting("negative_prompt", defaults, negative_prompt)
         actual_format = self._normalise_output_format(output_format, defaults)
         actual_compression = self._normalise_output_compression(output_compression, actual_format, defaults)
         timeout_seconds, retries = self._resolve_timeout_and_retries(defaults, timeout, max_retries)
@@ -523,14 +521,13 @@ class ImageGenerationService:
             "model": model,
             "prompt": clean_prompt,
             "size": actual_size,
-            "response_format": "b64_json",
             "n": 1,
         }
         # Only include fields supported by the Images Generations API.
-        # Do NOT send background/negative_prompt/output_format/output_compression as they are unsupported here.
+        # Do NOT send style/negative_prompt/output_format/output_compression as they are unsupported here.
         optional_map = {
             "quality": actual_quality if actual_quality in {"low", "medium", "high"} else None,
-            "style": actual_style if (isinstance(actual_style, str) and actual_style in {"natural", "vivid"}) else None,
+            "background": self._resolve_background(actual_background, actual_format),
         }
         for key, value in optional_map.items():
             if value is None:
@@ -596,9 +593,7 @@ class ImageGenerationService:
         defaults = self._get_image_defaults(model_config)
         actual_size = self._resolve_size(size, model_config)
         actual_quality = self._normalise_quality(quality, defaults)
-        actual_style = self._resolve_optional_setting("style", defaults, style)
         actual_background = self._resolve_optional_setting("background", defaults, background)
-        actual_negative = self._resolve_optional_setting("negative_prompt", defaults, negative_prompt)
         actual_format = self._normalise_output_format(output_format, defaults)
         actual_compression = self._normalise_output_compression(output_compression, actual_format, defaults)
         timeout_seconds, retries = self._resolve_timeout_and_retries(defaults, timeout, max_retries)
@@ -615,14 +610,12 @@ class ImageGenerationService:
             "model": model,
             "prompt": clean_prompt,
             "size": actual_size,
-            "response_format": "b64_json",
             "n": "1",
         }
-        # For edits, allow background (e.g., transparent) in addition to quality/style.
-        # Do NOT send negative_prompt/output_format/output_compression (not supported by API).
+        # For edits, allow background (e.g., transparent) alongside the quality hint.
+        # Do NOT send style/negative_prompt/output_format/output_compression (not supported by API).
         optional_map = {
             "quality": actual_quality if actual_quality in {"low", "medium", "high"} else None,
-            "style": actual_style if (isinstance(actual_style, str) and actual_style in {"natural", "vivid"}) else None,
             "background": self._resolve_background(actual_background, actual_format),
         }
         for key, value in optional_map.items():
