@@ -397,6 +397,22 @@ export interface ImageGenerationResponse {
   prompt: string;
   model: string;
   size: string;
+  format: string;
+}
+
+export interface ImageGenerationOptions {
+  modelKey?: string;
+  size?: string;
+  quality?: string;
+  style?: string;
+  background?: string;
+  negativePrompt?: string;
+}
+
+export interface ImageEditPayload extends ImageGenerationOptions {
+  prompt: string;
+  baseImageB64: string;
+  maskB64?: string;
 }
 
 // WebSocket Message Types
@@ -839,7 +855,16 @@ export class FastAPIClient {
   async generateIntakeImage(
     conversation_id: string,
     prompt: string,
+    options?: ImageGenerationOptions,
   ): Promise<ImageGenerationResponse> {
+    const body: Record<string, unknown> = { prompt };
+    if (options?.modelKey) body.model_key = options.modelKey;
+    if (options?.size) body.size = options.size;
+    if (options?.quality) body.quality = options.quality;
+    if (options?.style) body.style = options.style;
+    if (options?.background) body.background = options.background;
+    if (options?.negativePrompt) body.negative_prompt = options.negativePrompt;
+
     const response = await fetch(
       `${this.baseURL}/api/conversations/${encodeURIComponent(conversation_id)}/generate-image`,
       {
@@ -847,7 +872,36 @@ export class FastAPIClient {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify(body),
+      },
+    );
+    return this.handleResponse<ImageGenerationResponse>(response);
+  }
+
+  async editIntakeImage(
+    conversation_id: string,
+    payload: ImageEditPayload,
+  ): Promise<ImageGenerationResponse> {
+    const body: Record<string, unknown> = {
+      prompt: payload.prompt,
+      base_image_b64: payload.baseImageB64,
+    };
+    if (payload.maskB64) body.mask_b64 = payload.maskB64;
+    if (payload.modelKey) body.model_key = payload.modelKey;
+    if (payload.size) body.size = payload.size;
+    if (payload.quality) body.quality = payload.quality;
+    if (payload.style) body.style = payload.style;
+    if (payload.background) body.background = payload.background;
+    if (payload.negativePrompt) body.negative_prompt = payload.negativePrompt;
+
+    const response = await fetch(
+      `${this.baseURL}/api/conversations/${encodeURIComponent(conversation_id)}/edit-image`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
       },
     );
     return this.handleResponse<ImageGenerationResponse>(response);

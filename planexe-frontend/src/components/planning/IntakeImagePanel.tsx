@@ -1,8 +1,8 @@
 /**
- * Author: Cascade
+ * Author: gpt-5-codex
  * Date: 2025-10-29
- * PURPOSE: Display concept image generation for intake conversation with creative loading states.
- * SRP and DRY check: Pass - focused on image display and loading animation.
+ * PURPOSE: Display concept image generation for intake conversation with status-aware metadata and edit feedback.
+ * SRP and DRY check: Pass - focused solely on presenting concept image state while delegating data fetch to the hook.
  */
 
 'use client';
@@ -10,10 +10,16 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertCircle, Sparkles, Wand2 } from 'lucide-react';
+import {
+  GeneratedImageMetadata,
+  ImageGenerationState,
+} from '@/lib/conversation/useResponsesConversation';
 
 interface IntakeImagePanelProps {
-  state: 'idle' | 'generating' | 'completed' | 'error';
+  state: ImageGenerationState;
   imageB64: string | null;
+  prompt: string | null;
+  metadata: GeneratedImageMetadata | null;
   error: string | null;
 }
 
@@ -29,12 +35,17 @@ const LOADING_MESSAGES = [
 export const IntakeImagePanel: React.FC<IntakeImagePanelProps> = ({
   state,
   imageB64,
+  prompt,
+  metadata,
   error,
 }) => {
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+  const isGenerating = state === 'generating';
+  const isEditing = state === 'editing';
+  const isWorking = isGenerating || isEditing;
 
   useEffect(() => {
-    if (state !== 'generating') {
+    if (!isGenerating) {
       return;
     }
 
@@ -43,7 +54,11 @@ export const IntakeImagePanel: React.FC<IntakeImagePanelProps> = ({
     }, 2500);
 
     return () => clearInterval(interval);
-  }, [state]);
+  }, [isGenerating]);
+
+  const activeMessage = isGenerating
+    ? LOADING_MESSAGES[loadingMessageIndex]
+    : 'Applying your edit…';
 
   return (
     <Card className="flex flex-col border-slate-800 bg-slate-900 overflow-hidden h-full">
@@ -61,11 +76,11 @@ export const IntakeImagePanel: React.FC<IntakeImagePanelProps> = ({
           </div>
         )}
 
-        {state === 'generating' && (
+        {isWorking && (
           <div className="relative w-full h-full rounded-lg overflow-hidden bg-gradient-to-br from-indigo-900/40 via-purple-900/40 to-pink-900/40">
             {/* Animated gradient overlay */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" />
-            
+
             {/* Sparkle effects */}
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="relative">
@@ -78,7 +93,7 @@ export const IntakeImagePanel: React.FC<IntakeImagePanelProps> = ({
             {/* Loading message */}
             <div className="absolute bottom-4 left-0 right-0 text-center">
               <p className="text-lg font-medium text-slate-200 animate-fade-in">
-                {LOADING_MESSAGES[loadingMessageIndex]}
+                {activeMessage}
               </p>
               <div className="mt-2 flex justify-center gap-1">
                 <div className="h-2 w-2 rounded-full bg-purple-400 animate-bounce" />
@@ -90,12 +105,28 @@ export const IntakeImagePanel: React.FC<IntakeImagePanelProps> = ({
         )}
 
         {state === 'completed' && imageB64 && (
-          <div className="w-full h-full flex items-center justify-center">
-            <img
-              src={`data:image/png;base64,${imageB64}`}
-              alt="Generated concept"
-              className="max-w-full max-h-full object-contain rounded-lg border border-indigo-700/50 shadow-xl"
-            />
+          <div className="w-full h-full flex flex-col gap-3">
+            <div className="flex-1 flex items-center justify-center">
+              <img
+                src={`data:image/png;base64,${imageB64}`}
+                alt="Generated concept"
+                className="max-w-full max-h-full object-contain rounded-lg border border-indigo-700/50 shadow-xl"
+              />
+            </div>
+            {(prompt || metadata) && (
+              <div className="rounded-lg border border-indigo-800/40 bg-slate-950/50 px-3 py-2 text-xs text-slate-300">
+                {prompt && (
+                  <p className="mb-1 text-slate-200">
+                    <span className="font-semibold uppercase tracking-wide text-slate-400">Prompt:</span> {prompt}
+                  </p>
+                )}
+                {metadata && (
+                  <p className="text-slate-500">
+                    {metadata.model} · {metadata.size} · {metadata.format.toUpperCase()}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
 

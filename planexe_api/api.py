@@ -1,13 +1,8 @@
-# Author: Cascade
-# Date: 2025-10-29T16:19:00Z
-# PURPOSE: FastAPI entrypoint orchestrating PlanExe HTTP and WebSocket APIs with database-first artefact delivery. Enhanced image generation endpoint with robust base64 return and URL fallback.
-# SRP and DRY check: Pass — Module handles routing while delegating persistence and pipeline logic to dedicated services.
-"""
-Author: Claude Code using Sonnet 4
-Date: 2025-09-24
-PURPOSE: Clean FastAPI REST API for PlanExe - proper service architecture following SRP
-SRP and DRY check: Pass - Single responsibility of HTTP routing, delegates execution to services
-"""
+# Author: gpt-5-codex
+# Date: 2025-10-29T20:39:49Z
+# PURPOSE: FastAPI entrypoint orchestrating PlanExe APIs with refreshed gpt-image-1-mini integration for generation and edits.
+# SRP and DRY check: Pass. Routes delegate to dedicated services and shared validation schemas.
+
 import asyncio
 import hashlib
 import json
@@ -49,6 +44,9 @@ from planexe_api.models import (
     ConversationFinalizeResponse,
     ConversationRequestResponse,
     ConversationTurnRequest,
+    ImageEditRequest,
+    ImageGenerationRequest,
+    ImageGenerationResponse,
     CreatePlanRequest,
     FallbackReportResponse,
     HealthResponse,
@@ -391,44 +389,84 @@ async def create_conversation_followup_endpoint(
     return await conversation_service.followup(conversation_id=conversation_id, request=request)
 
 
-@app.post("/api/conversations/{conversation_id}/generate-image")
-async def generate_intake_image_endpoint(conversation_id: str, request: Request):
-    """Generate a concept image for the user's initial idea using the centralized image generation service."""
+@app.post(
+    "/api/conversations/{conversation_id}/generate-image",
+    response_model=ImageGenerationResponse,
+)
+async def generate_intake_image_endpoint(
+    conversation_id: str,
+    request: ImageGenerationRequest,
+):
+    """Generate a concept image for the user's initial idea."""
 
     if not STREAMING_ENABLED:
         raise HTTPException(status_code=403, detail="STREAMING_DISABLED")
 
     try:
-        body = await request.json()
-        prompt = body.get("prompt", "").strip()
-        model_key = body.get("model_key")
-        size = body.get("size", "1024x1024").strip()
-
-        if not prompt:
-            raise HTTPException(status_code=400, detail="Prompt is required")
-
-        # Delegate to the image generation service
         result = await image_generation_service.generate_concept_image(
-            prompt=prompt,
-            model_key=model_key,
-            size=size
+            prompt=request.prompt,
+            model_key=request.model_key,
+            size=request.size,
+            quality=request.quality,
+            style=request.style,
+            background=request.background,
+            negative_prompt=request.negative_prompt,
         )
 
-        return {
-            "conversation_id": conversation_id,
-            "image_b64": result["image_b64"],
-            "prompt": prompt,
-            "model": result["model"],
-            "size": result["size"],
-            "format": result["format"]
-        }
+        return ImageGenerationResponse(
+            conversation_id=conversation_id,
+            image_b64=result["image_b64"],
+            prompt=result.get("prompt", request.prompt),
+            model=result["model"],
+            size=result["size"],
+            format=result["format"],
+        )
 
-    except HTTPException:
-        raise
     except ImageGenerationError as e:
         raise HTTPException(status_code=500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Image generation failed")
+    except Exception as e:  # pragma: no cover - defensive
+        raise HTTPException(status_code=500, detail="Image generation failed") from e
+
+
+@app.post(
+    "/api/conversations/{conversation_id}/edit-image",
+    response_model=ImageGenerationResponse,
+)
+async def edit_intake_image_endpoint(
+    conversation_id: str,
+    request: ImageEditRequest,
+):
+    """Apply edits to an existing concept image."""
+
+    if not STREAMING_ENABLED:
+        raise HTTPException(status_code=403, detail="STREAMING_DISABLED")
+
+    try:
+        result = await image_generation_service.edit_concept_image(
+            prompt=request.prompt,
+            base_image_b64=request.base_image_b64,
+            mask_b64=request.mask_b64,
+            model_key=request.model_key,
+            size=request.size,
+            quality=request.quality,
+            style=request.style,
+            background=request.background,
+            negative_prompt=request.negative_prompt,
+        )
+
+        return ImageGenerationResponse(
+            conversation_id=conversation_id,
+            image_b64=result["image_b64"],
+            prompt=result.get("prompt", request.prompt),
+            model=result["model"],
+            size=result["size"],
+            format=result["format"],
+        )
+
+    except ImageGenerationError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:  # pragma: no cover - defensive
+        raise HTTPException(status_code=500, detail="Image edit failed") from e
 
 
 @app.post("/api/stream/analyze", response_model=AnalysisStreamSessionResponse)

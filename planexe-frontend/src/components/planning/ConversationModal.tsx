@@ -22,7 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle, Loader2, MessageCircle, RefreshCcw, Send, Sparkles } from 'lucide-react';
+import { AlertCircle, Loader2, MessageCircle, RefreshCcw, Send, Sparkles, Wand2 } from 'lucide-react';
 import {
   ConversationFinalizeResult,
   useResponsesConversation,
@@ -68,6 +68,7 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
     messages,
     startConversation,
     sendUserMessage,
+    requestImageEdit,
     finalizeConversation,
     resetConversation,
     isStreaming,
@@ -75,6 +76,8 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
     reasoningBuffer,
     imageGenerationState,
     generatedImageB64,
+    generatedImagePrompt,
+    generatedImageMetadata,
     imageGenerationError,
   } = useResponsesConversation({
     initialPrompt,
@@ -89,6 +92,9 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
   const [hasAttemptedStart, setHasAttemptedStart] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [extractedIntake, setExtractedIntake] = useState<EnrichedPlanIntake | null>(null);
+  const [editInstructions, setEditInstructions] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -98,6 +104,9 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
       setHasAttemptedStart(false);
       setShowReview(false);
       setExtractedIntake(null);
+      setEditInstructions('');
+      setEditError(null);
+      setIsSubmittingEdit(false);
       resetConversation();
     }
   }, [isOpen, resetConversation]);
@@ -173,6 +182,26 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
       const message = error instanceof Error ? error.message : 'Failed to send message.';
       console.error('[ConversationModal] Send message failed:', error);
       setLocalError(message);
+    }
+  };
+
+  const handleImageEditSubmit = async () => {
+    const trimmed = editInstructions.trim();
+    if (!trimmed) {
+      setEditError('Please describe how you want the concept image to change.');
+      return;
+    }
+
+    setEditError(null);
+    setIsSubmittingEdit(true);
+    try {
+      await requestImageEdit(trimmed);
+      setEditInstructions('');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to apply your edit.';
+      setEditError(message);
+    } finally {
+      setIsSubmittingEdit(false);
     }
   };
 
@@ -369,12 +398,78 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
           </section>
 
           <aside className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
-            <div className="flex-[0.6] min-h-0">
+            <div className="flex flex-[0.6] min-h-0 flex-col gap-4">
               <IntakeImagePanel
                 state={imageGenerationState}
                 imageB64={generatedImageB64}
+                prompt={generatedImagePrompt}
+                metadata={generatedImageMetadata}
                 error={imageGenerationError}
               />
+              <Card className="border-slate-800 bg-slate-900">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+                    <Wand2 className="h-4 w-4 text-purple-400" />
+                    Refine Concept
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-3">
+                  {generatedImagePrompt && (
+                    <div className="rounded-md bg-slate-950/40 px-3 py-2 text-xs text-slate-300">
+                      <span className="font-semibold text-slate-200">Last prompt:</span>{' '}
+                      {generatedImagePrompt}
+                    </div>
+                  )}
+                  {generatedImageMetadata && (
+                    <p className="text-xs text-slate-500">
+                      Model {generatedImageMetadata.model} · {generatedImageMetadata.size}
+                    </p>
+                  )}
+                  <Textarea
+                    value={editInstructions}
+                    onChange={(event) => setEditInstructions(event.target.value)}
+                    placeholder="Describe adjustments or variations you'd like to see"
+                    className="min-h-[80px]"
+                    disabled={!generatedImageB64 || isStreaming || isSubmittingEdit || imageGenerationState === 'generating' || imageGenerationState === 'editing'}
+                  />
+                  {editError && <p className="text-xs text-red-300">{editError}</p>}
+                  <div className="flex items-center justify-between gap-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setEditInstructions('');
+                        setEditError(null);
+                      }}
+                      disabled={!editInstructions.trim() || isSubmittingEdit}
+                    >
+                      Clear
+                    </Button>
+                    <Button
+                      onClick={handleImageEditSubmit}
+                      disabled={
+                        !generatedImageB64 ||
+                        !editInstructions.trim() ||
+                        isSubmittingEdit ||
+                        imageGenerationState === 'generating' ||
+                        imageGenerationState === 'editing'
+                      }
+                    >
+                      {isSubmittingEdit || imageGenerationState === 'editing' ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Applying edit…
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 className="mr-2 h-4 w-4" />
+                          Apply edit
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
             <Card className="flex flex-col flex-[0.4] min-h-0 border-slate-800 bg-slate-900 overflow-hidden">
               <CardHeader className="pb-3 shrink-0">
