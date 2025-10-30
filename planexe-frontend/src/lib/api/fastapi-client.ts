@@ -985,3 +985,23 @@ console.log('[FastAPIClient] Initializing with base URL:', resolvedBaseUrl);
 export const fastApiClient = new FastAPIClient(resolvedBaseUrl);
 
 // Types are already exported above with their interface declarations
+// Author: gpt-5-codex
+// Date: 2025-10-30T12:20:00Z
+// PURPOSE: Add helper to consistently build data URIs for image responses from the backend (png/jpeg/webp), preventing UI drift.
+// SRP and DRY check: Pass. Centralizes data-URI construction to avoid duplication in components.
+
+export type GeneratedImagePayload = {
+  image_b64: string;
+  format?: 'png' | 'jpeg' | 'webp' | 'base64' | string | null;
+};
+
+/**
+ * Build a data URI for an image result returned by the backend image APIs.
+ * Falls back to PNG when format is missing or unknown.
+ */
+export function buildImageDataURI(result?: GeneratedImagePayload | null): string | null {
+  if (!result || !result.image_b64) return null;
+  const fmt = (result.format || 'png').toLowerCase();
+  const mime = fmt === 'jpeg' ? 'image/jpeg' : fmt === 'webp' ? 'image/webp' : 'image/png';
+  return `data:${mime};base64,${result.image_b64}`;
+}

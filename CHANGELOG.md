@@ -24,6 +24,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **Frontend client alignment**: Updated the FastAPI client and intake conversation hook to call the new image routes, pass the `conversation_id`, and reconcile the optional identifier returned by the service. (Files: `planexe-frontend/src/lib/api/fastapi-client.ts`, `planexe-frontend/src/lib/conversation/useResponsesConversation.ts`)
 - **Best-practice documentation**: Clarified that PlanExe performs separate Responses and Images API calls per the October 2025 guidance. (Files: `docs/gpt-image-1-mini-best-practices.md`)
 
+### [0.20.2] - 2025-10-30
+
+### Fixed
+- **Consistent image data URIs**: Added a frontend helper to build data URIs from backend image responses and a safe `<img>` fallback, preventing blank previews when raw base64 is provided. (Files: `planexe-frontend/src/lib/api/fastapi-client.ts`, `planexe-frontend/src/components/planning/IntakeImagePanel.tsx`)
+
 ### [0.20.0] - 2025-10-30
 
 ### Added
