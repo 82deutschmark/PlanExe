@@ -51,6 +51,17 @@ class ImageGenerationService:
         # Instantiate an OpenAI client so platform headers (project/org) are handled centrally.
         self.client = OpenAI(api_key=self.api_key)
 
+    def _entry_get(self, entry: Any, key: str) -> Any:
+        """Safely get a field from an SDK object or dict.
+        The Images SDK may return entries with attribute access (e.g., entry.b64_json)
+        rather than a dict. This helper supports both forms.
+        """
+        if entry is None:
+            return None
+        if isinstance(entry, dict):
+            return entry.get(key)
+        return getattr(entry, key, None)
+
     def _get_image_defaults(self, model_config: Dict[str, Any]) -> Dict[str, Any]:
         """Retrieve image-specific defaults from the model configuration."""
         return model_config.get("image_defaults", {})
@@ -324,10 +335,10 @@ class ImageGenerationService:
             raise ImageGenerationError("No image data returned from OpenAI")
 
         image_entry = images[0] or {}
-        image_b64 = image_entry.get("b64_json")
+        image_b64 = self._entry_get(image_entry, "b64_json")
 
         if image_b64:
-            revised_prompt = image_entry.get("revised_prompt") or payload.get("prompt")
+            revised_prompt = self._entry_get(image_entry, "revised_prompt") or payload.get("prompt")
             # Base64 responses are PNG by default
             format_hint = "png"
             logger.info(
@@ -336,10 +347,10 @@ class ImageGenerationService:
             )
             return image_b64, revised_prompt, format_hint
 
-        image_url = image_entry.get("url")
+        image_url = self._entry_get(image_entry, "url")
         if image_url:
             fetched_b64, format_label = await self._fetch_image_from_url(image_url, timeout=timeout)
-            revised_prompt = image_entry.get("revised_prompt") or payload.get("prompt")
+            revised_prompt = self._entry_get(image_entry, "revised_prompt") or payload.get("prompt")
             logger.info(
                 f"Image generation successful via URL: format={format_label}, "
                 f"prompt='{revised_prompt[:100]}...'"
@@ -433,9 +444,9 @@ class ImageGenerationService:
             raise ImageGenerationError("No image data returned from OpenAI edit API")
 
         image_entry = images[0] or {}
-        image_b64 = image_entry.get("b64_json")
+        image_b64 = self._entry_get(image_entry, "b64_json")
         if image_b64:
-            revised_prompt = image_entry.get("revised_prompt") or data.get("prompt")
+            revised_prompt = self._entry_get(image_entry, "revised_prompt") or data.get("prompt")
             # Base64 responses are PNG by default
             format_hint = "png"
             logger.info(f"Image edit successful: format={format_hint}")
