@@ -7,6 +7,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **PATCH**: Bug fixes (backward compatible)
 
 
+### [0.20.4] - 2025-10-30
+
+### Fixed
+- **OpenAI image payload validation**: Removed unsupported `response_format` and `style` fields from the backend image service so calls to `gpt-image-1-mini` succeed against the current Images API schema while preserving quality/background handling. (Files: `planexe_api/services/image_generation_service.py`)
+
 ### [0.20.3] - 2025-10-30
 
 ### Changed
