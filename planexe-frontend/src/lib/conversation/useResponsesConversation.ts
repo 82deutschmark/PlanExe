@@ -65,6 +65,8 @@ export interface ImageGenerationErrorDetails {
   context?: Record<string, unknown>;
 }
 
+const DEFAULT_IMAGE_MODEL_KEY = 'gpt-image-1-mini';
+
 const normalizeResponseFormat = (format?: string | null): string => {
   if (!format) {
     return 'base64';
@@ -409,7 +411,7 @@ export function useResponsesConversation(
     const remoteConvId = await ensureRemoteConversation();
     setImageGenerationState('generating');
     setImageGenerationError(null);
-    imageOptionsRef.current = { modelKey };
+    imageOptionsRef.current = { modelKey: DEFAULT_IMAGE_MODEL_KEY };
     fastApiClient
       .generateIntakeImage(remoteConvId, trimmed, imageOptionsRef.current)
       .then((response) => {
@@ -431,6 +433,7 @@ export function useResponsesConversation(
         setGeneratedImageMetadata(metadata);
         imageOptionsRef.current = {
           ...imageOptionsRef.current,
+          modelKey: imageOptionsRef.current?.modelKey ?? DEFAULT_IMAGE_MODEL_KEY,
           size: response.size,
           outputFormat:
             resolvedFormat !== 'base64'

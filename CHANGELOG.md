@@ -6,6 +6,16 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+### [0.21.4] - 2025-10-30
+
+### Fixed
+- **Images API payload defaults**: Forced `response_format="b64_json"`, expanded allowed size presets, and restored 1024x1024 as the
+  default so OpenAI `gpt-image-1-mini` calls respect the current API contract.
+  (Files: `planexe_api/services/image_generation_service.py`, `llm_config.json`)
+- **Frontend image model selection**: Updated the intake conversation hook to always request `gpt-image-1-mini` for visuals instead of
+  reusing the conversational `gpt-5-nano` model key.
+  (File: `planexe-frontend/src/lib/conversation/useResponsesConversation.ts`)
+
 ### [0.21.3] - 2025-10-30
 
 ### Added

@@ -45,8 +45,29 @@
         "model": "gpt-image-1-mini",
         "capabilities": ["image_generation"],
         "image_defaults": {
-            "default_size": "1024x1024"
-      
+            "default_size": "1024x1024",
+            "allowed_sizes": [
+                "1024x1024",
+                "1024x1536",
+                "1536x1024",
+                "1024x1792",
+                "1792x1024"
+            ],
+            "allowed_qualities": [
+                "auto",
+                "low",
+                "medium",
+                "high"
+            ],
+            "default_output_format": "png",
+            "allowed_output_formats": [
+                "png",
+                "jpeg",
+                "webp"
+            ],
+            "default_output_compression": 85,
+            "timeout_seconds": 60,
+            "max_retries": 2
         }
     }
 }
