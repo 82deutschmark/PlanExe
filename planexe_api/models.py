@@ -1,9 +1,8 @@
-"""
-Author: Claude Code (claude-opus-4-1-20250805)
-Date: 2025-09-19
-PURPOSE: Pydantic models for API request/response schemas - ensures type safety and validation
-SRP and DRY check: Pass - Single responsibility of data validation, DRY approach to schema definitions
-"""
+# Author: gpt-5-codex
+# Date: 2025-10-29T20:39:49Z
+# PURPOSE: Define validated request/response schemas for the FastAPI surface, including new image generation/editing payloads.
+# SRP and DRY check: Pass. Centralises all API schema definitions while reusing validation helpers across endpoints.
+
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Optional, List, Dict, Any
 from enum import Enum
@@ -157,6 +156,48 @@ class APIError(BaseModel):
     error: str = Field(..., description="Error message")
     details: Optional[Dict[str, Any]] = Field(None, description="Additional error details")
     timestamp: datetime = Field(default_factory=datetime.now)
+
+
+class ImageRequestBase(BaseModel):
+    """Shared fields for image generation and editing requests."""
+
+    prompt: str = Field(..., min_length=1, description="User-facing instructions for the image model")
+    model_key: Optional[str] = Field(None, description="Optional configured model key override")
+    size: Optional[str] = Field(None, description="Desired image dimensions, e.g. 1024x1024")
+    quality: Optional[str] = Field(None, description="Quality hint forwarded to OpenAI (standard, high)")
+    style: Optional[str] = Field(None, description="Style hint forwarded to OpenAI (natural, vivid)")
+    background: Optional[str] = Field(None, description="Background directive forwarded to the image API")
+    negative_prompt: Optional[str] = Field(None, description="Negative prompting text for the image API")
+
+    @field_validator("prompt")
+    @classmethod
+    def validate_prompt(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("prompt cannot be empty")
+        return cleaned
+
+
+class ImageGenerationRequest(ImageRequestBase):
+    """Request payload for initial image generation."""
+
+
+class ImageEditRequest(ImageRequestBase):
+    """Request payload for editing an existing generated image."""
+
+    base_image_b64: str = Field(..., min_length=1, description="Existing image encoded as base64 PNG data")
+    mask_b64: Optional[str] = Field(None, description="Optional base64 PNG mask highlighting editable regions")
+
+
+class ImageGenerationResponse(BaseModel):
+    """Response payload returned after image generation or editing."""
+
+    conversation_id: str = Field(..., description="Conversation identifier tied to the image request")
+    image_b64: str = Field(..., description="Base64-encoded PNG data")
+    prompt: str = Field(..., description="Prompt used for the final image request")
+    model: str = Field(..., description="Resolved model identifier used by the service")
+    size: str = Field(..., description="Actual size supplied to the image API")
+    format: str = Field(..., description="Image payload format metadata")
 
 
 class PipelineDetailsResponse(BaseModel):

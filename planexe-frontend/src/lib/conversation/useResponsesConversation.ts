@@ -16,6 +16,8 @@ import {
   ConversationTurnRequestPayload,
   fastApiClient,
   EnrichedPlanIntake,
+  ImageGenerationOptions,
+  ImageEditPayload,
 } from '@/lib/api/fastapi-client';
 import { useConversationStreaming } from '@/lib/streaming/conversation-streaming';
 import { getConversationDefaults } from '@/lib/config/responses';
@@ -48,6 +50,14 @@ export interface UseResponsesConversationOptions {
   reasoningEffort?: string;
 }
 
+export type ImageGenerationState = 'idle' | 'generating' | 'editing' | 'completed' | 'error';
+
+export interface GeneratedImageMetadata {
+  model: string;
+  size: string;
+  format: string;
+}
+
 export interface UseResponsesConversationReturn {
   messages: ConversationMessage[];
   conversationId: string | null;
@@ -63,9 +73,12 @@ export interface UseResponsesConversationReturn {
   reasoningBuffer: string;
   jsonChunks: Array<Record<string, unknown>>;
   usage: Record<string, unknown> | null;
-  imageGenerationState: 'idle' | 'generating' | 'completed' | 'error';
+  imageGenerationState: ImageGenerationState;
   generatedImageB64: string | null;
+  generatedImagePrompt: string | null;
+  generatedImageMetadata: GeneratedImageMetadata | null;
   imageGenerationError: string | null;
+  requestImageEdit: (instructions: string) => Promise<void>;
 }
 
 const SYSTEM_PROMPT = `You are the PlanExe intake specialist. You are super enthusiastic and compliment the user a lot. You immediately see the bigger potential for the user's ideas.  You embody the  "Yes! And... " spirit of improv while mapping every answer to a structured schema with complete clarity. 
@@ -118,9 +131,14 @@ export function useResponsesConversation(
   }, []);
   const [lastFinal, setLastFinal] = useState<ConversationFinalPayload | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
-  const [imageGenerationState, setImageGenerationState] = useState<'idle' | 'generating' | 'completed' | 'error'>('idle');
+  const [imageGenerationState, setImageGenerationState] = useState<ImageGenerationState>('idle');
   const [generatedImageB64, setGeneratedImageB64] = useState<string | null>(null);
+  const [generatedImagePrompt, setGeneratedImagePrompt] = useState<string | null>(null);
+  const [generatedImageMetadata, setGeneratedImageMetadata] = useState<GeneratedImageMetadata | null>(null);
   const [imageGenerationError, setImageGenerationError] = useState<string | null>(null);
+  const imageOptionsRef = useRef<ImageGenerationOptions | undefined>(undefined);
+  const generatedImageB64Ref = useRef<string | null>(null);
+  const generatedImageMetadataRef = useRef<GeneratedImageMetadata | null>(null);
 
   const messagesRef = useRef<ConversationMessage[]>(messages);
 
@@ -146,9 +164,22 @@ export function useResponsesConversation(
     setLastError(null);
     setImageGenerationState('idle');
     setGeneratedImageB64(null);
+    setGeneratedImagePrompt(null);
+    setGeneratedImageMetadata(null);
     setImageGenerationError(null);
+    imageOptionsRef.current = undefined;
+    generatedImageB64Ref.current = null;
+    generatedImageMetadataRef.current = null;
     closeStream(true);
   }, [initialPrompt, conversationKey, closeStream, updateMessages, persistResponseId]);
+
+  useEffect(() => {
+    generatedImageB64Ref.current = generatedImageB64;
+  }, [generatedImageB64]);
+
+  useEffect(() => {
+    generatedImageMetadataRef.current = generatedImageMetadata;
+  }, [generatedImageMetadata]);
 
   const ensureRemoteConversation = useCallback(async (): Promise<string> => {
     if (conversationId) {
@@ -354,9 +385,23 @@ export function useResponsesConversation(
     // Start image generation in parallel (fire and forget)
     const remoteConvId = await ensureRemoteConversation();
     setImageGenerationState('generating');
-    fastApiClient.generateIntakeImage(remoteConvId, trimmed)
+    setImageGenerationError(null);
+    imageOptionsRef.current = { modelKey };
+    fastApiClient
+      .generateIntakeImage(remoteConvId, trimmed, imageOptionsRef.current)
       .then((response) => {
         setGeneratedImageB64(response.image_b64);
+        setGeneratedImagePrompt(response.prompt);
+        const metadata: GeneratedImageMetadata = {
+          model: response.model,
+          size: response.size,
+          format: response.format,
+        };
+        setGeneratedImageMetadata(metadata);
+        imageOptionsRef.current = {
+          ...imageOptionsRef.current,
+          size: response.size,
+        };
         setImageGenerationState('completed');
         console.log('[useResponsesConversation] Image generation completed');
       })
@@ -386,6 +431,68 @@ export function useResponsesConversation(
       await streamAssistantReply(trimmed);
     },
     [streamAssistantReply, updateMessages],
+  );
+
+  const requestImageEdit = useCallback(
+    async (instructions: string) => {
+      const trimmed = instructions.trim();
+      if (!trimmed) {
+        throw new Error('Edit instructions cannot be empty');
+      }
+
+      const baseImage = generatedImageB64Ref.current;
+      if (!baseImage) {
+        throw new Error('No generated image available to edit yet');
+      }
+
+      const remoteConvId = conversationId ?? (await ensureRemoteConversation());
+      setImageGenerationState('editing');
+      setImageGenerationError(null);
+
+      const payload: ImageEditPayload = {
+        prompt: trimmed,
+        baseImageB64: baseImage,
+      };
+
+      const options = imageOptionsRef.current;
+      if (options?.modelKey) payload.modelKey = options.modelKey;
+      const metadata = generatedImageMetadataRef.current;
+      if (metadata?.size) payload.size = metadata.size;
+      if (options?.quality) payload.quality = options.quality;
+      if (options?.style) payload.style = options.style;
+      if (options?.background) payload.background = options.background;
+      if (options?.negativePrompt) payload.negativePrompt = options.negativePrompt;
+
+      try {
+        const response = await fastApiClient.editIntakeImage(remoteConvId, payload);
+        setGeneratedImageB64(response.image_b64);
+        setGeneratedImagePrompt(response.prompt);
+        const nextMetadata: GeneratedImageMetadata = {
+          model: response.model,
+          size: response.size,
+          format: response.format,
+        };
+        setGeneratedImageMetadata(nextMetadata);
+        imageOptionsRef.current = {
+          ...options,
+          modelKey: payload.modelKey ?? options?.modelKey ?? modelKey,
+          size: response.size,
+          quality: payload.quality ?? options?.quality,
+          style: payload.style ?? options?.style,
+          background: payload.background ?? options?.background,
+          negativePrompt: payload.negativePrompt ?? options?.negativePrompt,
+        };
+        setImageGenerationState('completed');
+        console.log('[useResponsesConversation] Image edit completed');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Image edit failed';
+        setImageGenerationError(message);
+        setImageGenerationState('error');
+        console.error('[useResponsesConversation] Image edit failed:', error);
+        throw error instanceof Error ? error : new Error(message);
+      }
+    },
+    [conversationId, ensureRemoteConversation, modelKey],
   );
 
   const finalizeConversation = useCallback((): ConversationFinalizeResult => {
@@ -445,7 +552,12 @@ export function useResponsesConversation(
     setLastError(null);
     setImageGenerationState('idle');
     setGeneratedImageB64(null);
+    setGeneratedImagePrompt(null);
+    setGeneratedImageMetadata(null);
     setImageGenerationError(null);
+    imageOptionsRef.current = undefined;
+    generatedImageB64Ref.current = null;
+    generatedImageMetadataRef.current = null;
     closeStream(true);
   }, [closeStream, persistResponseId, updateMessages]);
 
@@ -457,6 +569,7 @@ export function useResponsesConversation(
     currentResponseId,
     startConversation,
     sendUserMessage,
+    requestImageEdit,
     finalizeConversation,
     resetConversation,
     isStreaming,
@@ -468,6 +581,8 @@ export function useResponsesConversation(
     usage: streamState.usage,
     imageGenerationState,
     generatedImageB64,
+    generatedImagePrompt,
+    generatedImageMetadata,
     imageGenerationError,
   };
 }

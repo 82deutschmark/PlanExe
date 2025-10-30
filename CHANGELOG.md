@@ -7,6 +7,21 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **PATCH**: Bug fixes (backward compatible)
 
 
+### [0.19.1] - 2025-10-30
+
+### Fixed
+- **Image Generation Endpoint**: Corrected the OpenAI generation URL back to `/v1/images/generations` and restored the URL-to-base64 fallback so gpt-image-1-mini requests succeed reliably again, including metadata propagation for UI display. (Files: `planexe_api/services/image_generation_service.py`)
+
+### [0.19.0] - 2025-10-29
+
+### Added
+- **Concept Image Editing UI**: Added a "Refine Concept" panel to the intake modal so users can request edits to generated images with live status feedback. Enables edit prompts once an image has been produced and surfaces the latest prompt/metadata alongside the preview. (Files: `planexe-frontend/src/components/planning/ConversationModal.tsx`, `planexe-frontend/src/components/planning/IntakeImagePanel.tsx`)
+- **Image Edit API Endpoint**: Introduced `POST /api/conversations/{id}/edit-image` allowing clients to submit edit instructions plus base64 image data. Shares validation with the generation endpoint and returns the final prompt, format, and metadata. (Files: `planexe_api/api.py`, `planexe_api/models.py`, `planexe_api/services/image_generation_service.py`)
+
+### Changed
+- **gpt-image-1-mini Integration Refresh**: Updated the image generation service to use the latest OpenAI Images endpoints, supporting optional quality/style/background hints, and returning the applied prompt. Configuration now carries defaults for these hints. (Files: `planexe_api/services/image_generation_service.py`, `llm_config.json`)
+- **Frontend API Client Enhancements**: Extended the FastAPI client and conversation hook to expose prompt/metadata for generated images, reuse settings during edits, and surface improved error handling. (Files: `planexe-frontend/src/lib/api/fastapi-client.ts`, `planexe-frontend/src/lib/conversation/useResponsesConversation.ts`)
+
 ### [0.18.7] - 2025-10-29
 
 ### Changed
