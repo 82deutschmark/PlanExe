@@ -6,6 +6,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+### [0.21.14] - 2025-10-31
+
+### Fixed
+- **GovernancePhase6 extra reasoning guard**: Defaulted `GovernancePhase6Extra.execute` to `"medium"` reasoning effort when omitted and updated the module CLI to pass the parameter explicitly, preventing missing-argument crashes during standalone runs. `planexe/governance/governance_phase6_extra.py`.
+
 ### [0.21.13] - 2025-10-31
 
 ### Fixed

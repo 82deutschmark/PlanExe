@@ -1,5 +1,5 @@
 # Author: gpt-5-codex
-# Date: 2025-10-28T04:39:23Z
+# Date: 2025-10-30T05:10:00Z
 # PURPOSE: Structured LLM response schemas for planexe.governance.governance_phase6_extra consumed by the Luigi pipeline when invoking OpenAI Responses API tasks.
 # SRP and DRY check: Pass. Schema definitions remain localized to this task and avoid duplication across the codebase.
 
@@ -13,6 +13,7 @@ import time
 import logging
 from math import ceil
 from dataclasses import dataclass
+from typing import Optional
 from pydantic import Field
 from planexe.llm_util.strict_response_model import StrictResponseModel
 from llama_index.core.llms import ChatMessage, MessageRole
@@ -80,7 +81,7 @@ class GovernancePhase6Extra:
     markdown: str
 
     @classmethod
-    def execute(cls, llm: LLM, user_prompt: str, reasoning_effort: str) -> 'GovernancePhase6Extra':
+    def execute(cls, llm: LLM, user_prompt: str, reasoning_effort: Optional[str] = None) -> 'GovernancePhase6Extra':
         """
         Invoke LLM with the project description.
         """
@@ -88,6 +89,8 @@ class GovernancePhase6Extra:
             raise ValueError("Invalid LLM instance.")
         if not isinstance(user_prompt, str):
             raise ValueError("Invalid user_prompt.")
+        if not reasoning_effort:
+            reasoning_effort = "medium"
 
         logger.debug(f"User Prompt:\n{user_prompt}")
 
@@ -197,7 +200,7 @@ if __name__ == "__main__":
     )
     print(f"Query: {query}")
 
-    result = GovernancePhase6Extra.execute(llm, query)
+    result = GovernancePhase6Extra.execute(llm, query, reasoning_effort="medium")
     json_response = result.to_dict(include_system_prompt=False, include_user_prompt=False)
     print("\n\nResponse:")
     print(json.dumps(json_response, indent=2))
