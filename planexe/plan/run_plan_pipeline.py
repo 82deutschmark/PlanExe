@@ -5444,7 +5444,8 @@ class ReviewPlanTask(PlanTask):
             )
             duration_seconds = time.time() - start_time
             last_attempt = llm_executor.get_last_attempt()
-            response_text = last_attempt.get('response_text', '') if last_attempt else ''
+            # LLMAttempt is a dataclass, not a dict - response content is saved in markdown/JSON files
+            response_text = ''
             db_service.update_llm_interaction(interaction_id, {"status": "completed", "response_text": response_text[:10000], "completed_at": datetime.utcnow(), "duration_seconds": duration_seconds})
             json_path = self.output()['raw'].path
             review_plan.save_raw(json_path)
@@ -5777,7 +5778,8 @@ class PremortemTask(PlanTask):
             premortem = Premortem.execute(llm_executor=llm_executor, speed_vs_detail=self.speedvsdetail, user_prompt=query)
             duration_seconds = time.time() - start_time
             last_attempt = llm_executor.get_last_attempt()
-            response_text = last_attempt.get('response_text', '') if last_attempt else ''
+            # LLMAttempt is a dataclass, not a dict - response content is saved in markdown/JSON files
+            response_text = ''
             db_service.update_llm_interaction(interaction_id, {"status": "completed", "response_text": response_text[:10000], "completed_at": datetime.utcnow(), "duration_seconds": duration_seconds})
             json_path = self.output()['raw'].path
             premortem.save_raw(json_path)
