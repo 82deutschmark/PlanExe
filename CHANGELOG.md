@@ -6,32 +6,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
-### [0.22.0] - 2025-10-31
+### [0.21.11] - 2025-10-30
 
 ### Added
-- **Image editing in intake conversation**: Users can now edit generated concept images inline with a simple text prompt describing desired changes.
-  - Hook: Added `editConceptImage` function to `useResponsesConversation` that calls `/api/images/edit` with the current image as base.
-  - UI: New edit input appears below generated images with "Edit Image" button toggle and inline submission.
-  - Integration: Edits update the image in-place, persist to sessionStorage, and maintain all metadata.
-  - Files: `planexe-frontend/src/lib/conversation/useResponsesConversation.ts`, `planexe-frontend/src/components/planning/InlineImageGeneration.tsx`
-
-### Changed
-- **ConversationModal layout optimization**: Removed header and minimized all margins/padding for maximum space efficiency.
-  - Header removal: Eliminated 100px wasted vertical space from title/subtitle/badges.
-  - Two-column layout: Restored efficient conversation (left) + image/reasoning (right) layout with minimal gaps (2px).
-  - Minimal padding: Reduced all padding from `px-6 py-4` to `px-2 py-1` and `px-3 py-2` throughout.
-  - Proper thumbnail: Fixed inline image to display as thumbnail (`max-h-[300px]`) instead of full-size, with full-size only in lightbox.
-  - Component extraction: Created `MessageBubble` and `InlineImageGeneration` components for cleaner architecture.
-  - Files: `planexe-frontend/src/components/planning/ConversationModal.tsx`, `planexe-frontend/src/components/planning/InlineImageGeneration.tsx`, `planexe-frontend/src/components/planning/MessageBubble.tsx`
-
-### Fixed
-- **Image display bug**: Corrected inline image sizing from full-width (`w-full max-w-3xl`) to proper thumbnail (`max-h-[300px] w-auto`) so lightbox shows larger version as intended.
-- **Conversation hook dependency warning**: Removed unused `modelKey` dependency from the `startConversation` callback to silence React hook lint warnings and avoid unnecessary re-renders.
-
-### Improved
-- **Space utilization**: Eliminated ~100px wasted header space and minimized all margins to 2-3px.
-- **Visual hierarchy**: Thumbnail inline, full-size in lightbox (correct behavior).
-- **Compact layout**: Reduced textarea height from 128px to 96px, smaller font sizes, tighter spacing throughout.
+- **Pipeline resume endpoint**: Added `/api/plans/{plan_id}/resume` so failed plans can restart only incomplete Luigi tasks while preserving successful outputs. The FastAPI route reuses stored configuration and starts the pipeline in resume mode. `planexe_api/api.py`.
+- **Resume-aware pipeline execution**: Updated `PipelineExecutionService` to respect resume mode by skipping run directory cleanup, retaining database artefacts, and keeping existing progress metrics when restarting. `planexe_api/services/pipeline_execution_service.py`.
 
 ### [0.21.10] - 2025-10-30
 

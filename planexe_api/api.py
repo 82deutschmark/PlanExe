@@ -1,7 +1,11 @@
 # Author: gpt-5-codex
-# Date: 2025-10-29T20:39:49Z
-# PURPOSE: FastAPI entrypoint orchestrating PlanExe APIs with refreshed gpt-image-1-mini integration for generation and edits.
-# SRP and DRY check: Pass. Routes delegate to dedicated services and shared validation schemas.
+# Date: 2025-10-30T00:00:00Z
+# PURPOSE: FastAPI entrypoint orchestrating PlanExe plan execution, resume controls,
+#          conversation streaming, and image utilities while delegating heavy logic to
+#          specialised services.
+# SRP and DRY check: Pass. Route handlers coordinate validation and service calls
+#          without reimplementing pipeline, database, or WebSocket behaviour handled
+#          in dedicated modules.
 
 import asyncio
 import hashlib
@@ -248,15 +252,15 @@ async def shutdown_event():
     print("FastAPI application shutdown - WebSocket manager cleaned up")
 
 
-def execute_plan_async(plan_id: str, request: CreatePlanRequest) -> None:
-    """Execute Luigi pipeline asynchronously using the dedicated service with WebSocket support"""
+def execute_plan_async(plan_id: str, request: CreatePlanRequest, resume: bool = False) -> None:
+    """Execute Luigi pipeline asynchronously using the dedicated service with WebSocket support."""
     import asyncio
 
     async def run_pipeline():
         db = SessionLocal()
         try:
             db_service = DatabaseService(db)
-            await pipeline_service.execute_plan(plan_id, request, db_service)
+            await pipeline_service.execute_plan(plan_id, request, db_service, resume=resume)
         except Exception as e:
             print(f"Exception in plan execution: {e}")
         finally:
@@ -749,6 +753,74 @@ async def create_plan(request: CreatePlanRequest):
     except Exception as e:
         print(f"Error creating plan: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to create plan: {str(e)}")
+
+
+# Resume existing plan endpoint
+@app.post("/api/plans/{plan_id}/resume", response_model=PlanResponse)
+async def resume_plan(plan_id: str):
+    """Resume a failed plan using the existing run directory so only incomplete tasks rerun."""
+
+    db = get_database_service()
+    try:
+        plan = db.get_plan(plan_id)
+        if not plan:
+            raise HTTPException(status_code=404, detail="Plan not found")
+
+        if plan.status not in {PlanStatus.failed.value, PlanStatus.cancelled.value}:
+            raise HTTPException(status_code=409, detail="Plan is not in a resumable state")
+
+        if not plan.output_dir:
+            raise HTTPException(status_code=409, detail="Plan output directory is missing")
+
+        run_id_dir = Path(plan.output_dir)
+        if not run_id_dir.exists():
+            raise HTTPException(status_code=409, detail="Plan output directory not found; cannot resume")
+
+        try:
+            speed_vs_detail = SpeedVsDetail(plan.speed_vs_detail)
+        except ValueError:
+            speed_vs_detail = SpeedVsDetail.ALL_DETAILS_BUT_SLOW
+
+        effective_request = CreatePlanRequest(
+            prompt=plan.prompt,
+            llm_model=plan.llm_model,
+            speed_vs_detail=speed_vs_detail,
+            reasoning_effort=RESPONSES_STREAMING_CONTROLS.reasoning_effort,
+            enriched_intake=None,
+        )
+
+        updated_plan = db.update_plan(plan_id, {
+            "status": PlanStatus.pending.value,
+            "progress_message": "Plan queued for resume...",
+            "error_message": None,
+        })
+
+        response_payload = PlanResponse(
+            plan_id=plan.plan_id,
+            status=PlanStatus(updated_plan.status if updated_plan else plan.status),
+            created_at=plan.created_at,
+            prompt=plan.prompt,
+            llm_model=plan.llm_model,
+            speed_vs_detail=speed_vs_detail,
+            reasoning_effort=effective_request.reasoning_effort,
+            progress_percentage=updated_plan.progress_percentage if updated_plan else plan.progress_percentage,
+            progress_message=updated_plan.progress_message if updated_plan else plan.progress_message,
+            error_message=None,
+            output_dir=plan.output_dir,
+            enriched_intake=None,
+        )
+    finally:
+        db.close()
+
+    thread = threading.Thread(
+        target=execute_plan_async,
+        args=(plan_id, effective_request, True),
+        name=f"PlanExecution-{plan_id}-resume",
+        daemon=True,
+    )
+    thread.start()
+
+    return response_payload
 
 
 # Database artefact endpoint
