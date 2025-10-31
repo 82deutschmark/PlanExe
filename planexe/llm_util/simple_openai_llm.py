@@ -1088,6 +1088,12 @@ class StructuredSimpleOpenAILLM:
         messages = [{"role": "user", "content": prompt}]
         return self.chat(messages, **kwargs)
 
+    async def achat(self, messages: Sequence[Any], **kwargs: Any) -> StructuredLLMResponse:
+        return self.chat(messages, **kwargs)
+
+    async def acomplete(self, prompt: str, **kwargs: Any) -> StructuredLLMResponse:
+        return self.complete(prompt, **kwargs)
+
     def get_last_response_id(self) -> Optional[str]:
         """Expose the underlying LLM's last response id (for chaining across calls)."""
         try:
