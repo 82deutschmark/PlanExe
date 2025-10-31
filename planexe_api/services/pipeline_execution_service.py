@@ -1,10 +1,11 @@
-# Author: Cascade
-# Date: 2025-10-29T18:05:00Z
-# PURPOSE: Manage Luigi pipeline execution, streaming telemetry to WebSocket clients,
-#          coordinating subprocess lifecycle, and preparing run directories.
-# SRP and DRY check: Pass – centralises execution orchestration without duplicating
-#          WebSocket, database, or preflight file preparation logic that exists in
-#          dedicated helpers elsewhere in the project.
+# Author: gpt-5-codex
+# Date: 2025-10-30T00:00:00Z
+# PURPOSE: Coordinate Luigi pipeline execution, including environment preparation,
+#          resume-aware orchestration, and telemetry streaming for PlanExe backend
+#          requests.
+# SRP and DRY check: Pass. Centralises subprocess lifecycle management and
+#          streaming coordination without reimplementing database or WebSocket
+#          helper utilities defined in other modules.
 
 """Luigi pipeline execution service with streaming-aware telemetry forwarding.
 
@@ -24,6 +25,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 import platform
+import logging
 
 from planexe_api.database import DatabaseService, PlanFile as DBPlanFile
 from planexe_api.models import CreatePlanRequest, PlanStatus
@@ -33,6 +35,9 @@ from planexe.plan.speedvsdetail import SpeedVsDetailEnum
 from planexe.plan.filenames import FilenameEnum
 from planexe.plan.start_time import StartTime
 from planexe.plan.plan_file import PlanFile
+
+
+logger = logging.getLogger(__name__)
 
 
 def _utcnow() -> datetime:
@@ -111,14 +116,20 @@ class PipelineExecutionService:
 
         return alias_map.get(canonical_key, SpeedVsDetailEnum.ALL_DETAILS_BUT_SLOW.value)
 
-    async def execute_plan(self, plan_id: str, request: CreatePlanRequest, db_service: DatabaseService) -> None:
-        """
-        Execute Luigi pipeline in background thread with WebSocket progress streaming
+    async def execute_plan(
+        self,
+        plan_id: str,
+        request: CreatePlanRequest,
+        db_service: DatabaseService,
+        resume: bool = False,
+    ) -> None:
+        """Execute Luigi pipeline with WebSocket progress streaming.
 
         Args:
             plan_id: Unique plan identifier
             request: Plan creation request with prompt and configuration
             db_service: Database service for persistence
+            resume: When True, reuse existing outputs so only failed tasks rerun
         """
         print(f"DEBUG: Starting pipeline execution for plan_id: {plan_id}")
 
@@ -129,77 +140,100 @@ class PipelineExecutionService:
                 print(f"DEBUG: Plan not found in database: {plan_id}")
                 return
 
+            if not plan.output_dir:
+                error_msg = f"Plan {plan_id} is missing an output directory; cannot execute."
+                print(f"ERROR: {error_msg}")
+                logger.error(error_msg)
+                await websocket_manager.broadcast_to_plan(plan_id, {
+                    "type": "status",
+                    "status": "failed",
+                    "message": error_msg,
+                    "timestamp": _utcnow_iso(),
+                })
+                return
+
             run_id_dir = Path(plan.output_dir)
+
+            if resume and not run_id_dir.exists():
+                error_msg = (
+                    f"Resume requested for plan {plan_id} but run directory {run_id_dir} is missing."
+                )
+                print(f"ERROR: {error_msg}")
+                logger.error(error_msg)
+                db_service.update_plan(plan_id, {
+                    "status": PlanStatus.failed.value,
+                    "error_message": error_msg,
+                })
+                await websocket_manager.broadcast_to_plan(plan_id, {
+                    "type": "status",
+                    "status": "failed",
+                    "message": error_msg,
+                    "timestamp": _utcnow_iso(),
+                })
+                return
 
             # Set up execution environment
             environment = self._setup_environment(plan_id, request, run_id_dir)
 
-            # CRITICAL FIX: Delete ALL filesystem files before pipeline start
-            # Luigi checks filesystem targets to determine task completion. If old output files
-            # exist from previous runs, Luigi marks tasks as "already complete" and skips them,
-            # causing instant pipeline completion without actually running any tasks.
-            # This MUST happen before database reset to ensure both filesystem and DB are clean.
-            try:
-                if run_id_dir.exists():
-                    file_count = len(list(run_id_dir.glob("*")))
-                    print(f"DEBUG: Deleting {file_count} files from {run_id_dir} before rerun")
-                    # Delete all files in the directory
-                    for item in run_id_dir.glob("*"):
-                        if item.is_file():
-                            item.unlink()
-                        elif item.is_dir():
-                            shutil.rmtree(item)
-                    print(f"DEBUG: Filesystem cleanup complete for {run_id_dir}")
-                else:
-                    print(f"DEBUG: Directory {run_id_dir} does not exist yet, will be created")
-            except Exception as exc:
-                error_msg = f"CRITICAL: Failed to clean filesystem for plan {plan_id}: {exc}"
-                print(f"ERROR: {error_msg}")
-                logger.error(error_msg)
-                # Update plan status to failed
+            if resume:
+                print(f"DEBUG: Resume mode active for plan {plan_id}; preserving existing outputs in {run_id_dir}")
+            else:
+                # Clean filesystem before pipeline start to guarantee fresh execution
                 try:
-                    db_service.db.rollback()
-                    db_service.update_plan(plan_id, {
-                        "status": PlanStatus.failed.value,
-                        "error_message": error_msg,
+                    if run_id_dir.exists():
+                        file_count = len(list(run_id_dir.glob("*")))
+                        print(f"DEBUG: Deleting {file_count} files from {run_id_dir} before rerun")
+                        for item in run_id_dir.glob("*"):
+                            if item.is_file():
+                                item.unlink()
+                            elif item.is_dir():
+                                shutil.rmtree(item)
+                        print(f"DEBUG: Filesystem cleanup complete for {run_id_dir}")
+                    else:
+                        print(f"DEBUG: Directory {run_id_dir} does not exist yet, will be created")
+                except Exception as exc:
+                    error_msg = f"CRITICAL: Failed to clean filesystem for plan {plan_id}: {exc}"
+                    print(f"ERROR: {error_msg}")
+                    logger.error(error_msg)
+                    try:
+                        db_service.db.rollback()
+                        db_service.update_plan(plan_id, {
+                            "status": PlanStatus.failed.value,
+                            "error_message": error_msg,
+                        })
+                    except Exception as update_exc:
+                        print(f"ERROR: Failed to update plan status: {update_exc}")
+                    await websocket_manager.broadcast_to_plan(plan_id, {
+                        "type": "status",
+                        "status": "failed",
+                        "message": error_msg,
+                        "timestamp": _utcnow_iso(),
                     })
-                except Exception as update_exc:
-                    print(f"ERROR: Failed to update plan status: {update_exc}")
-                # Broadcast failure via WebSocket
-                await websocket_manager.broadcast_to_plan(plan_id, {
-                    "type": "status",
-                    "status": "failed",
-                    "message": error_msg,
-                    "timestamp": _utcnow_iso(),
-                })
-                return  # DO NOT START LUIGI - old files will cause instant completion
+                    return
 
-            # Reset database artefacts after filesystem is clean
-            # CRITICAL: This MUST succeed or Luigi will find old DB content and think tasks are complete
-            try:
-                db_service.reset_plan_run_state(plan_id)
-                print(f"DEBUG: Cleared database artefacts for plan {plan_id} before rerun")
-            except Exception as exc:
-                error_msg = f"CRITICAL: Failed to reset stored artefacts for plan {plan_id}: {exc}"
-                print(f"ERROR: {error_msg}")
-                logger.error(error_msg)
-                # Update plan status to failed
+                # Reset database artefacts after filesystem is clean to avoid stale data
                 try:
-                    db_service.db.rollback()
-                    db_service.update_plan(plan_id, {
-                        "status": PlanStatus.failed.value,
-                        "error_message": error_msg,
+                    db_service.reset_plan_run_state(plan_id)
+                    print(f"DEBUG: Cleared database artefacts for plan {plan_id} before rerun")
+                except Exception as exc:
+                    error_msg = f"CRITICAL: Failed to reset stored artefacts for plan {plan_id}: {exc}"
+                    print(f"ERROR: {error_msg}")
+                    logger.error(error_msg)
+                    try:
+                        db_service.db.rollback()
+                        db_service.update_plan(plan_id, {
+                            "status": PlanStatus.failed.value,
+                            "error_message": error_msg,
+                        })
+                    except Exception as update_exc:
+                        print(f"ERROR: Failed to update plan status: {update_exc}")
+                    await websocket_manager.broadcast_to_plan(plan_id, {
+                        "type": "status",
+                        "status": "failed",
+                        "message": error_msg,
+                        "timestamp": _utcnow_iso(),
                     })
-                except Exception as update_exc:
-                    print(f"ERROR: Failed to update plan status: {update_exc}")
-                # Broadcast failure via WebSocket
-                await websocket_manager.broadcast_to_plan(plan_id, {
-                    "type": "status",
-                    "status": "failed",
-                    "message": error_msg,
-                    "timestamp": _utcnow_iso(),
-                })
-                return  # DO NOT START LUIGI - old content will cause instant completion
+                    return
 
             # Safety check: verify database connectivity before spawning Luigi
             db_url = environment.get("DATABASE_URL")
@@ -219,22 +253,29 @@ class PipelineExecutionService:
                 return
 
             # Write pipeline input files
-            self._write_pipeline_inputs(plan_id, run_id_dir, request, db_service)
+            self._write_pipeline_inputs(plan_id, run_id_dir, request, db_service, resume=resume)
 
             # Update plan status to running and broadcast
+            progress_message = (
+                "Resuming plan generation pipeline..."
+                if resume
+                else "Starting plan generation pipeline..."
+            )
+            initial_progress = plan.progress_percentage if resume else 0
             db_service.update_plan(plan_id, {
                 "status": PlanStatus.running.value,
-                "progress_percentage": 0,
-                "progress_message": "Starting plan generation pipeline...",
-                "started_at": _utcnow()
+                "progress_percentage": initial_progress,
+                "progress_message": progress_message,
+                "started_at": _utcnow(),
+                "error_message": None,
             })
 
             # Broadcast initial status via WebSocket
             await websocket_manager.broadcast_to_plan(plan_id, {
                 "type": "status",
                 "status": "running",
-                "message": "Starting plan generation pipeline...",
-                "progress_percentage": 0,
+                "message": progress_message,
+                "progress_percentage": initial_progress,
                 "timestamp": _utcnow_iso()
             })
 
@@ -417,79 +458,82 @@ class PipelineExecutionService:
         run_id_dir: Path,
         request: CreatePlanRequest,
         db_service: DatabaseService,
+        resume: bool = False,
     ) -> None:
         """Write input files required by Luigi pipeline."""
-        # CRITICAL FIX: ALWAYS delete run directory before each plan to prevent Luigi from skipping tasks
-        # Luigi checks if output files exist, and if they do, it considers tasks "already complete"
-        # This was causing the production issue where Luigi would hang without executing tasks
         import shutil
-        import os as os_module
-        import logging
-        logger = logging.getLogger(__name__)
-        
-        # Use logger.error() to ensure these messages appear in Railway logs (print() gets lost)
+
         logger.error(f"[PIPELINE] _write_pipeline_inputs() CALLED for: {run_id_dir}")
         logger.error(f"[PIPELINE] Directory exists? {run_id_dir.exists()}")
         print(f"[PIPELINE] _write_pipeline_inputs() called for run_id_dir: {run_id_dir}")
         print(f"[PIPELINE] run_id_dir.exists() = {run_id_dir.exists()}")
-        
-        if run_id_dir.exists():
-            existing_files = list(run_id_dir.iterdir())
-            logger.error(f"[PIPELINE][PIPELINE][PIPELINE] Directory EXISTS with {len(existing_files)} files - WILL DELETE!")
-            print(f"[PIPELINE] CRITICAL: Run directory EXISTS with {len(existing_files)} files!")
-            if len(existing_files) > 0:
-                print(f"[PIPELINE] First 10 files: {[f.name for f in existing_files[:10]]}")
-                print(f"[PIPELINE] Leftover files would cause Luigi to skip all tasks (thinks they're complete)")
-            print(f"[PIPELINE] DELETING entire run directory: {run_id_dir}")
-            try:
-                shutil.rmtree(run_id_dir)
-                logger.error(f"[PIPELINE][PIPELINE][PIPELINE] Directory DELETED successfully")
-                print(f"[PIPELINE] [OK] Run directory DELETED successfully")
-            except Exception as e:
-                logger.error(f"[PIPELINE][PIPELINE][PIPELINE] ERROR deleting directory: {e}")
-                print(f"[PIPELINE] [ERROR] ERROR deleting run directory: {e}")
-                raise
+
+        if resume:
+            logger.error("[PIPELINE] Resume mode detected - preserving existing run directory contents")
+            if not run_id_dir.exists():
+                run_id_dir.mkdir(parents=True, exist_ok=True)
+                logger.error(f"[PIPELINE] Resume mode created missing directory: {run_id_dir}")
+                print(f"[PIPELINE] Created run directory for resume: {run_id_dir}")
         else:
-            logger.error(f"[PIPELINE][PIPELINE][PIPELINE] Directory does NOT exist (fresh plan)")
-            print(f"[PIPELINE] Run directory does NOT exist (fresh plan)")
-        
-        logger.error(f"[PIPELINE][PIPELINE][PIPELINE] Creating directory: {run_id_dir}")
-        print(f"[PIPELINE] Creating clean run directory: {run_id_dir}")
-        run_id_dir.mkdir(parents=True, exist_ok=True)
-        logger.error(f"[PIPELINE][PIPELINE][PIPELINE] Directory created - writing input files...")
-        print(f"[PIPELINE] [OK] Run directory created successfully")
+            if run_id_dir.exists():
+                existing_files = list(run_id_dir.iterdir())
+                logger.error(
+                    f"[PIPELINE] Directory exists with {len(existing_files)} files - performing cleanup"
+                )
+                if existing_files:
+                    print(f"[PIPELINE] First 10 files before cleanup: {[f.name for f in existing_files[:10]]}")
+                try:
+                    shutil.rmtree(run_id_dir)
+                    logger.error("[PIPELINE] Run directory deleted successfully before fresh start")
+                    print(f"[PIPELINE] [OK] Run directory deleted: {run_id_dir}")
+                except Exception as exc:
+                    logger.error(f"[PIPELINE] ERROR deleting run directory: {exc}")
+                    print(f"[PIPELINE] [ERROR] Failed to delete run directory: {exc}")
+                    raise
+            else:
+                logger.error("[PIPELINE] Directory does not exist - proceeding with fresh plan inputs")
 
-        # PROOF OF CLEANUP: Write a marker file that Luigi can read to prove cleanup ran
-        cleanup_marker = run_id_dir / "CLEANUP_RAN.txt"
-        with open(cleanup_marker, "w", encoding="utf-8") as f:
-            f.write(f"Directory cleanup executed at {_utcnow_iso()}\n")
-            f.write(f"Directory existed: {run_id_dir.exists()}\n")
-            f.write(f"Cleanup function called from FastAPI process\n")
-        logger.error(f"[PIPELINE][PIPELINE][PIPELINE] Wrote cleanup marker file: {cleanup_marker}")
+            run_id_dir.mkdir(parents=True, exist_ok=True)
+            logger.error("[PIPELINE] Run directory recreated for new execution")
+            print(f"[PIPELINE] [OK] Run directory ready: {run_id_dir}")
 
-        # Write start time using canonical schema to satisfy downstream readers
+            cleanup_marker = run_id_dir / "CLEANUP_RAN.txt"
+            with open(cleanup_marker, "w", encoding="utf-8") as f:
+                f.write(f"Directory cleanup executed at {_utcnow_iso()}\n")
+                f.write(f"Directory existed: True\n")
+                f.write("Cleanup function called from FastAPI process\n")
+            logger.error(f"[PIPELINE] Wrote cleanup marker file: {cleanup_marker}")
+
         localized_now = datetime.now().astimezone()
         start_time_file = run_id_dir / FilenameEnum.START_TIME.value
-        start_time_payload = StartTime.create(localized_now)
-        start_time_payload.save(str(start_time_file))
-        print(f"[PIPELINE] Created {start_time_file.name}")
+        if resume and start_time_file.exists():
+            logger.error(f"[PIPELINE] Start time file already present, leaving untouched: {start_time_file}")
+        else:
+            start_time_payload = StartTime.create(localized_now)
+            start_time_payload.save(str(start_time_file))
+            print(f"[PIPELINE] Created/updated {start_time_file.name}")
 
-        # Write initial plan prompt with legacy PlanFile formatting
         initial_plan_file = run_id_dir / FilenameEnum.INITIAL_PLAN.value
-        plan_file_payload = PlanFile.create(request.prompt, localized_now)
-        plan_file_payload.save(str(initial_plan_file))
-        print(f"[PIPELINE] Created {initial_plan_file.name}")
+        if resume and initial_plan_file.exists():
+            logger.error(f"[PIPELINE] Initial plan file already present, leaving untouched: {initial_plan_file}")
+        else:
+            plan_file_payload = PlanFile.create(request.prompt, localized_now)
+            plan_file_payload.save(str(initial_plan_file))
+            print(f"[PIPELINE] Created/updated {initial_plan_file.name}")
 
-        # Write enriched intake data if provided (from conversation)
         if request.enriched_intake:
             enriched_intake_file = run_id_dir / "enriched_intake.json"
-            with open(enriched_intake_file, "w", encoding="utf-8") as f:
-                json.dump(request.enriched_intake, f, indent=2, default=str)
-            print(f"[PIPELINE] Created enriched_intake.json ({len(str(request.enriched_intake))} bytes)")
+            if resume and enriched_intake_file.exists():
+                logger.error(
+                    f"[PIPELINE] Enriched intake already exists; preserving existing file at {enriched_intake_file}"
+                )
+            else:
+                with open(enriched_intake_file, "w", encoding="utf-8") as f:
+                    json.dump(request.enriched_intake, f, indent=2, default=str)
+                print(f"[PIPELINE] Wrote enriched_intake.json ({len(str(request.enriched_intake))} bytes)")
         else:
             print(f"[PIPELINE] No enriched_intake provided - using standard pipeline")
 
-        # DIAGNOSTIC: Verify only expected files exist
         all_files = list(run_id_dir.iterdir())
         print(f"[PIPELINE] Run directory now contains {len(all_files)} files: {[f.name for f in all_files]}")
 

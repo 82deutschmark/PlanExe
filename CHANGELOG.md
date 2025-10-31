@@ -6,6 +6,12 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+### [0.21.11] - 2025-10-30
+
+### Added
+- **Pipeline resume endpoint**: Added `/api/plans/{plan_id}/resume` so failed plans can restart only incomplete Luigi tasks while preserving successful outputs. The FastAPI route reuses stored configuration and starts the pipeline in resume mode. `planexe_api/api.py`.
+- **Resume-aware pipeline execution**: Updated `PipelineExecutionService` to respect resume mode by skipping run directory cleanup, retaining database artefacts, and keeping existing progress metrics when restarting. `planexe_api/services/pipeline_execution_service.py`.
+
 ### [0.21.10] - 2025-10-30
 
 ### Fixed
