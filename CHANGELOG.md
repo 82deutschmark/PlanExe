@@ -6,6 +6,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+### [0.21.10] - 2025-10-30
+
+### Fixed
+- **Structured LLM async wrappers**: Added missing `achat`/`acomplete` coroutines to `StructuredSimpleOpenAILLM` so Luigi tasks using async structured calls no longer crash with `AttributeError`. Keeps synchronous logic unchanged while restoring task execution.
+
 ### [0.21.9] - 2025-10-30
 
 ### Fixed
