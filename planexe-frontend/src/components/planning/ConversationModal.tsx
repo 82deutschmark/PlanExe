@@ -28,7 +28,6 @@ import { EnrichedIntakeReview } from '@/components/planning/EnrichedIntakeReview
 import { IntakeImageLightbox } from '@/components/planning/IntakeImageLightbox';
 import { InlineImageGeneration } from '@/components/planning/InlineImageGeneration';
 import { MessageBubble } from '@/components/planning/MessageBubble';
-import { InlineReasoningPanel } from '@/components/planning/InlineReasoningPanel';
 
 const FALLBACK_MODEL_ID = 'gpt-5-nano-2025-08-07';
 
@@ -249,54 +248,28 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
             />
           </div>
         ) : (
-          <div className="flex-1 min-h-0 flex flex-col items-center overflow-hidden">
-            <div className="w-full max-w-5xl flex-1 min-h-0 flex flex-col px-6 py-4">
-              
-              {/* Single-column scrollable conversation area */}
-              <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pb-4">
-                
-                {/* Messages with inline elements */}
-                {messages.map((message, index) => (
-                  <React.Fragment key={message.id}>
-                    {/* Message bubble */}
-                    <MessageBubble message={message} />
-                    
-                    {/* Show image after first assistant response */}
-                    {message.role === 'assistant' && index === 1 && (
-                      <InlineImageGeneration
-                        state={imageGenerationState}
-                        imageB64={generatedImageB64}
-                        prompt={generatedImagePrompt}
-                        metadata={generatedImageMetadata}
-                        error={imageGenerationError}
-                        onExpandImage={() => setShowImageLightbox(true)}
-                        onEditImage={editConceptImage}
-                      />
-                    )}
-                    
-                    {/* Show reasoning after each assistant message if available */}
-                    {message.role === 'assistant' && reasoningBuffer && index === messages.length - 1 && (
-                      <InlineReasoningPanel reasoning={reasoningBuffer} />
-                    )}
-                  </React.Fragment>
+          <div className="flex-1 min-h-0 grid grid-cols-1 gap-2 px-2 py-1 overflow-hidden xl:grid-cols-[1.2fr_1fr]">
+            <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-slate-800 bg-slate-900 shadow-sm">
+              <div className="flex-1 min-h-0 space-y-3 overflow-y-auto px-3 py-2">
+                {messages.map((message) => (
+                  <MessageBubble key={message.id} message={message} />
                 ))}
-                
                 <div ref={messagesEndRef} />
               </div>
-            <footer className="shrink-0 flex flex-col border-t border-slate-800 bg-slate-900/50 px-6 py-4">
-              <div className="flex flex-col gap-3 flex-1 items-center text-center">
-                <h3 className="text-base font-semibold uppercase tracking-wide text-slate-300">
-                  Share more details to guide the agent
+            <footer className="shrink-0 flex flex-col border-t border-slate-800 bg-slate-900/50 px-3 py-2">
+              <div className="flex flex-col gap-2 flex-1 items-center text-center">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
+                  Share more details
                 </h3>
                 <Textarea
                   value={draftMessage}
                   onChange={(event) => setDraftMessage(event.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Type your updates, questions, or clarifications here…"
-                  className="h-32 w-full max-w-3xl text-base resize-none bg-white text-slate-900 placeholder-slate-500 shadow-lg border border-slate-200 focus-visible:ring-2 focus-visible:ring-indigo-500"
+                  className="h-24 w-full max-w-3xl text-sm resize-none bg-white text-slate-900 placeholder-slate-500 shadow-lg border border-slate-200 focus-visible:ring-2 focus-visible:ring-indigo-500"
                   disabled={isStreaming || isFinalizing}
                 />
-                <div className="flex w-full max-w-3xl flex-wrap items-center justify-between gap-3">
+                <div className="flex w-full max-w-3xl flex-wrap items-center justify-between gap-2">
                   <p className="text-xs text-slate-400">
                     Press <kbd className="rounded border border-slate-700 bg-slate-800 px-1 text-slate-300">⌘</kbd>
                     +<kbd className="rounded border border-slate-700 bg-slate-800 px-1 text-slate-300">Enter</kbd> to send
@@ -348,8 +321,36 @@ export const ConversationModal: React.FC<ConversationModalProps> = ({
                 </div>
               )}
             </footer>
+          </section>
+
+          <aside className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
+            <div className="flex flex-[0.7] min-h-0">
+              <InlineImageGeneration
+                state={imageGenerationState}
+                imageB64={generatedImageB64}
+                prompt={generatedImagePrompt}
+                metadata={generatedImageMetadata}
+                error={imageGenerationError}
+                onExpandImage={() => setShowImageLightbox(true)}
+                onEditImage={editConceptImage}
+              />
             </div>
-          </div>
+            <div className="flex flex-col flex-[0.3] min-h-0 rounded-lg border border-slate-800 bg-slate-900 overflow-hidden">
+              <div className="px-3 py-2 border-b border-slate-800">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Reasoning summary
+                </h3>
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2 text-xs text-slate-300">
+                {reasoningBuffer ? (
+                  <pre className="whitespace-pre-wrap text-slate-200">{reasoningBuffer}</pre>
+                ) : (
+                  <p className="text-slate-500">Reasoning traces will stream here when available.</p>
+                )}
+              </div>
+            </div>
+          </aside>
+        </div>
         )}
 
         {/* Image Lightbox for full-size viewing */}

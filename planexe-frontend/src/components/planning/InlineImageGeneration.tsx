@@ -147,9 +147,9 @@ export const InlineImageGeneration: React.FC<InlineImageGenerationProps> = ({
   // COMPLETED: Show image with edit option
   if (state === 'completed' && imageB64) {
     return (
-      <div className="w-full my-4 rounded-xl border-2 border-indigo-700 bg-slate-900 p-5 shadow-xl">
+      <div className="w-full h-full rounded-lg border-2 border-indigo-700 bg-slate-900 p-3 shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <Wand2 className="h-5 w-5 text-purple-400" />
             <span className="text-sm font-semibold text-slate-300 uppercase tracking-wide">
@@ -171,7 +171,7 @@ export const InlineImageGeneration: React.FC<InlineImageGenerationProps> = ({
 
         {/* Image */}
         <div 
-          className="relative group cursor-pointer mb-4"
+          className="relative group cursor-pointer mb-2"
           onClick={onExpandImage}
           role="button"
           tabIndex={0}
@@ -186,7 +186,7 @@ export const InlineImageGeneration: React.FC<InlineImageGenerationProps> = ({
           <img
             src={`data:image/png;base64,${imageB64}`}
             alt="Generated concept (click to expand)"
-            className="w-full max-w-3xl mx-auto rounded-lg border-2 border-indigo-700/50 shadow-2xl transition-all group-hover:border-indigo-500 group-hover:shadow-3xl"
+            className="max-h-[300px] w-auto rounded-lg border-2 border-indigo-700/50 shadow-2xl transition-all group-hover:border-indigo-500 group-hover:shadow-3xl"
           />
           {/* Hover overlay */}
           <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg">
@@ -199,8 +199,8 @@ export const InlineImageGeneration: React.FC<InlineImageGenerationProps> = ({
 
         {/* Edit Input (collapsible) */}
         {showEditInput && onEditImage && (
-          <div className="mb-4 p-4 rounded-lg bg-indigo-950/40 border border-indigo-700/50">
-            <label className="block text-sm font-semibold text-slate-300 mb-2">
+          <div className="mb-2 p-2 rounded-lg bg-indigo-950/40 border border-indigo-700/50">
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
               Describe the changes you want:
             </label>
             <div className="flex gap-2">
@@ -261,7 +261,7 @@ export const InlineImageGeneration: React.FC<InlineImageGenerationProps> = ({
   // ERROR: Show error message
   if (state === 'error' && error) {
     return (
-      <div className="w-full my-4 rounded-xl border-2 border-red-700 bg-red-950/30 p-5">
+      <div className="w-full my-2 rounded-lg border-2 border-red-700 bg-red-950/30 p-3">
         <div className="flex items-start gap-3">
           <AlertCircle className="h-6 w-6 text-red-400 shrink-0 mt-1" />
           <div className="flex-1">
