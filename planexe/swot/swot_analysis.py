@@ -17,7 +17,7 @@ from math import ceil
 from dataclasses import dataclass, asdict
 from typing import Optional, Any
 
-from planexe.assume.identify_purpose import IdentifyPurpose, PlanPurposeInfo, PlanPurpose
+from planexe.assume.identify_purpose import IdentifyPurpose, PlanPurposeInfo, PlanPurpose, parse_purpose_dict_safe
 from planexe.swot.swot_phase2_conduct_analysis import (
     swot_phase2_conduct_analysis,
     CONDUCT_SWOT_ANALYSIS_BUSINESS_SYSTEM_PROMPT,
@@ -64,27 +64,7 @@ class SWOTAnalysis:
 
         # Parse the identify_purpose_dict with defensive fallback
         logging.debug(f"IdentifyPurpose json {json.dumps(identify_purpose_dict, indent=2)}")
-        try:
-            purpose_info = PlanPurposeInfo(**identify_purpose_dict)
-        except Exception as e:
-            logging.error(f"Error parsing identify_purpose_dict: {e}")
-            # Defensive fallback: synthesize a valid PlanPurposeInfo from available fields
-            try:
-                fallback_topic = identify_purpose_dict.get('topic', 'Unknown')
-                fallback_purpose_detailed = identify_purpose_dict.get('purpose_detailed', 'general analysis')
-                fallback_purpose_raw = identify_purpose_dict.get('purpose', 'other')
-                # Ensure purpose is a valid PlanPurpose enum
-                if fallback_purpose_raw not in ['business', 'personal', 'other']:
-                    fallback_purpose_raw = 'other'
-                purpose_info = PlanPurposeInfo(
-                    topic=fallback_topic,
-                    purpose_detailed=fallback_purpose_detailed,
-                    purpose=PlanPurpose(fallback_purpose_raw)
-                )
-                logging.warning(f"Used fallback PlanPurposeInfo: {purpose_info}")
-            except Exception as fallback_error:
-                logging.error(f"Fallback parsing also failed: {fallback_error}")
-                raise ValueError("Error parsing identify_purpose_dict and fallback failed.") from e
+        purpose_info, used_fallback = parse_purpose_dict_safe(identify_purpose_dict, logging.getLogger(__name__))
 
         # Select the appropriate system prompt based on the purpose
         logging.info(f"SWOTAnalysis.execute: purpose: {purpose_info.purpose}")

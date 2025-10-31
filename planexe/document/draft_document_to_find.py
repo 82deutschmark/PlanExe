@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pydantic import BaseModel, Field
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.llms.llm import LLM
-from planexe.assume.identify_purpose import IdentifyPurpose, PlanPurposeInfo, PlanPurpose
+from planexe.assume.identify_purpose import IdentifyPurpose, PlanPurposeInfo, PlanPurpose, parse_purpose_dict_safe
 
 logger = logging.getLogger(__name__)
 
@@ -137,13 +137,9 @@ class DraftDocumentToFind:
         else:
             logging.info("identify_purpose_dict provided, using it.")
 
-        # Parse the identify_purpose_dict
+        # Parse the identify_purpose_dict with defensive fallback
         logging.debug(f"IdentifyPurpose json {json.dumps(identify_purpose_dict, indent=2)}")
-        try:
-            purpose_info = PlanPurposeInfo(**identify_purpose_dict)
-        except Exception as e:
-            logging.error(f"Error parsing identify_purpose_dict: {e}")
-            raise ValueError("Error parsing identify_purpose_dict.") from e
+        purpose_info, used_fallback = parse_purpose_dict_safe(identify_purpose_dict, logging.getLogger(__name__))
 
         # Select the appropriate system prompt based on the purpose
         logging.info(f"DraftDocumentToFind.execute: purpose: {purpose_info.purpose}")
@@ -215,13 +211,9 @@ class DraftDocumentToFind:
         else:
             logging.info("identify_purpose_dict provided, using it.")
 
-        # Parse the identify_purpose_dict
+        # Parse the identify_purpose_dict with defensive fallback
         logging.debug(f"IdentifyPurpose json {json.dumps(identify_purpose_dict, indent=2)}")
-        try:
-            purpose_info = PlanPurposeInfo(**identify_purpose_dict)
-        except Exception as e:
-            logging.error(f"Error parsing identify_purpose_dict: {e}")
-            raise ValueError("Error parsing identify_purpose_dict.") from e
+        purpose_info, used_fallback = parse_purpose_dict_safe(identify_purpose_dict, logging.getLogger(__name__))
 
         # Select the appropriate system prompt based on the purpose
         logging.info(f"DraftDocumentToFind.aexecute: purpose: {purpose_info.purpose}")

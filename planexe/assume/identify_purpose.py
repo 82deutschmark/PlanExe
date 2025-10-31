@@ -41,6 +41,66 @@ class PlanPurposeInfo(StrictResponseModel):
         description="Purpose of the plan."
     )
 
+def parse_purpose_dict_safe(
+    identify_purpose_dict: dict,
+    custom_logger: logging.Logger = None
+) -> tuple[PlanPurposeInfo, bool]:
+    """
+    Safely parse identify_purpose_dict into PlanPurposeInfo with defensive fallback.
+
+    This utility provides robust parsing of purpose dictionaries from JSON files,
+    handling schema evolution, missing fields, invalid enum values, and type mismatches.
+
+    Args:
+        identify_purpose_dict: Dict from JSON file or LLM response containing purpose info
+        custom_logger: Optional logger for warnings (uses module logger if None)
+
+    Returns:
+        Tuple of (PlanPurposeInfo instance, used_fallback: bool)
+        - PlanPurposeInfo: Valid model instance
+        - bool: True if fallback was used, False if primary parsing succeeded
+
+    Raises:
+        ValueError: If both primary parsing and fallback fail
+
+    Example:
+        >>> purpose_dict = json.load(f)
+        >>> purpose_info, used_fallback = parse_purpose_dict_safe(purpose_dict, logger)
+        >>> if used_fallback:
+        ...     logger.warning("Used fallback for purpose parsing")
+    """
+    log = custom_logger or logger
+
+    try:
+        purpose_info = PlanPurposeInfo(**identify_purpose_dict)
+        return (purpose_info, False)
+    except Exception as e:
+        log.error(f"Error parsing identify_purpose_dict: {e}")
+
+        # Defensive fallback: synthesize a valid PlanPurposeInfo from available fields
+        try:
+            fallback_topic = identify_purpose_dict.get('topic', 'Unknown')
+            fallback_purpose_detailed = identify_purpose_dict.get('purpose_detailed', 'general analysis')
+            fallback_purpose_raw = identify_purpose_dict.get('purpose', 'other')
+
+            # Ensure purpose is a valid PlanPurpose enum value
+            if fallback_purpose_raw not in ['business', 'personal', 'other']:
+                log.warning(f"Invalid purpose value '{fallback_purpose_raw}', defaulting to 'other'")
+                fallback_purpose_raw = 'other'
+
+            purpose_info = PlanPurposeInfo(
+                topic=fallback_topic,
+                purpose_detailed=fallback_purpose_detailed,
+                purpose=PlanPurpose(fallback_purpose_raw)
+            )
+
+            log.warning(f"Used fallback PlanPurposeInfo: topic='{purpose_info.topic}', purpose='{purpose_info.purpose.value}'")
+            return (purpose_info, True)
+
+        except Exception as fallback_error:
+            log.error(f"Fallback parsing also failed: {fallback_error}")
+            raise ValueError("Error parsing identify_purpose_dict and fallback failed.") from e
+
 IDENTIFY_PURPOSE_SYSTEM_PROMPT = """
 You are an expert analyst tasked with categorizing the purpose of user-described plans strictly based on their provided prompt. Your classifications must be clear, objective, and unbiased. Categorize each plan into exactly one of the following three types:
 

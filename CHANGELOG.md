@@ -6,6 +6,12 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+### [0.21.13] - 2025-10-31
+
+### Fixed
+- **LLMAttempt type confusion**: Fixed `'LLMAttempt' object has no attribute 'get'` errors in ReviewPlanTask and PremortimTask by removing incorrect dictionary method calls on the dataclass object. LLMAttempt is a dataclass with structured fields, not a dict. Response content is already persisted in markdown/JSON files, so the failed dict access was unnecessary. (Files: `planexe/plan/run_plan_pipeline.py:5447`, `planexe/plan/run_plan_pipeline.py:5780`)
+- **PlanPurposeInfo validation failures**: Added defensive fallback parsing for `identify_purpose_dict` deserialization across all document processing tasks. Created reusable `parse_purpose_dict_safe()` utility that handles schema evolution gracefully (missing fields, invalid enum values, wrong types) by synthesizing valid defaults (topic='Unknown', purpose='other', purpose_detailed='general analysis'). Prevents pipeline crashes when loading historical JSON files with outdated schemas. (Files: `planexe/assume/identify_purpose.py` - new utility, `planexe/document/identify_documents.py`, `planexe/document/filter_documents_to_find.py`, `planexe/document/filter_documents_to_create.py`, `planexe/document/draft_document_to_find.py` - both execute and aexecute, `planexe/document/draft_document_to_create.py` - both execute and aexecute, `planexe/swot/swot_analysis.py` - refactored to use utility)
+
 ### [0.21.12] - 2025-10-31
 
 ### Added

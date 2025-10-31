@@ -26,7 +26,7 @@ from typing import Optional, List, Any
 
 from pydantic import BaseModel, Field
 
-from planexe.assume.identify_purpose import IdentifyPurpose, PlanPurposeInfo, PlanPurpose
+from planexe.assume.identify_purpose import IdentifyPurpose, PlanPurposeInfo, PlanPurpose, parse_purpose_dict_safe
 from planexe.llm_util.simple_openai_llm import SimpleChatMessage, SimpleMessageRole
 
 logger = logging.getLogger(__name__)
@@ -266,13 +266,9 @@ class FilterDocumentsToFind:
         else:
             logging.info("identify_purpose_dict provided, using it.")
 
-        # Parse the identify_purpose_dict
+        # Parse the identify_purpose_dict with defensive fallback
         logging.debug(f"IdentifyPurpose json {json.dumps(identify_purpose_dict, indent=2)}")
-        try:
-            purpose_info = PlanPurposeInfo(**identify_purpose_dict)
-        except Exception as e:
-            logging.error(f"Error parsing identify_purpose_dict: {e}")
-            raise ValueError("Error parsing identify_purpose_dict.") from e
+        purpose_info, used_fallback = parse_purpose_dict_safe(identify_purpose_dict, logging.getLogger(__name__))
 
         # Select the appropriate system prompt based on the purpose
         logging.info(f"FilterDocumentsToFind.execute: purpose: {purpose_info.purpose}")
