@@ -18,6 +18,7 @@ import {
   fastApiClient,
   EnrichedPlanIntake,
   ImageGenerationOptions,
+  ImageEditPayload,
 } from '@/lib/api/fastapi-client';
 import { useConversationStreaming } from '@/lib/streaming/conversation-streaming';
 import { getConversationDefaults } from '@/lib/config/responses';
@@ -104,6 +105,7 @@ export interface UseResponsesConversationReturn {
   generatedImagePrompt: string | null;
   generatedImageMetadata: GeneratedImageMetadata | null;
   imageGenerationError: ImageGenerationErrorDetails | null;
+  editConceptImage: (editPrompt: string) => Promise<void>;
 }
 
 const SYSTEM_PROMPT = `You are the PlanExe intake specialist. You are super enthusiastic and compliment the user a lot. You immediately see the bigger potential for the user's ideas.  You embody the  "Yes! And... " spirit of improv while mapping every answer to a structured schema with complete clarity. 
@@ -522,6 +524,105 @@ export function useResponsesConversation(
     [streamAssistantReply, updateMessages],
   );
 
+  const editConceptImage = useCallback(
+    async (editPrompt: string): Promise<void> => {
+      const trimmedEdit = editPrompt.trim();
+      if (!trimmedEdit) {
+        throw new Error('Edit prompt cannot be empty');
+      }
+
+      // Must have conversation ID and existing image
+      if (!conversationId) {
+        throw new Error('No active conversation for image edit');
+      }
+
+      const currentImage = generatedImageB64Ref.current;
+      if (!currentImage) {
+        throw new Error('No image available to edit');
+      }
+
+      // Set state to editing
+      setImageGenerationState('editing');
+      setImageGenerationError(null);
+
+      const editPayload: ImageEditPayload = {
+        prompt: trimmedEdit,
+        baseImageB64: currentImage,
+        modelKey: imageOptionsRef.current?.modelKey ?? DEFAULT_IMAGE_MODEL_KEY,
+        size: imageOptionsRef.current?.size ?? '1024x1024',
+        quality: imageOptionsRef.current?.quality ?? 'standard',
+        outputFormat: imageOptionsRef.current?.outputFormat,
+        outputCompression: imageOptionsRef.current?.outputCompression,
+      };
+
+      try {
+        const response = await fastApiClient.editIntakeImage(conversationId, editPayload);
+
+        // Update state with edited image
+        setGeneratedImageB64(response.image_b64);
+        setGeneratedImagePrompt(response.prompt);
+        const resolvedFormat = normalizeResponseFormat(response.format);
+        const metadata: GeneratedImageMetadata = {
+          model: response.model,
+          size: response.size,
+          format: resolvedFormat,
+          compression: response.compression ?? undefined,
+        };
+        setGeneratedImageMetadata(metadata);
+        setImageGenerationState('completed');
+
+        console.log('[useResponsesConversation] Image edit completed');
+
+        // Update refs
+        generatedImageB64Ref.current = response.image_b64;
+        generatedImageMetadataRef.current = metadata;
+
+        // Persist updated image
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem(
+              `planexe_concept_image_${conversationId}`,
+              JSON.stringify({
+                imageB64: response.image_b64,
+                prompt: response.prompt,
+                metadata,
+                timestamp: Date.now(),
+              }),
+            );
+          } catch (error) {
+            console.warn('[useResponsesConversation] Failed to persist edited image:', error);
+          }
+        }
+      } catch (error) {
+        let errorDetails: ImageGenerationErrorDetails;
+
+        if (error instanceof ApiError) {
+          errorDetails = {
+            message: error.message,
+            error_type: error.details.error_type,
+            context: error.details.context,
+          };
+        } else if (error instanceof Error) {
+          errorDetails = {
+            message: error.message,
+            error_type: 'client_error',
+          };
+        } else {
+          errorDetails = {
+            message: 'Image edit failed',
+            error_type: 'unknown_error',
+          };
+        }
+
+        setImageGenerationError(errorDetails);
+        setImageGenerationState('error');
+        console.error('[useResponsesConversation] Image edit failed:', error);
+        throw error;
+      }
+    },
+    [conversationId],
+  );
+
   const finalizeConversation = useCallback((): ConversationFinalizeResult => {
     const transcript = messagesRef.current;
     const additionalDetails = transcript.filter((entry, index) => entry.role === 'user' && index > 0);
@@ -610,5 +711,6 @@ export function useResponsesConversation(
     generatedImagePrompt,
     generatedImageMetadata,
     imageGenerationError,
+    editConceptImage,
   };
 }
