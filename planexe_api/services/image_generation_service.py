@@ -475,6 +475,43 @@ class ImageGenerationService:
 
         return effective_timeout, effective_retries
 
+    def _build_enhanced_prompt(
+        self,
+        user_prompt: str,
+        defaults: Dict[str, Any],
+        style_suffix_override: Optional[str] = None,
+    ) -> str:
+        """
+        Enhance user prompt by appending descriptive style modifiers.
+
+        Args:
+            user_prompt: The user's original prompt text
+            defaults: Image defaults from configuration
+            style_suffix_override: Optional override for the style suffix
+
+        Returns:
+            Enhanced prompt with style modifiers appended
+        """
+        if style_suffix_override is not None:
+            style_suffix = style_suffix_override.strip()
+        else:
+            style_suffix = defaults.get("prompt_style_suffix", "").strip()
+
+        if not style_suffix:
+            # No style configured, return user prompt as-is
+            return user_prompt
+
+        # Append style modifiers to make the description more specific
+        enhanced = f"{user_prompt}, {style_suffix}"
+
+        logger.debug(
+            f"Enhanced prompt: user_prompt_length={len(user_prompt)}, "
+            f"style_suffix_length={len(style_suffix)}, "
+            f"total_length={len(enhanced)}"
+        )
+
+        return enhanced
+
     async def generate_concept_image(
         self,
         prompt: str,
@@ -488,17 +525,19 @@ class ImageGenerationService:
         negative_prompt: Optional[str] = None,
         output_format: Optional[str] = None,
         output_compression: Optional[int] = None,
+        style_suffix: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Generate a concept image and return base64 data with metadata.
-        
+
         Args:
             prompt: The text prompt for image generation
             model_key: Optional model identifier, will resolve from config if not provided
             size: Optional image size, will validate and default if invalid
             timeout: Optional request timeout in seconds
             max_retries: Optional maximum number of retry attempts
-            
+            style_suffix: Optional style suffix override to append to user prompt
+
         Returns:
             Dictionary containing:
             - image_b64: Base64 encoded image data
@@ -516,6 +555,10 @@ class ImageGenerationService:
         clean_prompt = prompt.strip()
         model, model_config = self._resolve_model(model_key)
         defaults = self._get_image_defaults(model_config)
+
+        # Build enhanced prompt with style suffix
+        enhanced_prompt = self._build_enhanced_prompt(clean_prompt, defaults, style_suffix)
+
         actual_size = self._resolve_size(size, model_config)
         actual_quality = self._normalise_quality(quality, defaults)
         actual_background = self._resolve_optional_setting("background", defaults, background)
@@ -525,7 +568,7 @@ class ImageGenerationService:
 
         payload: Dict[str, Any] = {
             "model": model,
-            "prompt": clean_prompt,
+            "prompt": enhanced_prompt,
             "size": actual_size,
             "n": 1,
         }
@@ -585,6 +628,7 @@ class ImageGenerationService:
         negative_prompt: Optional[str] = None,
         output_format: Optional[str] = None,
         output_compression: Optional[int] = None,
+        style_suffix: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Apply edits to an existing concept image."""
 
@@ -596,6 +640,10 @@ class ImageGenerationService:
         clean_prompt = prompt.strip()
         model, model_config = self._resolve_model(model_key)
         defaults = self._get_image_defaults(model_config)
+
+        # Build enhanced prompt with style suffix
+        enhanced_prompt = self._build_enhanced_prompt(clean_prompt, defaults, style_suffix)
+
         actual_size = self._resolve_size(size, model_config)
         actual_quality = self._normalise_quality(quality, defaults)
         actual_background = self._resolve_optional_setting("background", defaults, background)
@@ -613,7 +661,7 @@ class ImageGenerationService:
 
         data: Dict[str, Any] = {
             "model": model,
-            "prompt": clean_prompt,
+            "prompt": enhanced_prompt,
             "size": actual_size,
             "n": 1,
         }

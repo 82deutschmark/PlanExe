@@ -6,6 +6,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+### [0.21.12] - 2025-10-31
+
+### Added
+- **Image generation style enhancement**: Added configurable `prompt_style_suffix` to `llm_config.json` image_defaults that appends descriptive style modifiers to user prompts (e.g., "professional business concept art style, clean and modern aesthetic"). This approach works correctly with the OpenAI Images API by enhancing the image description rather than using chat-style role instructions. Backward compatible (no suffix = user prompt unchanged). `llm_config.json`, `planexe_api/services/image_generation_service.py`.
+
 ### [0.21.11] - 2025-10-30
 
 ### Added

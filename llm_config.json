@@ -68,7 +68,8 @@
             ],
             "default_output_compression": 85,
             "timeout_seconds": 60,
-            "max_retries": 2
+            "max_retries": 2,
+            "prompt_style_suffix": "professional business concept art style, clean and modern aesthetic, suitable for business presentations and planning documents"
         }
     }
 }
