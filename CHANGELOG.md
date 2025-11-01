@@ -1,10 +1,15 @@
-﻿# Changelog - Use Proper Semantic Versioning and follow the Keep a Changelog standard
+# Changelog - Use Proper Semantic Versioning and follow the Keep a Changelog standard
 
 ## Versioning Scheme
 This project follows [Semantic Versioning](https://semver.org/):
 - **MAJOR**: Breaking changes that require migration
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
+
+### [0.23.1] - 2025-10-31
+
+### Changed
+- **README highlights**: Updated landing documentation to summarise recent recovery tooling, recent plans surface, and hardened image pipeline so new operators get an accurate overview.
 
 ### [0.23.0] - 2025-10-31
 

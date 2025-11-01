@@ -6,6 +6,8 @@ PlanExe turns a short planning prompt into a full execution plan by coordinating
 - **Database-first pipeline** – content is persisted in `plan_content`, enabling resumable executions and API-first artefact delivery.
 - **Structured LLM orchestration** – the `SimpleOpenAILLM` adapter standardises calls to OpenAI's Responses API with schema-aware retries and telemetry.
 - **Real-time visibility** – WebSockets stream logs, structured reasoning, and progress percentages so operators can see exactly what Luigi is doing.
+- **Fast recovery controls** – resume failed plans or retry a single Luigi task via the `/api/plans/{plan_id}/resume` and `/api/plans/{plan_id}/tasks/{task_key}/retry` endpoints, also surfaced in the Recovery workspace.
+- **Instant concept visuals** – the intake modal triggers a `gpt-image-1-mini` render with hardened fallbacks so product teams can iterate on visuals while the pipeline runs.
 
 ## Architecture at a glance
 | Layer | Location | Notes |
@@ -20,6 +22,12 @@ Key principles:
 1. **Database-first** – never rely on filesystem-only artefacts.
 2. **Thread-safe orchestration** – WebSocket manager and ProcessRegistry use locks to avoid race conditions.
 3. **Deterministic response chaining** – response IDs from the Responses API are stored and reused to maintain context.
+
+## Recent enhancements
+- **Recent plans surface** – the landing page ships with `RecentPlansCard` plus a shared `useRecentPlans` hook so operators can reopen completed runs or reports with one click.
+- **Targeted recovery actions** – the Recovery workspace exposes resume and per-task retry controls, calling new FastAPI endpoints without wiping successful artefacts.
+- **Richer telemetry** – `CurrentActivityStrip` now shows live token costs, reasoning effort, and integrates resume/retry affordances for fast interventions.
+- **Resilient image pipeline** – `ImageGenerationService` normalises OpenAI payloads, supports quality/size overrides, and returns structured error metadata consumed by the intake UI.
 
 ## 🔴 CRITICAL: OpenAI SDK Version Compatibility
 
@@ -110,11 +118,10 @@ Copy-Item .env.example .env
    The backend spawns `python -m planexe.plan.run_plan_pipeline` as a subprocess.
 
 ### Observability & operations
-- **Live progress** – the WebSocket endpoint `/ws/plans/{plan_id}/progress` streams:
-  - log lines from Luigi stdout/stderr,
-  - LLM reasoning/output deltas, and
-  - periodic percentage updates derived from completed `plan_content` entries.
-- **Artefacts** – download from `/api/plans/{id}/files` or `/api/plans/{id}/report`; each entry comes from the database.
+- **Live progress** – the WebSocket endpoint `/ws/plans/{plan_id}/progress` streams logs, reasoning deltas, completion percentages, and powers the Recovery page’s LivePipelineDAG visual.
+- **Cost & effort telemetry** – `CurrentActivityStrip` displays real-time token spend, reasoning effort, and plan status so teams can monitor usage while tasks run.
+- **Recovery actions** – resume failed runs or requeue an individual Luigi task directly from the Recovery workspace; the backend retains existing artefacts while rerunning missing steps.
+- **Artefacts** – download from `/api/plans/{id}/files` or `/api/plans/{id}/report`; each entry comes from the database and renders with full styling via the Report iframe.
 - **Fallback report** – if the HTML report task fails, use `/api/plans/{id}/fallback-report` to rebuild it from stored content.
 
 ### Pipeline tips
