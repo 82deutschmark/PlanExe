@@ -13,6 +13,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { SimplifiedPlanInput } from '@/components/planning/SimplifiedPlanInput';
 import { ConversationModal } from '@/components/planning/ConversationModal';
+import { RecentPlansCard } from '@/components/planning/RecentPlansCard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import {
@@ -256,7 +257,7 @@ const HomePage: React.FC = () => {
               </dl>
             </section>
 
-            <section>
+            <section className="flex flex-col gap-6">
               <Card className="border-white/10 bg-white/10 shadow-2xl shadow-cyan-500/10 backdrop-blur">
                 <CardHeader className="space-y-3 pb-2">
                   <div className="flex items-start justify-between gap-4">
@@ -377,6 +378,8 @@ const HomePage: React.FC = () => {
                   )}
                 </CardContent>
               </Card>
+
+              <RecentPlansCard />
             </section>
           </div>
         </div>

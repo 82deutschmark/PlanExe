@@ -6,6 +6,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+### [0.23.0] - 2025-10-31
+
+### Added
+- **Recent plans surface on landing page**: Added a reusable `useRecentPlans` hook and `RecentPlansCard` component, then mounted the card under the plan intake form so users can reopen completed plans or jump to reports directly from `/`. (Files: `planexe-frontend/src/lib/hooks/useRecentPlans.ts`, `planexe-frontend/src/components/planning/RecentPlansCard.tsx`, `planexe-frontend/src/app/page.tsx`)
+
 ### [0.22.1] - 2025-10-31
 
 ### Fixed
