@@ -1,4 +1,4 @@
-# Changelog - Use Proper Semantic Versioning and follow the Keep a Changelog standard
+﻿# Changelog - Use Proper Semantic Versioning and follow the Keep a Changelog standard
 
 ## Versioning Scheme
 This project follows [Semantic Versioning](https://semver.org/):
@@ -1366,5 +1366,5 @@ Pipeline should now run end-to-end as it did before the regression.
 - Established direct FastAPI client usage in the frontend, resolved import issues, and documented the two-terminal workflow.
 
 ## [0.1.0] - 2025-09-19
-- Initial release: FastAPI REST API, PostgreSQL schema, SSE progress streaming, Node.js client SDK, and Dockerised deployment stack.
+- Initial work: FastAPI REST API, PostgreSQL schema, SSE progress streaming, Node.js client SDK, and Dockerised deployment stack.
 

@@ -237,7 +237,7 @@ const HomePage: React.FC = () => {
                   PlanExe creates execution plans from a short intake conversation.
                 </h1>
                 <p className="max-w-xl text-base text-slate-300 md:text-lg">
-                  Answer a few focused questions. Then the agent runs a multi-stage pipeline to assemble your plan. You can follow progress live and download the final report when it's ready.
+                  Answer a few focused questions. Then the agent runs a multi-stage pipeline to assemble your plan. You can follow progress live and download the final report when ready.
                 </p>
               </div>
 
@@ -248,11 +248,11 @@ const HomePage: React.FC = () => {
                 <div className="space-y-3 text-sm text-slate-300">
                   <div className="flex items-center gap-3">
                     <div className="h-2 w-2 rounded-full bg-emerald-400" />
-                    <span><strong>Intake:</strong> 2–5 minutes of focused questions</span>
+                    <span><strong>Intake:</strong> 2&ndash;5 minutes of focused questions</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="h-2 w-2 rounded-full bg-amber-400" />
-                    <span><strong>Run time:</strong> ~20–60 minutes depending on depth</span>
+                    <span><strong>Run time:</strong> ~20&ndash;60 minutes depending on depth</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="h-2 w-2 rounded-full bg-cyan-400" />
@@ -286,7 +286,7 @@ const HomePage: React.FC = () => {
                         Choose a model, describe your idea, and the conversation modal opens instantly.
                       </CardDescription>
                       <p className="text-xs text-slate-400 mt-1">
-                        A live workspace opens after submit. The pipeline runs in stages and typically completes in ~20–60 minutes.
+                        A live workspace opens after submit. The pipeline runs in stages and typically completes in ~20&ndash;60 minutes.
                       </p>
                     </div>
                     <div className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-slate-200">
