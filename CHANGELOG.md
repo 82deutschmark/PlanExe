@@ -1,10 +1,15 @@
-﻿# Changelog - Use Proper Semantic Versioning and follow the Keep a Changelog standard
+# Changelog - Use Proper Semantic Versioning and follow the Keep a Changelog standard
 
 ## Versioning Scheme
 This project follows [Semantic Versioning](https://semver.org/):
 - **MAJOR**: Breaking changes that require migration
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
+
+### [0.22.1] - 2025-10-31
+
+### Fixed
+- **Reasoning effort display**: Fixed recovery status bar always showing "Minimal" reasoning effort regardless of actual selection. Updated FastAPI endpoints to return reasoning effort from request data instead of hard-coded default. Fixed React import syntax in `CurrentActivityStrip.tsx`. Since reasoning effort is immutable per plan, no database persistence needed - frontend uses cached value from plan creation. (Files: `planexe_api/api.py`, `planexe-frontend/src/app/recovery/components/CurrentActivityStrip.tsx`)
 
 ### [0.22.0] - 2025-10-31
 

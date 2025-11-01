@@ -741,13 +741,13 @@ async def create_plan(request: CreatePlanRequest):
             status=PlanStatus(plan.status),
             created_at=plan.created_at,
             prompt=plan.prompt,
-            llm_model=plan.llm_model,
-            speed_vs_detail=SpeedVsDetail(plan.speed_vs_detail),
-            reasoning_effort=plan.reasoning_effort or request.reasoning_effort,
-            progress_percentage=plan.progress_percentage,
-            progress_message=plan.progress_message,
-            error_message=plan.error_message,
-            output_dir=plan.output_dir,
+            llm_model=resolved_llm_model,
+            speed_vs_detail=SpeedVsDetail(request.speed_vs_detail.value),
+            reasoning_effort=request.reasoning_effort,
+            progress_percentage=0,
+            progress_message="Plan queued for processing...",
+            error_message=None,
+            output_dir=str(run_id_dir),
             enriched_intake=enriched_intake_str
         )
 
@@ -803,8 +803,7 @@ async def resume_plan(plan_id: str):
             prompt=plan.prompt,
             llm_model=plan.llm_model,
             speed_vs_detail=speed_vs_detail,
-            reasoning_effort=(updated_plan.reasoning_effort if updated_plan else plan.reasoning_effort)
-            or effective_request.reasoning_effort,
+            reasoning_effort=effective_request.reasoning_effort,
             progress_percentage=updated_plan.progress_percentage if updated_plan else plan.progress_percentage,
             progress_message=updated_plan.progress_message if updated_plan else plan.progress_message,
             error_message=None,
@@ -904,8 +903,7 @@ async def retry_task(plan_id: str, task_key: str):
             prompt=plan.prompt,
             llm_model=plan.llm_model,
             speed_vs_detail=speed_vs_detail,
-            reasoning_effort=(updated_plan.reasoning_effort if updated_plan else plan.reasoning_effort)
-            or effective_request.reasoning_effort,
+            reasoning_effort=effective_request.reasoning_effort,
             progress_percentage=updated_plan.progress_percentage if updated_plan else plan.progress_percentage,
             progress_message=updated_plan.progress_message if updated_plan else plan.progress_message,
             error_message=None,

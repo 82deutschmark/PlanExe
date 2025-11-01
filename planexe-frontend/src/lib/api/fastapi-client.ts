@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Author: ChatGPT using gpt-5-codex
  * Date: 2024-11-23T00:00:00Z
  * PURPOSE: Central FastAPI client typings/helpers, now including plan relaunch utilities
@@ -745,13 +745,14 @@ export class FastAPIClient {
       throw new Error(`HTTP ${response.status} downloading file: ${detail}`);
     }
     return response.blob();
+  }
+
   // Retry a specific task within a plan (server deletes task outputs and resumes)
   async retryTask(plan_id: string, task_key: string): Promise<PlanResponse> {
     const response = await fetch(`${this.baseURL}/api/plans/${encodeURIComponent(plan_id)}/tasks/${encodeURIComponent(task_key)}/retry`, {
       method: 'POST',
     });
     return this.handleResponse<PlanResponse>(response);
-  }
   }
 
   // Download HTML report

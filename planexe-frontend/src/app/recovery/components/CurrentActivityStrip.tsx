@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Author: Cascade
  * Date: 2025-10-28
  * PURPOSE: MEGA INFO STRIP - Combines activity + header data into ONE ultra-dense bar
@@ -6,7 +6,8 @@
  */
 'use client';
 
-import React, {  } from 'react';\nimport { fastApiClient } from '@/lib/api/fastapi-client';
+import React, { useEffect, useMemo, useState } from 'react';
+import { fastApiClient } from '@/lib/api/fastapi-client';
 import { Badge } from '@/components/ui/badge';
 import { Activity, Clock, Zap, Wifi, WifiOff, CheckCircle, DollarSign, Cpu } from 'lucide-react';
 import type { LLMStreamState, RecoveryConnectionState } from '../useRecoveryPlan';
@@ -178,7 +179,8 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
       <div className="flex items-center justify-between gap-4">
         {/* LEFT: Current Activity */}
         <div className="flex items-center gap-3">
-          {activeStream ? (            <>
+          {activeStream ? (
+            <>
               <Activity className="h-4 w-4 text-blue-400 animate-pulse" />
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-blue-300">CURRENT TASK:</span>
@@ -211,20 +213,6 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
                   </button>
                 </>
               )}
-            <>
-              <Activity className="h-4 w-4 text-blue-400 animate-pulse" />
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-blue-300">CURRENT TASK:</span>
-                <span className="text-base font-mono font-semibold">{activeStream.stage}</span>
-              </div>
-              <div className="h-5 w-px bg-slate-600" />
-              <div className="flex items-center gap-1.5">
-                <Clock className="h-4 w-4 text-slate-400" />
-                <span className="text-xs text-slate-400">TASK:</span>
-                <span className="text-sm font-mono tabular-nums font-semibold">{currentTaskElapsed.toFixed(1)}s</span>
-                <span className="text-xs text-slate-400">PIPELINE:</span>
-                <span className="text-sm font-mono tabular-nums font-semibold">{pipelineElapsed.toFixed(1)}s</span>
-              </div>
               {currentTokens > 0 && (
                 <>
                   <div className="h-5 w-px bg-slate-600" />
@@ -239,7 +227,7 @@ export const CurrentActivityStrip: React.FC<CurrentActivityStripProps> = ({
                 </>
               )}
             </>
-          ) : (
+           ) : (
             <>
               <CheckCircle className="h-4 w-4 text-gray-400" />
               <span className="text-sm text-gray-300">IDLE - Waiting for next task</span>
