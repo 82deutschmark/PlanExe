@@ -697,7 +697,6 @@ async def create_plan(request: CreatePlanRequest):
             "prompt": request.prompt,
             "llm_model": resolved_llm_model,
             "speed_vs_detail": request.speed_vs_detail.value,
-            "reasoning_effort": request.reasoning_effort,
             "status": PlanStatus.pending.value,
             "progress_percentage": 0,
             "progress_message": "Plan queued for processing...",
@@ -786,7 +785,7 @@ async def resume_plan(plan_id: str):
             prompt=plan.prompt,
             llm_model=plan.llm_model,
             speed_vs_detail=speed_vs_detail,
-            reasoning_effort=plan.reasoning_effort,
+            reasoning_effort=RESPONSES_STREAMING_CONTROLS.reasoning_effort,
             enriched_intake=None,
         )
 
@@ -886,7 +885,7 @@ async def retry_task(plan_id: str, task_key: str):
             prompt=plan.prompt,
             llm_model=plan.llm_model,
             speed_vs_detail=speed_vs_detail,
-            reasoning_effort=plan.reasoning_effort,
+            reasoning_effort=RESPONSES_STREAMING_CONTROLS.reasoning_effort,
             enriched_intake=None,
         )
 
