@@ -1,4 +1,4 @@
-# Changelog - Use Proper Semantic Versioning and follow the Keep a Changelog standard
+﻿# Changelog - Use Proper Semantic Versioning and follow the Keep a Changelog standard
 
 ## Versioning Scheme
 This project follows [Semantic Versioning](https://semver.org/):
@@ -6,6 +6,11 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+### [0.22.0] - 2025-10-31
+
+### Added
+- Per-task retry endpoint to rerun a single Luigi task without restarting the entire plan. Deletes that task's output files and resumes the pipeline, so only missing outputs regenerate. Backend route: /api/plans/{plan_id}/tasks/{task_key}/retry (initial support: governance_phase6_extra and alias governance_phase6). File: planexe_api/api.py.
+- Recovery UI inline control to retry the currently active task from the status strip. Calls the new backend endpoint with the live stage key. Files: planexe-frontend/src/app/recovery/components/CurrentActivityStrip.tsx, planexe-frontend/src/lib/api/fastapi-client.ts.
 ### [0.21.14] - 2025-10-31
 
 ### Fixed
@@ -325,7 +330,7 @@ Previous fixes (0.18.2) were red herrings - they addressed unrelated issues (dat
 ## [0.15.8] - 2025-10-28
 
 ### Fixed
-- Stabilized WBS Level 1 task by switching to schema-driven Responses API calls with a tolerant freeform fallback. This removes ad‑hoc parsing and aligns the task with other structured LLM callers, reducing silent failures and improving metadata (duration, fallback_used). Files: `planexe/plan/create_wbs_level1.py`.
+- Stabilized WBS Level 1 task by switching to schema-driven Responses API calls with a tolerant freeform fallback. This removes adâ€‘hoc parsing and aligns the task with other structured LLM callers, reducing silent failures and improving metadata (duration, fallback_used). Files: `planexe/plan/create_wbs_level1.py`.
 
 ## [0.15.7] - 2025-10-28
 
@@ -367,9 +372,9 @@ Previous fixes (0.18.2) were red herrings - they addressed unrelated issues (dat
 
 ### Fixed
 - Responses structured output regression causing OpenAI 400 `invalid_json_schema` errors.
-  - Root cause: a recent change allowed extras in Pydantic models, which propagated `additionalProperties: true` into the on‑wire `text.format.schema` sent to the Responses API. OpenAI requires `additionalProperties: false`.
+  - Root cause: a recent change allowed extras in Pydantic models, which propagated `additionalProperties: true` into the onâ€‘wire `text.format.schema` sent to the Responses API. OpenAI requires `additionalProperties: false`.
   - Effect: Structured calls for `PlanPurposeInfo` and `DocumentDetails` failed across models, halting the Luigi pipeline early.
-  - Resolution: Ensure on‑wire schemas are strict (no additional properties) while keeping parsing leniency internal.
+  - Resolution: Ensure onâ€‘wire schemas are strict (no additional properties) while keeping parsing leniency internal.
 
 ## [0.15.1] - 2025-10-28
 
@@ -519,7 +524,7 @@ Previous fixes (0.18.2) were red herrings - they addressed unrelated issues (dat
 
 ### Fixed
 - **Error Display in LivePipelineDAG**: Failed tasks now show actual error messages inline instead of just a red X icon
-  - Error data was already flowing through WebSocket → `LLMStreamState.error` but wasn't being displayed
+  - Error data was already flowing through WebSocket â†’ `LLMStreamState.error` but wasn't being displayed
   - Added inline error display box for failed tasks with red background, border, and error text
   - Error message appears directly below failed task in DAG with readable formatting (9px text, word-break)
   - Users can now see WHAT went wrong without needing to click into modal
@@ -554,7 +559,7 @@ Previous fixes (0.18.2) were red herrings - they addressed unrelated issues (dat
   - Documented Luigi DAG structure and how to present all 61 tasks to users
   - Detailed plan for interactive pipeline visualization showing current task, dependencies, and progress
   - Designed completion modal to replace automatic navigation with celebration and summary
-  - Mapped LLM stream architecture from Luigi tasks → stdout → WebSocket → frontend
+  - Mapped LLM stream architecture from Luigi tasks â†’ stdout â†’ WebSocket â†’ frontend
   - Created 4-phase implementation roadmap with specific file references and time estimates
   - No backend or database changes required - all solutions use existing WebSocket infrastructure
   - See `docs/recovery-ui-enhancement-plan.md` for complete specification
@@ -676,16 +681,16 @@ Previous fixes (0.18.2) were red herrings - they addressed unrelated issues (dat
 ## [0.10.9] - 2025-10-28
 
 ### Documentation
-- **🔴 CRITICAL ARCHITECTURAL INSIGHT**: Discovered that 90+ manual Pydantic model fixes (v0.10.1-0.10.8) were UNNECESSARY
+- **ðŸ”´ CRITICAL ARCHITECTURAL INSIGHT**: Discovered that 90+ manual Pydantic model fixes (v0.10.1-0.10.8) were UNNECESSARY
   - **Root Cause**: `_enforce_openai_schema_requirements()` in `simple_openai_llm.py` line 50-139 ALREADY automatically adds `additionalProperties: false` to all schemas before sending to OpenAI
   - **What Happened**: Developer didn't realize automatic enforcement existed, manually added `json_schema_extra={"additionalProperties": False}` to 90+ models across 41 files
   - **Schema/Runtime Contradiction**: v0.9.14 added `extra='allow'` (permissive runtime) to fix validation errors, then v0.10.x added `extra='forbid'` + `json_schema_extra` (strict schema) creating contradictory validation rules
   - **The Circular Loop**:
-    1. LLM returns extra fields → ValidationError
+    1. LLM returns extra fields â†’ ValidationError
     2. Fix: `extra='allow'` (accept everything)
-    3. OpenAI rejects schema → HTTP 400 invalid_json_schema  
+    3. OpenAI rejects schema â†’ HTTP 400 invalid_json_schema  
     4. Fix: `extra='forbid'` + `json_schema_extra` (reject everything)
-    5. LLM returns extra fields → ValidationError (back to step 1)
+    5. LLM returns extra fields â†’ ValidationError (back to step 1)
   - **Evidence**: Created `test_schema_enforcement.py` proving automatic enforcement works WITHOUT any manual `json_schema_extra`
   - **Architectural Fix Needed**: Choose ONE policy (strict vs permissive), apply consistently, remove redundant manual configurations
   - **Documentation**: Created comprehensive analysis at `docs/SCHEMA-CONTRADICTION-ANALYSIS.md` with timeline, evidence, and recommendations
@@ -716,7 +721,7 @@ Pipeline should now run end-to-end as it did before the regression.
 ## [0.10.5] - 2025-10-28
 
 ### Fixed
-- Ensure `DATABASE_URL` from the deployment environment is validated and forwarded into the Luigi subprocess. Added a pre‑launch database connectivity check and early, clear failure with WebSocket notice if unreachable. This makes Railway PostgreSQL configuration pass reliably into the pipeline.
+- Ensure `DATABASE_URL` from the deployment environment is validated and forwarded into the Luigi subprocess. Added a preâ€‘launch database connectivity check and early, clear failure with WebSocket notice if unreachable. This makes Railway PostgreSQL configuration pass reliably into the pipeline.
 
 ## [0.10.5] - 2025-10-28
 
@@ -793,7 +798,7 @@ Pipeline should now run end-to-end as it did before the regression.
 ## [0.10.0] - 2025-10-27
 
 ### Added
-- **🚀 Pipeline Concurrency Optimizations**: Implemented async concurrent execution for major pipeline bottlenecks to significantly reduce execution time
+- **ðŸš€ Pipeline Concurrency Optimizations**: Implemented async concurrent execution for major pipeline bottlenecks to significantly reduce execution time
   - **Problem**: Sequential LLM API calls in document drafting, expert criticism, and WBS tasks created significant performance bottlenecks
   - **Solution**: Added async support to LLMExecutor and updated key tasks to use concurrent execution via `asyncio.gather()`
   - **Performance Impact**: Tasks that previously executed sequentially now run concurrently, reducing overall pipeline execution time
@@ -825,7 +830,7 @@ Pipeline should now run end-to-end as it did before the regression.
 ## [0.9.14] - 2025-10-27
 
 ### Fixed
-- **🔴 CRITICAL Pydantic Validation Errors**: Added `model_config = {'extra': 'allow'}` to all Pydantic models used with structured LLM outputs to prevent pipeline failures
+- **ðŸ”´ CRITICAL Pydantic Validation Errors**: Added `model_config = {'extra': 'allow'}` to all Pydantic models used with structured LLM outputs to prevent pipeline failures
   - **Problem**: LLM responses containing extra fields beyond defined schema caused `ValidationError: Extra data` exceptions, leading to pipeline exhaustion and failure
   - **Root Cause**: Pydantic's default `extra='forbid'` behavior throws validation errors when LLMs return additional metadata fields not explicitly defined in the schema
   - **Impact**: Pipeline tasks would fail with "Failed to parse structured response for [ModelName]: Extra data: line X column Y" errors, causing complete pipeline failure
@@ -851,7 +856,7 @@ Pipeline should now run end-to-end as it did before the regression.
 ## [0.9.12] - 2025-10-27
 
 ### Fixed
-- **🔴 CRITICAL Hardcoded UI Values Removed**: Eliminated all fake/mock data from telemetry components that was misleading users
+- **ðŸ”´ CRITICAL Hardcoded UI Values Removed**: Eliminated all fake/mock data from telemetry components that was misleading users
   - **Problem**: Previous commits introduced hardcoded values like `PID: 12345`, fake response times, mock task durations, and simulated progress metrics
   - **Impact**: Users were seeing fake data instead of real operational information, making the telemetry useless for debugging
   - **Fixed Values Removed**:
@@ -908,7 +913,7 @@ Pipeline should now run end-to-end as it did before the regression.
   - Improved transparency about how reasoning effort affects real-time streaming vs batch processing
 
 ### Fixed
-- **🔴 CRITICAL Empty Levers Cascade Failure**: Fixed pipeline crash when no levers are identified during analysis, preventing 14+ downstream tasks from being left pending
+- **ðŸ”´ CRITICAL Empty Levers Cascade Failure**: Fixed pipeline crash when no levers are identified during analysis, preventing 14+ downstream tasks from being left pending
   - **Root Cause**: While `FocusOnVitalFewLeversTask` handled empty inputs gracefully, `CandidateScenariosTask` had a hard requirement for non-empty vital levers, causing `ValueError: The list of vital levers cannot be empty.`
   - **Impact**: Pipeline would fail at scenario generation stage, preventing all subsequent tasks (WBS, governance, team, documents, reports) from running
   - **Files Modified**:
@@ -978,7 +983,7 @@ Pipeline should now run end-to-end as it did before the regression.
 ### Fixed
 - **Recovery Header Progress Display**: Fixed recovery page header stuck at "Progress: 0%" throughout pipeline execution
   - **Root Cause**: Plan data (containing `progress_percentage` and `progress_message`) was only fetched once on initial page load, then relied entirely on WebSocket for updates. If WebSocket had any connection issues, progress would never update in the UI.
-  - **Impact**: Users saw "Progress: 0%, Starting plan generation..." for the entire pipeline run, providing no visibility into actual progress (0% → 99%).
+  - **Impact**: Users saw "Progress: 0%, Starting plan generation..." for the entire pipeline run, providing no visibility into actual progress (0% â†’ 99%).
   - **Files Modified**:
     - `planexe-frontend/src/app/recovery/useRecoveryPlan.ts`: Added plan progress polling mechanism (every 3 seconds) alongside existing artefact polling
   - **Fix Applied**:
@@ -986,12 +991,12 @@ Pipeline should now run end-to-end as it did before the regression.
     - Provides resilient fallback to WebSocket updates, ensuring progress displays even if WebSocket disconnects
     - Automatically stops polling when plan completes or fails
     - Added diagnostic logging to track polling behavior and API responses
-  - **Result**: Recovery header now displays live progress updates (0% → 15% → 30% → ...) and accurate task completion messages ("Processing... 15/61 tasks completed") regardless of WebSocket reliability
+  - **Result**: Recovery header now displays live progress updates (0% â†’ 15% â†’ 30% â†’ ...) and accurate task completion messages ("Processing... 15/61 tasks completed") regardless of WebSocket reliability
 
 ## [0.9.8] - 2025-10-27
 
 ### Fixed
-- **🔴 CRITICAL Reasoning Effort Override Bug**: Fixed pipeline consistently using "medium" reasoning effort regardless of user selection
+- **ðŸ”´ CRITICAL Reasoning Effort Override Bug**: Fixed pipeline consistently using "medium" reasoning effort regardless of user selection
   - **Root Cause**: Multiple hardcoded "medium" defaults in execute method signatures were overriding user's reasoning effort choice from the UI
   - **Impact**: User selections for "minimal", "low", "medium", or "high" reasoning effort were ignored, forcing all LLM calls to use "medium"
   - **Files Modified**:
@@ -1008,12 +1013,12 @@ Pipeline should now run end-to-end as it did before the regression.
     - Updated all pipeline task calls to explicitly pass the user's reasoning effort selection
     - Removed hardcoded defaults from execute method signatures to prevent overrides
     - Maintained LLM-level fallback in `simple_openai_llm.py` as safety net
-  - **Result**: User's reasoning effort selection now properly flows from frontend → API → pipeline → LLM calls
+  - **Result**: User's reasoning effort selection now properly flows from frontend â†’ API â†’ pipeline â†’ LLM calls
 
 ## [0.9.7] - 2025-10-27
 
 ### Added
-- **🚀 Luigi Worker Parallelization**: Enabled parallel task execution for significant pipeline performance improvements:
+- **ðŸš€ Luigi Worker Parallelization**: Enabled parallel task execution for significant pipeline performance improvements:
   - Added `--workers 4` and `--worker-pool-threads 4` to Luigi subprocess configuration
   - Independent tasks now execute simultaneously instead of sequentially
   - Analysis tasks (RedlineGate, PremiseAttack, IdentifyPurpose) run in parallel
@@ -1033,7 +1038,7 @@ Pipeline should now run end-to-end as it did before the regression.
   - Landing page (`app/page.tsx`): Four-button selector with inline descriptions below Speed vs Detail section
   - Advanced form page (`app/create/page.tsx`): New route with full PlanForm component including dropdown selector
   - Both components default to "medium" and include reasoning_effort in plan creation payloads
-  - Added "Advanced Form →" link to landing page card header for easy access to detailed form
+  - Added "Advanced Form â†’" link to landing page card header for easy access to detailed form
 - **New Route**: Created `/create` route that displays the full `PlanForm` component with all fields (title, tags, examples tabs) for users who prefer a more detailed creation interface
 - **Visual Feedback**: Added reasoning effort badge to conversation modal header so users can see the active setting during intake conversations
 - **Unlimited Intake**: Removed all character limits from intake fields across frontend and backend:
@@ -1050,13 +1055,13 @@ Pipeline should now run end-to-end as it did before the regression.
 - **Data Flow**: Updated `useResponsesConversation` hook to accept optional `reasoningEffort` parameter and use it in conversation turn payloads, while falling back to backend defaults only when not provided
 
 ### Fixed
-- **🔴 CRITICAL OpenAI Responses API Streaming Fix**: Fixed broken LLM reasoning streams on recovery page due to deprecated OpenAI API event names
+- **ðŸ”´ CRITICAL OpenAI Responses API Streaming Fix**: Fixed broken LLM reasoning streams on recovery page due to deprecated OpenAI API event names
   - **Root Cause**: OpenAI changed reasoning streaming event from `response.reasoning_summary_text.delta` to `response.reasoning_summary.delta` in the Responses API
   - **Impact**: Recovery page live LLM stream component was not displaying reasoning content during Luigi pipeline execution
   - **Fix Applied**: Updated `planexe/llm_util/simple_openai_llm.py` to use the correct `response.reasoning_summary.delta` event name for pipeline streaming
   - **Note**: Conversation system continues to use the old event name as it has different streaming requirements
 - **OpenAI Metadata Fix**: Fixed 512-character error from OpenAI's Responses API by truncating `initialPrompt` in metadata to 512 characters. The full prompt is still sent as the user message; metadata is only used for logging/context. This resolves the `string_above_max_length` error when users provided prompts longer than 512 characters.
-- **🔴 CRITICAL Pipeline Task Fixes**: Fixed two critical Luigi pipeline task failures that were preventing plan completion:
+- **ðŸ”´ CRITICAL Pipeline Task Fixes**: Fixed two critical Luigi pipeline task failures that were preventing plan completion:
   - **CreateWBSLevel1Task NameError**: Fixed missing `start_time` variable and wrong variable reference (`parsed.model_dump()`) in `planexe/plan/create_wbs_level1.py`
     - **Root Cause**: Copy-paste error during refactoring omitted `start_time = time.perf_counter()` and referenced undefined `parsed` variable
     - **Impact**: Pipeline failed at WBS stage, preventing all subsequent tasks from running
@@ -1065,7 +1070,7 @@ Pipeline should now run end-to-end as it did before the regression.
     - **Root Cause**: Code directly accessed `json_dict["deduplicated_levers"]` without checking if key exists or list is empty
     - **Impact**: Pipeline failed when no levers were identified, causing cascading failures in downstream tasks
     - **Fix Applied**: Added defensive programming with `.get()` method and graceful empty-output handling
-- **🔴 CRITICAL Reasoning Effort Override Fix**: Fixed pipeline tasks that were ignoring user's reasoning effort selection and defaulting to "medium"
+- **ðŸ”´ CRITICAL Reasoning Effort Override Fix**: Fixed pipeline tasks that were ignoring user's reasoning effort selection and defaulting to "medium"
   - **Root Cause**: Several execute methods were using `fast_mode` or `speed_vs_detail` parameters to override reasoning effort instead of respecting user selection, while others were missing reasoning effort support entirely
   - **Impact**: User's reasoning effort selection (minimal, low, medium, high) was being ignored, causing all LLM calls to use "medium" regardless of UI setting
   - **Files Modified**:
@@ -1083,19 +1088,19 @@ Pipeline should now run end-to-end as it did before the regression.
 - Fixed the gap where reasoning effort was configured via backend defaults but never exposed in the UI, making the setting invisible and unchangeable.
 
 ### Security
-- **🔴 CRITICAL VERSION COMPATIBILITY DOCUMENTATION**: 
+- **ðŸ”´ CRITICAL VERSION COMPATIBILITY DOCUMENTATION**: 
   - **Backend (Python)**: OpenAI SDK v1.109.1 - DO NOT UPGRADE beyond v1.x
   - **Frontend (Node.js)**: OpenAI SDK v6.7.0 - Latest version acceptable
   - **Breaking Changes**: Upgrading backend beyond v1.x will break Responses API integration due to:
-    - Client instantiation changes (module-level → explicit client)
-    - Response object changes (dict → Pydantic models) 
+    - Client instantiation changes (module-level â†’ explicit client)
+    - Response object changes (dict â†’ Pydantic models) 
     - API path changes (`client.responses` may be different)
     - Streaming interface evolution
   - **Risk Assessment**: HIGH RISK - Current v1.109.1 setup is stable and supports all required features
   - **Recommendation**: Maintain backend on v1.109.1; frontend can use latest Node.js SDK
 
 ### Deprecated
-- **🔴 CRITICAL WINDOWS ENVIRONMENT ISSUE IDENTIFIED**: 
+- **ðŸ”´ CRITICAL WINDOWS ENVIRONMENT ISSUE IDENTIFIED**: 
   - **Problem**: PlanExe works correctly on Railway (Linux deployment) but HANGS on Windows during OpenAI API calls
   - **Symptoms**: Luigi pipeline starts successfully, but LLM executor calls to OpenAI timeout/hang on Windows only
   - **Root Cause**: Windows-specific networking/OpenAI client issue, NOT an API key or model problem
@@ -1106,7 +1111,7 @@ Pipeline should now run end-to-end as it did before the regression.
   - Landing page (`app/page.tsx`): Four-button selector with inline descriptions below Speed vs Detail section
   - Advanced form page (`app/create/page.tsx`): New route with full PlanForm component including dropdown selector
   - Both components default to "medium" and include reasoning_effort in plan creation payloads
-  - Added "Advanced Form →" link to landing page card header for easy access to detailed form
+  - Added "Advanced Form â†’" link to landing page card header for easy access to detailed form
 - **New Route**: Created `/create` route that displays the full `PlanForm` component with all fields (title, tags, examples tabs) for users who prefer a more detailed creation interface
 - **Conversation Modal**: Extended `ConversationModal` to accept and display the user-selected reasoning effort, passing it through to the conversation API instead of always using backend defaults.
 - **Resume Dialog**: Added reasoning effort selector to `ResumeDialog` so resumed plans can optionally override the original setting, with the previous value pre-selected by default.
@@ -1169,7 +1174,7 @@ Pipeline should now run end-to-end as it did before the regression.
 - **Recovery Page Redesign**: Transformed recovery page into dense, info-rich assembly workspace
 - **Removed Duplications**: Eliminated PipelineDetails (3 tabs), RecoveryArtefactPanel (file manager), and ArtefactPreview (modal)
 - **Reorganized Layout**: Logs remain at top full-width, stage timeline in left sidebar
-- **Dense Styling**: Reduced padding/margins throughout (gap-4→gap-2, p-4→p-2) for maximum information density
+- **Dense Styling**: Reduced padding/margins throughout (gap-4â†’gap-2, p-4â†’p-2) for maximum information density
 - **Simplified Reports**: Removed tabs from RecoveryReportPanel - now shows canonical HTML or fallback automatically
 - **Compact Components**: Applied dense styling to StageTimeline, LiveStreamPanel, and StreamHistoryPanel
 - **Better Focus**: Page now emphasizes live streaming, logs, and assembled plan content without file management overhead
@@ -1202,7 +1207,7 @@ Pipeline should now run end-to-end as it did before the regression.
 - Added defensive fallbacks for ConvertPitchToMarkdown, EstimateTaskDurations, and IdentifyDocuments so schema or LLM failures inject safe defaults rather than aborting the pipeline.
 
 ## [0.7.2] - 2025-10-24
-- Finalised deterministic response chaining: persisted `previous_response_id` metadata, normalised legacy content types to OpenAI’s `input_text`/`output_text`, and cleared stale pipeline stop flags before restarts.
+- Finalised deterministic response chaining: persisted `previous_response_id` metadata, normalised legacy content types to OpenAIâ€™s `input_text`/`output_text`, and cleared stale pipeline stop flags before restarts.
 
 ## [0.7.0] - 2025-10-24
 - Introduced `SimpleOpenAILLM.get_last_response_id()` helpers and wired response chaining through multi-step tasks (QuestionsAnswers, ReviewPlan, lever enrichment, expert finder, premortem diagnostics).
@@ -1230,7 +1235,7 @@ Pipeline should now run end-to-end as it did before the regression.
 - Fixed `_enforce_openai_schema_requirements` to preserve `$defs` and inline references correctly, resolving Responses API schema validation errors.
 
 ## [0.4.7] - 2025-10-23
-- Switched schema registry labels to class names, staying within OpenAI’s 64-character limit and adding regression tests around sanitisation.
+- Switched schema registry labels to class names, staying within OpenAIâ€™s 64-character limit and adding regression tests around sanitisation.
 - Added `timestamp` to `WebSocketRawMessage` so TypeScript type guards compile.
 
 ## [0.4.5] - 2025-10-22
@@ -1352,3 +1357,4 @@ Pipeline should now run end-to-end as it did before the regression.
 
 ## [0.1.0] - 2025-09-19
 - Initial release: FastAPI REST API, PostgreSQL schema, SSE progress streaming, Node.js client SDK, and Dockerised deployment stack.
+

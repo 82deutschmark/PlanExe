@@ -697,7 +697,6 @@ async def create_plan(request: CreatePlanRequest):
             "prompt": request.prompt,
             "llm_model": resolved_llm_model,
             "speed_vs_detail": request.speed_vs_detail.value,
-            "reasoning_effort": request.reasoning_effort,
             "status": PlanStatus.pending.value,
             "progress_percentage": 0,
             "progress_message": "Plan queued for processing...",
@@ -743,7 +742,7 @@ async def create_plan(request: CreatePlanRequest):
             prompt=plan.prompt,
             llm_model=plan.llm_model,
             speed_vs_detail=SpeedVsDetail(plan.speed_vs_detail),
-            reasoning_effort=plan.reasoning_effort or request.reasoning_effort,
+            reasoning_effort=request.reasoning_effort,
             progress_percentage=plan.progress_percentage,
             progress_message=plan.progress_message,
             error_message=plan.error_message,
@@ -786,7 +785,7 @@ async def resume_plan(plan_id: str):
             prompt=plan.prompt,
             llm_model=plan.llm_model,
             speed_vs_detail=speed_vs_detail,
-            reasoning_effort=plan.reasoning_effort,
+            reasoning_effort=RESPONSES_STREAMING_CONTROLS.reasoning_effort,
             enriched_intake=None,
         )
 
@@ -803,8 +802,7 @@ async def resume_plan(plan_id: str):
             prompt=plan.prompt,
             llm_model=plan.llm_model,
             speed_vs_detail=speed_vs_detail,
-            reasoning_effort=(updated_plan.reasoning_effort if updated_plan else plan.reasoning_effort)
-            or effective_request.reasoning_effort,
+            reasoning_effort=effective_request.reasoning_effort,
             progress_percentage=updated_plan.progress_percentage if updated_plan else plan.progress_percentage,
             progress_message=updated_plan.progress_message if updated_plan else plan.progress_message,
             error_message=None,
@@ -818,108 +816,6 @@ async def resume_plan(plan_id: str):
         target=execute_plan_async,
         args=(plan_id, effective_request, True),
         name=f"PlanExecution-{plan_id}-resume",
-        daemon=True,
-    )
-    thread.start()
-
-    return response_payload
-
-
-# Map retryable task keys to the output filenames they own. Luigi will re-run tasks whose outputs are missing.
-RETRY_TASK_OUTPUTS: Dict[str, List[str]] = {
-    # Governance extras
-    "governance_phase6_extra": [
-        FilenameEnum.GOVERNANCE_PHASE6_EXTRA_RAW.value,
-        FilenameEnum.GOVERNANCE_PHASE6_EXTRA_MARKDOWN.value,
-    ],
-    # Backward-compatible alias used in some DB rows
-    "governance_phase6": [
-        FilenameEnum.GOVERNANCE_PHASE6_EXTRA_RAW.value,
-        FilenameEnum.GOVERNANCE_PHASE6_EXTRA_MARKDOWN.value,
-    ],
-}
-
-
-@app.post("/api/plans/{plan_id}/tasks/{task_key}/retry", response_model=PlanResponse)
-async def retry_task(plan_id: str, task_key: str):
-    """
-    Retry a specific task by deleting its outputs and resuming the pipeline.
-
-    Notes:
-    - Preserves database records (audit). Luigi uses filesystem targets to determine completeness.
-    - Removes only task-owned output files in the run directory.
-    - Triggers resume so Luigi regenerates missing outputs and any downstream dependents.
-    """
-    db = get_database_service()
-    try:
-        plan = db.get_plan(plan_id)
-        if not plan:
-            raise HTTPException(status_code=404, detail="Plan not found")
-
-        if not plan.output_dir:
-            raise HTTPException(status_code=409, detail="Plan output directory is missing")
-
-        outputs = RETRY_TASK_OUTPUTS.get(task_key)
-        if not outputs:
-            raise HTTPException(status_code=422, detail=f"Unknown or unsupported task_key: {task_key}")
-
-        run_id_dir = Path(plan.output_dir)
-        if not run_id_dir.exists():
-            raise HTTPException(status_code=409, detail="Plan output directory not found; cannot retry task")
-
-        deleted: List[str] = []
-        for fname in outputs:
-            file_path = run_id_dir / fname
-            try:
-                if file_path.exists():
-                    file_path.unlink()
-                    deleted.append(fname)
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Failed deleting '{fname}': {e}")
-
-        # Build an effective request for resume
-        try:
-            speed_vs_detail = SpeedVsDetail(plan.speed_vs_detail)
-        except ValueError:
-            speed_vs_detail = SpeedVsDetail.ALL_DETAILS_BUT_SLOW
-
-        effective_request = CreatePlanRequest(
-            prompt=plan.prompt,
-            llm_model=plan.llm_model,
-            speed_vs_detail=speed_vs_detail,
-            reasoning_effort=plan.reasoning_effort,
-            enriched_intake=None,
-        )
-
-        updated_plan = db.update_plan(plan_id, {
-            "status": PlanStatus.pending.value,
-            "progress_message": f"Retrying task '{task_key}' (deleted {len(deleted)} files)...",
-            "error_message": None,
-        })
-
-        response_payload = PlanResponse(
-            plan_id=plan.plan_id,
-            status=PlanStatus(updated_plan.status if updated_plan else plan.status),
-            created_at=plan.created_at,
-            prompt=plan.prompt,
-            llm_model=plan.llm_model,
-            speed_vs_detail=speed_vs_detail,
-            reasoning_effort=(updated_plan.reasoning_effort if updated_plan else plan.reasoning_effort)
-            or effective_request.reasoning_effort,
-            progress_percentage=updated_plan.progress_percentage if updated_plan else plan.progress_percentage,
-            progress_message=updated_plan.progress_message if updated_plan else plan.progress_message,
-            error_message=None,
-            output_dir=plan.output_dir,
-            enriched_intake=None,
-        )
-    finally:
-        db.close()
-
-    # Fire-and-forget resume
-    thread = threading.Thread(
-        target=execute_plan_async,
-        args=(plan_id, effective_request, True),
-        name=f"PlanExecution-{plan_id}-retry-{task_key}",
         daemon=True,
     )
     thread.start()
@@ -2126,4 +2022,5 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", "8080"))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 
