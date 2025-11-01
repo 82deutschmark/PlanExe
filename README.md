@@ -55,8 +55,7 @@ Upgrading the Python backend beyond v1.x will **BREAK** the Responses API integr
 ## Quick links
 - [API reference (`/docs`)](README_API.md)
 - [`docs/run_plan_pipeline_documentation.md`](docs/run_plan_pipeline_documentation.md) – Luigi task breakdown
-- [`AGENTS.md`](AGENTS.md) – development rules and architecture guide
-- [`docs/pipeline_handoff_notes.md`](docs/pipeline_handoff_notes.md) – current migration work items
+- [`AGENTS.md`](AGENTS.md) – development 
 
 ## Getting started
 ### Prerequisites
@@ -88,7 +87,7 @@ Copy-Item .env.example .env
 # set OPENAI_API_KEY, OPENROUTER_API_KEY (optional), DATABASE_URL, PLANEXE_RUN_DIR, etc.
 ```
 
-## Running the stack locally
+## Running the stack locally  (Avoid testing on Windows)
 1. **Start the FastAPI backend**
    ```powershell
    python -m planexe_api.api  # serves on http://localhost:8080

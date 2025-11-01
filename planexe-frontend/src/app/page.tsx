@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { SimplifiedPlanInput } from '@/components/planning/SimplifiedPlanInput';
 import { ConversationModal } from '@/components/planning/ConversationModal';
 import { RecentPlansCard } from '@/components/planning/RecentPlansCard';
+import { HowItWorksStrip } from '@/components/planning/HowItWorksStrip';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import {
@@ -233,28 +234,38 @@ const HomePage: React.FC = () => {
               </div>
               <div className="space-y-4">
                 <h1 className="text-4xl font-semibold leading-tight text-white md:text-5xl">
-                  Launch thoughtful execution plans in one continuous dialogue.
+                  PlanExe creates execution plans from a short intake conversation.
                 </h1>
                 <p className="max-w-xl text-base text-slate-300 md:text-lg">
-                  Share the idea you are shaping and our copilot will guide a short back-and-forth, capture the
-                  important context, and hand back a plan ready to move.
+                  Answer a few focused questions. Then the agent runs a multi-stage pipeline to assemble your plan. You can follow progress live and download the final report when it's ready.
                 </p>
               </div>
 
-              <dl className="grid gap-4 text-sm text-slate-300 sm:grid-cols-3">
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg shadow-cyan-500/10 backdrop-blur">
-                  <dt className="text-xs uppercase tracking-[0.2em] text-cyan-200/80">Dialogue First</dt>
-                  <dd className="mt-2 text-base font-medium text-white">Stay in the flow, no extra screens.</dd>
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-cyan-200">
+                  <span>What to expect</span>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg shadow-fuchsia-500/10 backdrop-blur">
-                  <dt className="text-xs uppercase tracking-[0.2em] text-fuchsia-200/80">Adaptive Insight</dt>
-                  <dd className="mt-2 text-base font-medium text-white">Clarifying questions tailor every brief.</dd>
+                <div className="space-y-3 text-sm text-slate-300">
+                  <div className="flex items-center gap-3">
+                    <div className="h-2 w-2 rounded-full bg-emerald-400" />
+                    <span><strong>Intake:</strong> 2–5 minutes of focused questions</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="h-2 w-2 rounded-full bg-amber-400" />
+                    <span><strong>Run time:</strong> ~20–60 minutes depending on depth</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="h-2 w-2 rounded-full bg-cyan-400" />
+                    <span><strong>Live workspace:</strong> follow progress and outputs in real time</span>
+                  </div>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg shadow-emerald-500/10 backdrop-blur">
-                  <dt className="text-xs uppercase tracking-[0.2em] text-emerald-200/80">Ready to Execute</dt>
-                  <dd className="mt-2 text-base font-medium text-white">Structured plans export directly to your workspace.</dd>
-                </div>
-              </dl>
+                <Link 
+                  href="#how-it-works" 
+                  className="inline-flex items-center gap-1 text-xs text-cyan-300/80 hover:text-cyan-200 transition-colors"
+                >
+                  How it works →
+                </Link>
+              </div>
             </section>
 
             <section className="flex flex-col gap-6">
@@ -274,6 +285,9 @@ const HomePage: React.FC = () => {
                       <CardDescription className="text-xs text-slate-300">
                         Choose a model, describe your idea, and the conversation modal opens instantly.
                       </CardDescription>
+                      <p className="text-xs text-slate-400 mt-1">
+                        A live workspace opens after submit. The pipeline runs in stages and typically completes in ~20–60 minutes.
+                      </p>
                     </div>
                     <div className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-slate-200">
                       {latestVersion ? `v${latestVersion}` : '…'}
@@ -361,6 +375,7 @@ const HomePage: React.FC = () => {
                       {reasoningEffort === 'low' && 'Quick reasoning, focused output'}
                       {reasoningEffort === 'medium' && 'Balanced thoroughness (default)'}
                       {reasoningEffort === 'high' && 'Deep analysis, most comprehensive'}
+                      <span className="block mt-1">Deeper analysis takes longer.</span>
                     </div>
                   </div>
                 </CardHeader>
@@ -384,6 +399,9 @@ const HomePage: React.FC = () => {
           </div>
         </div>
       </main>
+
+      {/* How it works section */}
+      <HowItWorksStrip />
 
       {/* Conversation Modal */}
       <ConversationModal
