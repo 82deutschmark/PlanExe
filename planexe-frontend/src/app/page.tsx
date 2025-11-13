@@ -169,11 +169,16 @@ const HomePage: React.FC = () => {
         ...pendingRequest,
         prompt: result.enrichedPrompt,
         enriched_intake: result.enrichedIntake ?? undefined,
+        concept_image_b64: result.generatedImageB64 ?? undefined,
+        concept_image_metadata: result.generatedImageMetadata ?? undefined,
       };
 
       console.log('[PlanExe] Finalising plan with enriched prompt.');
       if (result.enrichedIntake) {
         console.log('[PlanExe] Enriched intake data available:', result.enrichedIntake);
+      }
+      if (result.generatedImageB64) {
+        console.log('[PlanExe] Concept image available, size:', result.generatedImageB64.length, 'bytes');
       }
       const plan = await fastApiClient.createPlan(payload);
       console.log('[PlanExe] Plan created successfully:', plan);

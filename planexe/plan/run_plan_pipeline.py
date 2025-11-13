@@ -5861,6 +5861,32 @@ class ReportTask(PlanTask):
                 with inputs['wbs_level1']['project_title'].open("r") as f:
                     title = f.read()
             rg = ReportGenerator()
+
+            # Add concept image if available from database
+            try:
+                image_record = db_service.get_plan_content_by_filename(plan_id, "000-concept_image.png")
+                if image_record and image_record.content:
+                    caption = "Concept visualization generated during planning intake"
+                    # Try to get metadata for better caption
+                    try:
+                        metadata_record = db_service.get_plan_content_by_filename(plan_id, "000-concept_image_metadata.json")
+                        if metadata_record and metadata_record.content:
+                            import json
+                            metadata = json.loads(metadata_record.content)
+                            prompt = metadata.get("prompt", "")
+                            if prompt:
+                                caption = f"Concept: {prompt}"
+                    except Exception as e:
+                        logger.warning(f"Could not load concept image metadata: {e}")
+
+                    rg.append_base64_image(
+                        'Concept Visualization',
+                        image_record.content,
+                        caption=caption
+                    )
+            except Exception as e:
+                logger.warning(f"Could not include concept image in report: {e}")
+
             if 'executive_summary' in inputs:
                 rg.append_markdown('Executive Summary', inputs['executive_summary']['markdown'].path)
             if 'create_schedule' in inputs:

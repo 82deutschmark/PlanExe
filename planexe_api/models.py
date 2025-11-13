@@ -43,6 +43,14 @@ class CreatePlanRequest(BaseModel):
         None,
         description="Optional enriched intake data from conversation (EnrichedPlanIntake schema). If provided, pre-populates pipeline with structured variables."
     )
+    concept_image_b64: Optional[str] = Field(
+        None,
+        description="Base64-encoded concept image from intake conversation (PNG/JPEG/WEBP)"
+    )
+    concept_image_metadata: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Image metadata (prompt, model, size, format, compression)"
+    )
 
     @field_validator("reasoning_effort")
     @classmethod
@@ -85,6 +93,14 @@ class PlanResponse(BaseModel):
     enriched_intake: Optional[Dict[str, Any]] = Field(
         None,
         description="Enriched intake data used to pre-populate pipeline (if conversation was used)"
+    )
+    concept_image_b64: Optional[str] = Field(
+        None,
+        description="Base64-encoded concept image from intake conversation"
+    )
+    concept_image_metadata: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Image metadata (prompt, model, size, format, compression)"
     )
 
 

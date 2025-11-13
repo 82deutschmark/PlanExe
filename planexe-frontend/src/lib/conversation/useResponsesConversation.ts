@@ -38,6 +38,8 @@ export interface ConversationFinalizeResult {
   transcript: ConversationMessage[];
   summary: ConversationFinalPayload | null;
   enrichedIntake: EnrichedPlanIntake | null;
+  generatedImageB64: string | null;
+  generatedImageMetadata: GeneratedImageMetadata | null;
 }
 
 export interface UseResponsesConversationOptions {
@@ -668,6 +670,8 @@ export function useResponsesConversation(
       transcript,
       summary: lastFinal,
       enrichedIntake,
+      generatedImageB64: generatedImageB64Ref.current,
+      generatedImageMetadata: generatedImageMetadataRef.current,
     };
   }, [initialPrompt, lastFinal]);
 

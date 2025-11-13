@@ -534,6 +534,37 @@ class PipelineExecutionService:
         else:
             print(f"[PIPELINE] No enriched_intake provided - using standard pipeline")
 
+        # Save concept image to database if provided
+        if request.concept_image_b64:
+            try:
+                # Save image to PlanContent table
+                db_service.create_plan_content({
+                    "plan_id": plan_id,
+                    "filename": "000-concept_image.png",
+                    "content_type": "image",
+                    "content": request.concept_image_b64,
+                    "stage": "intake",
+                    "content_size_bytes": len(request.concept_image_b64)
+                })
+                print(f"[PIPELINE] Saved concept image to database ({len(request.concept_image_b64)} bytes)")
+
+                # Save metadata if provided
+                if request.concept_image_metadata:
+                    db_service.create_plan_content({
+                        "plan_id": plan_id,
+                        "filename": "000-concept_image_metadata.json",
+                        "content_type": "json",
+                        "content": json.dumps(request.concept_image_metadata, indent=2, default=str),
+                        "stage": "intake",
+                        "content_size_bytes": len(json.dumps(request.concept_image_metadata))
+                    })
+                    print(f"[PIPELINE] Saved concept image metadata to database")
+            except Exception as e:
+                logger.error(f"[PIPELINE] Failed to save concept image to database: {e}")
+                print(f"[PIPELINE] Warning: Could not save concept image: {e}")
+        else:
+            print(f"[PIPELINE] No concept image provided")
+
         all_files = list(run_id_dir.iterdir())
         print(f"[PIPELINE] Run directory now contains {len(all_files)} files: {[f.name for f in all_files]}")
 

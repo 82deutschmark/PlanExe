@@ -1539,6 +1539,31 @@ def _assemble_fallback_report(plan_id: str, plan: Plan, plan_contents: List[Plan
         # Initialize ReportGenerator
         rg = ReportGenerator()
 
+        # Add concept image if available from database
+        try:
+            image_record = records_by_filename.get("000-concept_image.png")
+            if image_record and image_record.content:
+                caption = "Concept visualization generated during planning intake"
+                # Try to get metadata for better caption
+                metadata_record = records_by_filename.get("000-concept_image_metadata.json")
+                if metadata_record and metadata_record.content:
+                    try:
+                        import json
+                        metadata = json.loads(metadata_record.content)
+                        prompt = metadata.get("prompt", "")
+                        if prompt:
+                            caption = f"Concept: {prompt}"
+                    except Exception:
+                        pass
+
+                rg.append_base64_image(
+                    'Concept Visualization',
+                    image_record.content,
+                    caption=caption
+                )
+        except Exception as e:
+            print(f"Warning: Could not include concept image in fallback report: {e}")
+
         # Add sections in same order as ReportTask (run_plan_pipeline.py:5834-5879)
         # Executive Summary
         exec_summary_path = base_path / FilenameEnum.EXECUTIVE_SUMMARY_MARKDOWN.value
