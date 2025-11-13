@@ -6,6 +6,16 @@ This project follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+### [0.24.0] - 2025-11-13
+
+### Added
+- **Plans Gallery page**: New comprehensive gallery view at `/plans` displays all user plans in an organized grid layout with filtering, search, and sorting capabilities. Features: Status filter (All, Completed, Running, Failed, Pending), debounced search across prompts/IDs/models, sort by newest/oldest/status, individual plan cards with status badges and action buttons (View Report, Monitor/View Recovery, Delete with confirmation), auto-refresh for running plans, responsive grid (3 columns desktop → 1 mobile), empty states for no plans or no matches, stats header showing total/completed/running/failed counts. Prominent "Browse Plans Gallery" button added to landing page between plan input and recent plans card. (Files: `planexe-frontend/src/app/plans/page.tsx`, `planexe-frontend/src/app/plans/PlansGalleryClient.tsx`, `planexe-frontend/src/app/plans/components/PlanCard.tsx`, `planexe-frontend/src/app/plans/components/GalleryHeader.tsx`, `planexe-frontend/src/app/plans/components/GalleryFilters.tsx`, `planexe-frontend/src/app/plans/components/EmptyState.tsx`, `planexe-frontend/src/lib/hooks/useGalleryPlans.ts`, `planexe-frontend/src/app/page.tsx`)
+
+### [0.23.2] - 2025-11-13
+
+### Added
+- **Concept image persistence and display**: Concept images generated during intake conversation are now stored persistently in the database (plan_content table) instead of only in browser sessionStorage. Images now appear as thumbnails on the recovery/progress page and are included at the top of the final HTML report. This ensures images survive browser sessions and are visible in shareable report URLs. Backend: Added concept_image_b64 fields to CreatePlanRequest/PlanResponse models, save images to plan_content in pipeline_execution_service, added append_base64_image() method to ReportGenerator, updated ReportTask and fallback report endpoint to include images. Frontend: Updated TypeScript types, useConceptImage hook loads from API/database first with sessionStorage fallback, ConversationFinalizeResult includes image data. (Files: `planexe_api/models.py`, `planexe_api/services/pipeline_execution_service.py`, `planexe/report/report_generator.py`, `planexe/report/report_template.html`, `planexe/plan/run_plan_pipeline.py`, `planexe_api/api.py`, `planexe-frontend/src/lib/api/fastapi-client.ts`, `planexe-frontend/src/lib/conversation/useResponsesConversation.ts`, `planexe-frontend/src/lib/hooks/useConceptImage.ts`, `planexe-frontend/src/app/page.tsx`)
+
 ### [0.23.1] - 2025-10-31
 
 ### Changed

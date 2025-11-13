@@ -40,6 +40,8 @@ export interface CreatePlanRequest {
   speed_vs_detail: 'fast_but_skip_details' | 'balanced_speed_and_detail' | 'all_details_but_slow';
   reasoning_effort?: 'minimal' | 'low' | 'medium' | 'high';
   enriched_intake?: EnrichedPlanIntake;
+  concept_image_b64?: string;
+  concept_image_metadata?: Record<string, any>;
 }
 
 export interface RelaunchPlanOptions {
@@ -60,6 +62,8 @@ export interface PlanResponse {
   progress_message: string;
   error_message?: string;
   output_dir?: string;
+  concept_image_b64?: string;
+  concept_image_metadata?: Record<string, any>;
 }
 
 export interface EnrichedPlanIntake {

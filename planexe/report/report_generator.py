@@ -139,6 +139,41 @@ class ReportGenerator:
         html = df.to_html(classes='dataframe', index=False, na_rep='')
         self.report_item_list.append(ReportDocumentItem(document_title, html, css_classes=css_classes))
 
+    def append_base64_image(self, document_title: str, image_b64: str,
+                            caption: Optional[str] = None,
+                            css_classes: list[str] = []):
+        """Append a base64-encoded image to the report.
+
+        Args:
+            document_title: Title for this section
+            image_b64: Base64-encoded image data (with or without data URI prefix)
+            caption: Optional caption text to display below the image
+            css_classes: Optional CSS classes to apply to the container
+        """
+        if not image_b64:
+            logging.warning(f"Document: '{document_title}'. No image data provided")
+            return
+
+        # Determine if the image already has a data URI prefix
+        if image_b64.startswith("data:image/"):
+            img_src = image_b64
+        else:
+            # Add data URI prefix - default to PNG if format not specified
+            img_src = f"data:image/png;base64,{image_b64}"
+
+        # Build caption HTML if provided
+        caption_html = f"<p class='image-caption'>{escape(caption)}</p>" if caption else ""
+
+        # Build the complete HTML
+        html = f"""
+        <div class="concept-image-container">
+            <img src="{img_src}" alt="{escape(document_title)}" class="concept-image" />
+            {caption_html}
+        </div>
+        """
+
+        self.report_item_list.append(ReportDocumentItem(document_title, html, css_classes=css_classes))
+
     def append_html(self, document_title: str, file_path: Path, css_classes: list[str] = []):
         """Append an HTML document to the report."""
         with open(file_path, 'r') as f:
