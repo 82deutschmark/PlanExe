@@ -16,7 +16,9 @@ import { ConversationModal } from '@/components/planning/ConversationModal';
 import { RecentPlansCard } from '@/components/planning/RecentPlansCard';
 import { HowItWorksStrip } from '@/components/planning/HowItWorksStrip';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { LayoutGrid } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -398,6 +400,19 @@ const HomePage: React.FC = () => {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Gallery Link Button */}
+              <Button
+                asChild
+                variant="outline"
+                size="lg"
+                className="w-full border-cyan-400/40 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 hover:from-cyan-500/20 hover:to-purple-500/20 text-cyan-100 hover:text-white transition-all"
+              >
+                <Link href="/plans">
+                  <LayoutGrid className="mr-2 h-5 w-5" />
+                  Browse Plans Gallery
+                </Link>
+              </Button>
 
               <RecentPlansCard />
             </section>
