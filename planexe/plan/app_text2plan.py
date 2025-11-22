@@ -339,7 +339,15 @@ def run_planner(submit_or_retry_button, plan_prompt, browser_state, session_stat
     child_process_id = session_state.active_proc.pid
     print(f"Process started. Process ID: {child_process_id}")
 
-    # Poll the output directory every second.
+    # Initialize adaptive refresh scaler to reduce egress costs
+    from planexe.utils.adaptive_refresh_scaler import AdaptiveRefreshScaler
+    scaler = AdaptiveRefreshScaler(enable_logging=True)
+
+    # Track previous state for change detection
+    prev_last_update = None
+    prev_file_count = 0
+
+    # Poll the output directory with adaptive intervals
     while True:
         # Check if the process has ended.
         if session_state.active_proc.poll() is not None:
@@ -367,14 +375,42 @@ def run_planner(submit_or_retry_button, plan_prompt, browser_state, session_stat
             break
 
         last_update = ceil(time_since_last_modification(run_path))
+
+        # Count files for change detection
+        try:
+            current_file_count = len(os.listdir(run_path))
+        except:
+            current_file_count = 0
+
+        # Detect changes for adaptive scaling
+        data_changed = (
+            prev_last_update is None or  # First iteration
+            last_update < prev_last_update or  # New file activity
+            current_file_count != prev_file_count  # File count changed
+        )
+
+        # Update tracking variables
+        prev_last_update = last_update
+        prev_file_count = current_file_count
+
         markdown_builder = MarkdownBuilder()
         markdown_builder.status(f"Working. {duration} seconds elapsed. Last output update was {last_update} seconds ago.")
         markdown_builder.path_to_run_dir(absolute_path_to_run_dir)
         markdown_builder.list_files(run_path)
 
-        # Create a new zip archive every ZIP_INTERVAL_SECONDS seconds.
+        # Create a new zip archive only if files changed OR enough time passed
         current_time = time.time()
-        if current_time - last_zip_time >= ZIP_INTERVAL_SECONDS:
+        time_since_last_zip = current_time - last_zip_time
+
+        # Create ZIP if:
+        # 1. Files changed recently (within last 2 intervals), OR
+        # 2. Minimum time passed (2x ZIP_INTERVAL_SECONDS) and we haven't created one
+        should_create_zip = (
+            (data_changed and time_since_last_zip >= ZIP_INTERVAL_SECONDS) or
+            (time_since_last_zip >= ZIP_INTERVAL_SECONDS * 2)
+        )
+
+        if should_create_zip:
             zip_file_path = create_zip_archive(run_path)
             if zip_file_path:
                 most_recent_zip_file = zip_file_path
@@ -386,7 +422,9 @@ def run_planner(submit_or_retry_button, plan_prompt, browser_state, session_stat
         if has_pipeline_complete_file(run_path):
             break
 
-        time.sleep(1)
+        # Use adaptive interval based on data staleness
+        interval = scaler.get_interval(data_changed)
+        time.sleep(interval)
     
     # Wait for the process to end and clear the active process.
     returncode = 'NOT SET'

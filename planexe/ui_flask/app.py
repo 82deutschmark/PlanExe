@@ -212,12 +212,13 @@ class MyFlaskApp:
 
                 for llm_name in llm_names:
                     # Send "pinging" status
-                    yield f"data: {json.dumps({
+                    pinging_data = {
                         'name': llm_name,
                         'status': 'pinging',
                         'response_time': 0,
                         'response': 'Pinging model...'
-                    })}\n\n"
+                    }
+                    yield f"data: {json.dumps(pinging_data)}\n\n"
 
                     try:
                         start_time = time.time()
@@ -251,12 +252,13 @@ class MyFlaskApp:
                     yield f"data: {json.dumps(result)}\n\n"
 
                 # Send final "done" status
-                yield f"data: {json.dumps({
+                done_data = {
                     'name': 'server',
                     'status': 'done',
                     'response_time': 0,
                     'response': ''
-                })}\n\n"
+                }
+                yield f"data: {json.dumps(done_data)}\n\n"
 
             response = Response(generate(), mimetype='text/event-stream')
             response.headers['X-Accel-Buffering'] = 'no'  # Disable Nginx buffering
@@ -345,7 +347,7 @@ class MyFlaskApp:
             if user_id not in self.users:
                 logger.error(f"Invalid User ID: {user_id}")
                 return jsonify({"error": "Invalid user_id"}), 400
-            
+
             user_state = self.users[user_id]
             if user_state.current_run_id is None:
                 logger.error(f"No current_run_id for user: {user_id}")
@@ -356,9 +358,18 @@ class MyFlaskApp:
             if not job:
                 logger.error(f"Job not found for run_id: {run_id}")
                 return jsonify({"error": "Job not found"}), 400
-            
+
+            # Initialize adaptive refresh scaler to reduce egress costs
+            from planexe.utils.adaptive_refresh_scaler import AdaptiveRefreshScaler
+            scaler = AdaptiveRefreshScaler(enable_logging=True)
+
             def generate():
                 try:
+                    # Track previous state to detect changes
+                    prev_progress_message = None
+                    prev_progress_percentage = None
+                    prev_status = None
+
                     while True:
                         # Send the current progress value
                         is_running = job.status == JobStatus.running
@@ -370,7 +381,23 @@ class MyFlaskApp:
 
                         data = json.dumps({'progress_message': progress_message, 'progress_percentage': job.progress_percentage, 'status': job.status.value})
                         yield f"data: {data}\n\n"
-                        time.sleep(1)
+
+                        # Detect changes for adaptive scaling
+                        data_changed = (
+                            prev_progress_message != job.progress_message or
+                            prev_progress_percentage != job.progress_percentage or
+                            prev_status != job.status
+                        )
+
+                        # Update tracking variables
+                        prev_progress_message = job.progress_message
+                        prev_progress_percentage = job.progress_percentage
+                        prev_status = job.status
+
+                        # Use adaptive interval based on data staleness
+                        interval = scaler.get_interval(data_changed)
+                        time.sleep(interval)
+
                         if not is_running:
                             logger.info(f"Progress endpoint received user_id: {user_id} is done")
                             break
@@ -551,7 +578,7 @@ class MyFlaskApp:
 
     def _run_job(self, job: JobState):
         """Run the actual job in a subprocess"""
-        
+
         try:
             run_id_dir = job.run_id_dir
             if not run_id_dir.exists():
@@ -575,6 +602,15 @@ class MyFlaskApp:
             logger.info(f"_run_job. subprocess.Popen after command: {command!r} with PID: {job.process.pid}")
 
             job.status = JobStatus.running
+
+            # Initialize adaptive refresh scaler to reduce egress costs
+            from planexe.utils.adaptive_refresh_scaler import AdaptiveRefreshScaler
+            scaler = AdaptiveRefreshScaler(enable_logging=True)
+
+            # Track previous state for change detection
+            prev_number_of_files = -1
+            prev_progress_message = ""
+            prev_progress_percentage = -1
 
             # Monitor the process
             while True:
@@ -638,10 +674,25 @@ class MyFlaskApp:
                     if len(set_expected_files) > 0:
                         assign_progress_percentage = (len(intersection_files) * 100) // len(set_expected_files)
 
+                # Detect changes for adaptive scaling
+                data_changed = (
+                    number_of_files != prev_number_of_files or
+                    assign_progress_message != prev_progress_message or
+                    assign_progress_percentage != prev_progress_percentage
+                )
+
+                # Update job state
                 job.progress_message = assign_progress_message
                 job.progress_percentage = assign_progress_percentage
 
-                time.sleep(1)
+                # Update tracking variables
+                prev_number_of_files = number_of_files
+                prev_progress_message = assign_progress_message
+                prev_progress_percentage = assign_progress_percentage
+
+                # Use adaptive interval based on data staleness
+                interval = scaler.get_interval(data_changed)
+                time.sleep(interval)
 
         except Exception as e:
             logger.error(f"Error running job {job.run_id}: {e}", exc_info=True)
