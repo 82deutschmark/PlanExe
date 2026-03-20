@@ -1,10 +1,15 @@
-# Proposal for Simon: Agent-Executable Plan Output
+# Proposal: Agent-Executable Plan Output
 
 **Author:** Egon (HejEgonBot)
 **Date:** 2026-03-20
 **Status:** Ready for review
-**For:** PlanExeOrg/PlanExe PR
-**Evidence base:** Files 01–04 in this directory + Bubba's research in `research/loda-dsl-exploration/` and `research/dogfooding-evidence/`
+
+**Evidence base** (all in [VoynichLabs/swarm-coordination](https://github.com/VoynichLabs/swarm-coordination)):
+- [`plans/egon-dogfood-pr/01-arc-explainer-plan-patterns.md`](https://github.com/VoynichLabs/swarm-coordination/blob/main/plans/egon-dogfood-pr/01-arc-explainer-plan-patterns.md) — 8 structural patterns from 168 real plans
+- [`plans/egon-dogfood-pr/02-planexe-output-gap.md`](https://github.com/VoynichLabs/swarm-coordination/blob/main/plans/egon-dogfood-pr/02-planexe-output-gap.md) — PlanExe output scored against those patterns
+- [`plans/egon-dogfood-pr/03-loda-dsl-feasibility.md`](https://github.com/VoynichLabs/swarm-coordination/blob/main/plans/egon-dogfood-pr/03-loda-dsl-feasibility.md) — LODA-Agent DSL feasibility analysis
+- [`plans/egon-dogfood-pr/04-failure-modes-evidence.md`](https://github.com/VoynichLabs/swarm-coordination/blob/main/plans/egon-dogfood-pr/04-failure-modes-evidence.md) — 22 real failures mapped to root causes
+- [`research/loda-dsl-exploration/notation-vs-execution.md`](https://github.com/VoynichLabs/swarm-coordination/blob/main/research/loda-dsl-exploration/notation-vs-execution.md) — Hybrid Monitor architecture
 
 ---
 
@@ -14,13 +19,13 @@ PlanExe's analytical pipeline is strong; its output format prevents agents from 
 
 ---
 
-## The Evidence (from files 01–04)
+## The Evidence
 
-**168 real plans** from arc-explainer (8 months, 4,185 commits) show that plans ship at 65-75% when they have 5 structural features. PlanExe's output scores **1.0 out of 8** on those features (file 01, file 02).
+**168 real plans** from arc-explainer (8 months, 4,185 commits) show that plans ship at 65–75% when they have 5 structural features. PlanExe's output scores **1.0 out of 8** on those features ([patterns doc](https://github.com/VoynichLabs/swarm-coordination/blob/main/plans/egon-dogfood-pr/01-arc-explainer-plan-patterns.md), [gap analysis](https://github.com/VoynichLabs/swarm-coordination/blob/main/plans/egon-dogfood-pr/02-planexe-output-gap.md)).
 
-**22 real failures** from 47 days of lobster ops trace to two root causes: no prerequisite check before task execution, and no acceptance criterion to verify task output (file 04). PlanExe's critique pipeline (PremiseAttack) correctly identifies risks but those findings don't propagate to the execution tasks (file 02, "Disconnect A").
+**22 real failures** from 47 days of lobster ops trace to two root causes: no prerequisite check before task execution, and no acceptance criterion to verify task output ([failure modes](https://github.com/VoynichLabs/swarm-coordination/blob/main/plans/egon-dogfood-pr/04-failure-modes-evidence.md)). PlanExe's critique pipeline (PremiseAttack) correctly identifies risks but those findings don't propagate to the execution tasks ([gap analysis, "Disconnect A"](https://github.com/VoynichLabs/swarm-coordination/blob/main/plans/egon-dogfood-pr/02-planexe-output-gap.md)).
 
-**LODA-Agent DSL** is viable as a notation and audit tool for expressing plan structure — 7 of 8 gaps are addressable. The Hybrid Monitor architecture (PlanExe compiles natural language → LODA spec → monitor validates execution) closes both structural disconnects (file 03, Bubba's `notation-vs-execution.md`).
+**LODA-Agent DSL** is viable as a notation and audit tool — 7 of 8 gaps are addressable. The Hybrid Monitor architecture (PlanExe compiles natural language → LODA spec → monitor validates execution) closes both structural disconnects ([feasibility analysis](https://github.com/VoynichLabs/swarm-coordination/blob/main/plans/egon-dogfood-pr/03-loda-dsl-feasibility.md), [notation vs execution](https://github.com/VoynichLabs/swarm-coordination/blob/main/research/loda-dsl-exploration/notation-vs-execution.md)).
 
 ---
 
@@ -62,7 +67,7 @@ PlanExe's analytical pipeline is strong; its output format prevents agents from 
 [filled in after execution — what shipped, what diverged, what was learned]
 ```
 
-**Why this format:** Plans with file paths ship at 85% vs 30% without. Plans under 80 lines ship at 75% vs 25% for 200+ lines. Numbered steps correlate with +40pp ship rate vs bullets. These aren't opinions — they're from 168 real plans across 8 months (file 01).
+**Why this format:** Plans with file paths ship at 85% vs 30% without. Plans under 80 lines ship at 75% vs 25% for 200+ lines. Numbered steps correlate with +40pp ship rate vs bullets. These aren't opinions — they're from 168 real plans across 8 months ([patterns doc](https://github.com/VoynichLabs/swarm-coordination/blob/main/plans/egon-dogfood-pr/01-arc-explainer-plan-patterns.md)).
 
 **Key design principle:** PremiseAttack findings become Prerequisites, not just a report. The critique *gates* the execution rather than sitting in a separate document.
 
@@ -72,12 +77,12 @@ PlanExe's analytical pipeline is strong; its output format prevents agents from 
 
 **Why LODA specifically:**
 - Simon already built LODA and understands the computational model deeply
-- The instruction set maps cleanly to agent task coordination (file 03)
+- The instruction set maps cleanly to agent task coordination ([feasibility analysis](https://github.com/VoynichLabs/swarm-coordination/blob/main/plans/egon-dogfood-pr/03-loda-dsl-feasibility.md))
 - `lpb` convergence guard enforces bounded execution — no infinite loops
-- Integer-only limitation dissolves when registers hold task handle IDs, not content (Bubba's "control plane / data plane split")
-- The miner's mutation vocabulary (`genome.rs`) suggests future automated plan improvement
+- Integer-only limitation dissolves when registers hold task handle IDs, not content (control plane / data plane split — [agent-task-mapping](https://github.com/VoynichLabs/swarm-coordination/blob/main/research/loda-dsl-exploration/agent-task-mapping.md))
+- The miner's mutation vocabulary suggests future automated plan improvement
 
-**What it looks like** (from Bubba's prototypes):
+**What it looks like** (from prototype programs in [swarm-coordination/research/loda-dsl-exploration/prototype-programs/](https://github.com/VoynichLabs/swarm-coordination/tree/main/research/loda-dsl-exploration/prototype-programs)):
 
 ```asm
 ; Plan: Fix PremiseAttack schema validation bug
@@ -99,13 +104,13 @@ equ $0,1          ; ACCEPTANCE: tests pass
 brk $0            ; abort if tests fail
 ```
 
-**Hybrid Monitor:** A lightweight runtime that reads the LODA-Agent program and validates execution against it — checking that gates pass, steps execute in order, and acceptance criteria are met. Not a LODA interpreter — an audit trail validator. (See Bubba's `notation-vs-execution.md` for the full architecture.)
+**Hybrid Monitor:** A lightweight runtime that reads the LODA-Agent program and validates execution against it — checking that gates pass, steps execute in order, and acceptance criteria are met. Not a LODA interpreter — an audit trail validator. (See [notation-vs-execution.md](https://github.com/VoynichLabs/swarm-coordination/blob/main/research/loda-dsl-exploration/notation-vs-execution.md) for the full architecture.)
 
 ### Ask 3: CompletionRecordTask (post-execution)
 
 **What:** After plan execution, the agent writes a completion record: what shipped, what files changed, what diverged from the plan.
 
-**Why:** The arc-explainer CHANGELOG is a forcing function — entries that reference a plan have a 90% ship rate vs 35% for entries without plan references (Bubba's ship-rate analysis). The completion record closes the loop.
+**Why:** The arc-explainer CHANGELOG is a forcing function — entries that reference a plan have a 90% ship rate vs 35% for entries without plan references ([patterns doc, section 6](https://github.com/VoynichLabs/swarm-coordination/blob/main/plans/egon-dogfood-pr/01-arc-explainer-plan-patterns.md)). The completion record closes the loop.
 
 **Format:**
 
@@ -152,4 +157,4 @@ This feeds back into future planning — PlanExe can read completion records to 
 
 ---
 
-*This proposal is grounded in 168 real plans (arc-explainer), 22 real failures (47 days of lobster ops), 5 prototype LODA programs (Bubba), and scored PlanExe output (avg 1.0/8 on the patterns that predict shipping). Full evidence in files 01–04 of this directory and Bubba's research in `research/`.*
+*This proposal is grounded in 168 real plans (arc-explainer), 22 real failures (47 days of lobster ops), 5 prototype LODA programs, and scored PlanExe output (avg 1.0/8 on the patterns that predict shipping). Full evidence in [VoynichLabs/swarm-coordination](https://github.com/VoynichLabs/swarm-coordination) — see `plans/egon-dogfood-pr/` and `research/loda-dsl-exploration/`.*
