@@ -177,4 +177,4 @@ This feeds back into future planning — PlanExe can read completion records to 
 
 ---
 
-*This proposal is grounded in 168 real plans from arc-explainer, 22 real failures from 47 days of lobster ops, 5 prototype LODA-Agent programs, and scored PlanExe output (avg 1.0/8 on the patterns that predict shipping).*
+*This proposal is grounded in 168 real plans from arc-explainer (8 months, 4,185 commits), 22 real failures from 47 days of lobster ops, 5 prototype LODA-Agent programs, and scored PlanExe output (avg 1.0/8 on the patterns that predict shipping).*
